@@ -1,0 +1,256 @@
+---
+title: 'A first look at the Swift macro system'
+date: '2022-11-21'
+tags: ['swift', 'rust']
+draft: false
+summary: 'Hopefully this is the beginning of the end of writing Python scripts in Swift code.'
+---
+
+// TODO: introduction on current SOTA Swift codegen
+
+A recent proposal just landed on the [Swift Forums](https://forums.swift.org/t/a-possible-vision-for-macros-in-swift/60900) on Swift macros.
+
+It has an attached ["pitch"](https://gist.github.com/DougGregor/4f3ba5f4eadac474ae62eae836328b71) and a slimmed-down expression macros [pitch](https://github.com/DougGregor/swift-evolution/blob/expression-macros/proposals/nnnn-expression-macros.md)
+(currently awaiting implementation).
+
+Before I go into this proposal, it would be good to review its inspiration:
+## The [Rust macro system](https://doc.rust-lang.org/book/ch19-06-macros.html):
+
+_Note: A much more detailed primer exists [here](https://veykril.github.io/tlborm/introduction.html).
+If you're very curious about how Rust's system works, skip my explanation and read theirs._
+
+Rust has two kinds of macros: declarative macros and procedural macros.
+### Declarative macros
+This is the "easier" macro system.
+It involves matching and capturing a contained AST, much like in a regex.
+The matched pattern is replaced with an expansion, a block of code generated as a function of the captures.
+An example in the Rust macro book is a macro that multiplies by five:
+
+```
+macro_rules! times_five {
+    ($e:expr) => { 5 * $e };
+}
+```.
+
+This macro matches any expression, and replaces it with the expansion `5 * <the expression>`.
+
+### Procedural macros
+This is the "harder" macro system.
+It involves writing a function that takes a `TokenStream` (a Rust AST) and returns a `TokenStream`.
+The input is the AST of the macro invocation, and the output is the AST of the expansion.
+An example in the Rust macro book is a macro that prints the AST of an expression:
+
+```
+extern crate proc_macro;
+use proc_macro::TokenStream;
+
+#[proc_macro]
+pub fn print_ast(input: TokenStream) -> TokenStream {
+    println!("{:#?}", input);
+    input
+}
+```.
+
+This macro takes an expression, prints its AST, and returns the expression unchanged.
+
+These are used in crates such as [serde](https://serde.rs/attributes.html) for automatic seralization code generation
+and [vulkano](https://docs.rs/vulkano/0.19.0/vulkano/) for inline shader code.
+
+## The Swift macro system
+The evolution proposal for the Swift macro system includes both systems, but, for now, we'll focus on the more concrete expression macros pitch.
+The proposal is essentially the Rust declarative macro system.
+> Macro expansion is a syntactic operation, which takes as input a well-formed syntax tree consisting of the full macro expansion expression (e.g., #stringify(x + y)) and produces a syntax tree as output. 
+
+There are some differences, though:
+> ...Rust's declarative macros offer more advanced rules that match the macro arguments to a pattern and then perform a a rewrite to new syntax as described in the macro. For Swift to adopt this approach, we would likely need to invent a pattern language for matching and rewriting syntax trees.
+
+Swift has a pattern language, but it's not as powerful as Rust's.
+An example is switch matching:
+
+```
+enum Choices {
+    case a
+    case v(Int)
+}
+
+let x: Int?
+let y: String
+let z: Choices
+switch (x, y, z) {
+    case (1, 2, .a):
+        print(x, y)
+    case let (_, y, .v(let z)):
+        print(y, z)
+    case (_, _, .a):
+        print("a")
+    case (_, _, .v):
+        print("v")
+}
+```.
+
+This pattern language is useful for simple, fixed patterns, but it's not powerful enough to match arbitrary expressions,
+such as repetitions.
+
+This pitch has only been out for five days, but there's already a really cool example use case!
+[PowerAssert](https://github.com/kishikawakatsumi/swift-syntax/commit/576669d01271d9289000991f10efd8ecc6f45023)
+is a library that pretty-prints assertion failures:
+```
+#powerAssert(max(a, b) == c)
+             |   |  |  |  |
+             7   4  7  |  12
+                       false
+#powerAssert(xs.contains(4))
+             |  |        |
+             |  false    4
+             [1, 2, 3]
+#powerAssert("hello".hasPrefix("h") && "goodbye".hasSuffix("y"))
+             |       |         |    |  |         |         |
+             "hello" true      "h"  |  "goodbye" false     "y"
+                                    false
+```
+
+I really enjoy this example as a proof of concept, so lets go through it step by step and see how it works!
+
+## The PowerAssert macro
+
+### Metadata and definition
+
+```
+struct PowerAssertMacro: ExpressionMacro {
+  static var name: String { "powerAssert" }
+
+  static var documentation: String {
+    "Power Assert in Swift. Provides descriptive assertion messages."
+  }
+
+  static var genericSignature: GenericParameterClauseSyntax? = "<T>"
+  static var signature: TypeSyntax = "(_ expression: @autoclosure () throws -> Bool) -> Void"
+
+  static var owningModule: String = "Swift"
+
+  static func apply(
+    _ macro: MacroExpansionExprSyntax, in context: MacroEvaluationContext
+  ) -> MacroResult<ExprSyntax> {
+    let generator = CodeGenerator(macro: macro, context: context)
+    return generator.generate()
+  }
+```
+
+The metadata fields are defined in the [SwiftSyntaxMacros package](https://github.com/apple/swift-syntax/blob/3b7d3ad1afccd53f1e2aaeb1b22437910f80fd2e/Sources/_SwiftSyntaxMacros/Macro.swift#L21).
+For the less-straightforward fields...
+ - `genericSignature` is the generic signature of the macro. This is given as a string, but does not have a string value, it's parsed by [swift-syntax](https://github.com/apple/swift-syntax/commit/ae619cacb4580d2928503f43e91d0ce4393062b5).
+ - `signature` is the signature of the macro. This is given as a string and parsed much like the generic signature.
+ Disambiguation between value macros and function macros happen here: if the signature is a function type, it's a function macro (e.g. `#imageLiteral`), otherwise it's a value macro (e.g. `#line`).
+ - `owningModule` is module that must be imported to use the macro, and `supplementalSignatureModules` are modules that must be imported by the macro to function.
+
+The `apply` function is the top-level function that is called when the macro is invoked.
+It takes the macro invocation AST and the context, and returns the expansion AST.
+This work is delegated to `CodeGenerator`, which holds the core logic of the macro.
+
+### CodeGenerator
+The actual member variables of the struct are minimal, just the context of the invocation.
+The interesting logic is in the methods.
+
+```
+  func generate() -> MacroResult<ExprSyntax> {
+    guard let expression = macro.argumentList.first else {
+      if let leadingTrivia = macro.leadingTrivia {
+        return MacroResult(ExprSyntax("()").withLeadingTrivia(leadingTrivia))
+      }
+      return MacroResult("()")
+    }
+
+    let formatted = format(expression)
+    let expanded = expand(expression: formatted)
+
+    let assertSyntax = ExprSyntax(expanded)
+    if let leadingTrivia = macro.leadingTrivia {
+      return MacroResult(assertSyntax.withLeadingTrivia(leadingTrivia))
+    }
+    return MacroResult(assertSyntax)
+
+  }
+```
+
+`leadingTrivia` is the trivia (whitespace, comments, etc.) that comes before the macro invocation.
+This is used to preserve the indentation of the macro invocation.
+The `guard` statement checks that the macro invocation has an argument, and returns an empty tuple if it doesn't.
+
+The format and expand functions are the core of the macro, so we'll get into that later.
+
+After the macro is fully expanded, the AST is finalized into expression syntax, and the trivia is added back in.
+
+### Format
+
+```
+  private func format(_ expression: SyntaxProtocol) -> SyntaxProtocol {
+    SourceFileSyntax(
+      "\(expression.withoutTrivia())"
+        .split(separator: "\n")
+        .joined(separator: " ")
+        .split(separator: " ")
+        .joined(separator: " ")
+    )
+  }
+```
+
+All this does is remove the trivia from the expression, and then standardize whitespace into single spaces.
+This results in the normal spacing in the example powerAssert assertion above, regardless of 
+whether its written as 
+```
+#powerAssert("hello".hasPrefix("h") && "goodbye".hasSuffix("y"))
+```
+or
+```
+#powerAssert("hello".hasPrefix("h")        &&
+"goodbye".hasSuffix("y"))
+```
+
+### Expand
+1.
+
+```
+    var expressions = [Syntax]()
+    parseExpression(expression, storage: &expressions)
+    expressions = Array(expressions.dropFirst(2))
+
+    let startLocation = macro.startLocation(converter: context.sourceLocationConverter)
+    let endLocation = macro.macro.endLocation(converter: context.sourceLocationConverter)
+
+    let sourceLocationConverter = SourceLocationConverter(file: "", tree: expression)
+    let startColumn = endLocation.column! - startLocation.column!
+```
+
+This preamble takes the formatted expression and finds the start and end locations of the expression, and, implicitly, its size.
+It's used to find the offset of the expression, so the assertion annotations on subsequent lines can be aligned to their tokens.
+
+2.
+return """
+    PowerAssert.Assertion(#"\(macro.poundToken.withoutTrivia())\(macro.macro)(\(expression))"#, line: \(startLocation.line!))
+    .assert(\(expressions.first!))
+    \(
+      expressions
+        .reduce("") { (result, syntax) in
+          let startLocation = syntax.startLocation(converter: sourceLocationConverter)
+          let column = startLocation.column! + startColumn
+          let syntaxType = syntax.syntaxNodeType
+          if syntaxType == ArrayElementListSyntax.self
+            || syntaxType == ArrayElementSyntax.self
+            || // a lot more node type checks
+            {
+            return result
+            }
+            // more cases
+        return result + ".capture(expression: \(syntax.withoutTrivia()), column: \(column))"
+.render()
+"""
+.split(separator: "\n")
+.joined()
+
+This is a key difference from the AST-centric approach of the other macro systems - the output of the expansion function 
+is a string, not an AST. The returned string is the macro expansion returned in the top-level invocation,
+and is parsed by swift-syntax into an AST. The actual contents of the AST just creates an array of the value and position of each subexpression
+in the assertion, and then passes it into a render function, which performs the final formatting at runtime (inside the string).
+
+The entire macro portion of the library is only about 200 LoC, and yet runs entirely in Swift, with no need for gyb or Sourcery.
+I can't wait for it to land in stable and I can finally start working on a [TCA state sharing macro](/blog/tca-state-sharing).

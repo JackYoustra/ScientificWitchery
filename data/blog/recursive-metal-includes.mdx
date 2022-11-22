@@ -1,0 +1,221 @@
+---
+title: 'SPM metal includes flag'
+date: '2022-11-14'
+tags: ['swift', 'spm', 'metal']
+draft: false
+summary: A -> B -> C, but a metal file in B needs to include something from A?
+---
+
+# SPM background
+
+Swift Package Manager (SPM) is the current standard package manager for Swift projects,
+and the default way of adding dependencies to your project. It's great, but it has a few
+quirks that can be a bit annoying. An example SPM file looks like the following:
+
+```swift
+// swift-tools-version:5.6
+import PackageDescription
+
+let package = Package(
+    name: "MyPackage",
+    platforms: [
+        .iOS(.v14),
+        .macOS(.v11),
+        .tvOS(.v14),
+        .watchOS(.v7)
+    ],
+    products: [
+        .library(
+            name: "MyPackage",
+            targets: ["MyPackage"]
+        ),
+    ],
+    dependencies: [
+        .package(url: "https://github.com/JackYoustra/MTTransitions", from: "1.0.0"),
+    ],
+    targets: [
+        .target(
+            name: "MyPackage",
+            dependencies: [
+                .product(name: "MTTransitions", package: "MTTransitions"),
+            ]
+        ),
+    ]
+)
+```
+
+The `dependencies` section is where you add other packages to your project.
+The `targets` section is where you add the dependencies to your targets.
+
+The recursive nature of SPM's dependency resolution means that dependencies are transitively included.
+For example, suppose `MTTransitions`'s `Package.swift` file looks like the following:
+
+```swift
+// swift-tools-version:5.3
+// The swift-tools-version declares the minimum version of Swift required to build this package.
+import PackageDescription
+
+let package = Package(
+    name: "MTTransitions",
+    platforms: [
+        .iOS(.v14),
+    ],
+    products: [
+        // Products define the executables and libraries a package produces, and make them visible to other packages.
+        .library(
+            name: "MTTransitions",
+            targets: ["MTTransitions"]),
+    ],
+    dependencies: [
+       .package(
+            name: "MetalPetal",
+            url: "https://github.com/MetalPetal/MetalPetal",
+            from: "1.24.2"
+       )
+    ],
+    targets: [
+        // Targets are the basic building blocks of a package. A target can define a module or a test suite.
+        // Targets can depend on other targets in this package, and on products in packages this package depends on.
+        .target(
+            name: "MTTransitions",
+            dependencies: [
+                "MetalPetal"
+            ],
+            path: "Source",
+            resources: [
+                .process("Assets.bundle")
+            ]
+        ),
+    ]
+)
+```
+
+Transitive dependency inclusion means that `MyPackage` implicitly depends on `MetalPetal` through `MTTransitions`.
+This automatic transitive dependency resolution is really nice so you don't have to worry about including `MetalPetal` in your `Package.swift` file
+in order for `MTTransitions` to build successfully.
+
+# The problem
+
+However, SPM is too restrictive to accomodate all use cases. Building this project right now will fail, because several of of `MTTransitions`'s source files depend on headers in `MetalPetal`.
+For example, `MTBowTieVerticalTransition.metal` includes `MTIShaderLib.h`.
+
+Trying to build this project will fail with the following error:
+
+```bash
+CompileMetalFile /Users/jackyoustra/Library/Developer/Xcode/DerivedData/MyPackage-randomuuid/SourcePackages/checkouts/MTTransitions/MTTransitions/Transitions/MTBowTieVerticalTransition.metal (in target 'MTTransitions_MTTransitions' from project 'MTTransitions')
+    cd /Users/jackyoustra/Library/Developer/Xcode/DerivedData/MyPackage-randomuuid/SourcePackages/checkouts/MTTransitions
+    /Applications/Xcode.app/Contents/Developer/Toolchains/XcodeDefault.xctoolchain/usr/bin/metal -c -target air64-apple-ios14.0 -I/Users/jackyoustra/Library/Developer/Xcode/DerivedData/MyPackage-randomuuid/Build/Intermediates.noindex/ArchiveIntermediates/NanoFlick/BuildProductsPath/Release-iphoneos/include -F/Users/jackyoustra/Library/Developer/Xcode/DerivedData/MyPackage-randomuuid/Build/Intermediates.noindex/ArchiveIntermediates/NanoFlick/BuildProductsPath/Release-iphoneos -isysroot /Applications/Xcode.app/Contents/Developer/Platforms/iPhoneOS.platform/Developer/SDKs/iPhoneOS16.1.sdk -ffast-math -serialize-diagnostics /Users/jackyoustra/Library/Developer/Xcode/DerivedData/MyPackage-randomuuid/Build/Intermediates.noindex/ArchiveIntermediates/NanoFlick/IntermediateBuildFilesPath/MTTransitions.build/Release-iphoneos/MTTransitions_MTTransitions.build/Metal/MTBowTieVerticalTransition.dia -o /Users/jackyoustra/Library/Developer/Xcode/DerivedData/MyPackage-randomuuid/Build/Intermediates.noindex/ArchiveIntermediates/NanoFlick/IntermediateBuildFilesPath/MTTransitions.build/Release-iphoneos/MTTransitions_MTTransitions.build/Metal/MTBowTieVerticalTransition.air -MMD -MT dependencies -MF /Users/jackyoustra/Library/Developer/Xcode/DerivedData/MyPackage-randomuuid/Build/Intermediates.noindex/ArchiveIntermediates/NanoFlick/IntermediateBuildFilesPath/MTTransitions.build/Release-iphoneos/MTTransitions_MTTransitions.build/Metal/MTBowTieVerticalTransition.dat /Users/jackyoustra/Library/Developer/Xcode/DerivedData/MyPackage-randomuuid/SourcePackages/checkouts/MTTransitions/MTTransitions/Transitions/MTBowTieVerticalTransition.metal
+
+/Users/jackyoustra/Library/Developer/Xcode/DerivedData/MyPackage-randomuuid/SourcePackages/checkouts/MTTransitions/MTTransitions/Transitions/MTBowTieVerticalTransition.metal:1:10: fatal error: 'MTIShaderLib.h' file not found
+#include "MTIShaderLib.h"
+         ^~~~~~~~~~~~~~~~
+1 error generated.
+```
+
+# The solution
+
+My old solution revolved around patching the metal compiler to include the `MetalPetal` headers in the search path whenever invoked.
+This was quite hacky, and the script was failure prone, and if it failed, you'd have to reinstall the metal compiler which usually involved reinstalling xcode.
+
+## Passing in an include path to the compiler (the normal approach, doesn't work)
+
+The first step is to look at the SPM documentation for [custom build commands](https://developer.apple.com/documentation/packagedescription/target).
+The documentation states that you can add unsafe compiler flags to the build command, which is exactly what we need. Unfortunately, the only arguments available
+are `cSettings, cxxSettings, swiftSettings, and linkerSettings`. None of these are applicable to the metal compiler.
+If this were a C++, C, or Swift file, we could write a `.unsafeFlags(["-I", "path/to/headers"])` to the `MTTransitions` target's `metalSettings` and be done with it.
+
+## Running the compiler in a modified global include environment (the alternative approach, doesn't work)
+
+The next step is to look at the metal compiler documentation by running `man metal` in the terminal.
+The documentation states that you can pass `-I` to the compiler to add a search path for headers, but, as we've seen, we can't pass in command-line flags.
+
+The documentation _also_ states that you can set environment variables. Some examples include CPATH and C_INCLUDE_PATH. Indeed, running the command straight from a terminal, this works!
+
+```bash
+CPATH=/Users/jack/Library/Developer/Xcode/DerivedData/MyPackage-randomuuid/SourcePackages/checkouts/MetalPetal/Sources/MetalPetalObjectiveC/include /Applications/Xcode.app/Contents/Developer/Toolchains/XcodeDefault.xctoolchain/usr/bin/metal -c -target air64-apple-ios14.0 -I/Users/jackyoustra/Library/Developer/Xcode/DerivedData/MyPackage-randomuuid/Build/Intermediates.noindex/ArchiveIntermediates/NanoFlick/BuildProductsPath/Release-iphoneos/include -F/Users/jackyoustra/Library/Developer/Xcode/DerivedData/MyPackage-randomuuid/Build/Intermediates.noindex/ArchiveIntermediates/NanoFlick/BuildProductsPath/Release-iphoneos -isysroot /Applications/Xcode.app/Contents/Developer/Platforms/iPhoneOS.platform/Developer/SDKs/iPhoneOS16.1.sdk -ffast-math -serialize-diagnostics /Users/jackyoustra/Library/Developer/Xcode/DerivedData/MyPackage-randomuuid/Build/Intermediates.noindex/ArchiveIntermediates/NanoFlick/IntermediateBuildFilesPath/MTTransitions.build/Release-iphoneos/MTTransitions_MTTransitions.build/Metal/MTBowTieVerticalTransition.dia -o /Users/jackyoustra/Library/Developer/Xcode/DerivedData/MyPackage-randomuuid/Build/Intermediates.noindex/ArchiveIntermediates/NanoFlick/IntermediateBuildFilesPath/MTTransitions.build/Release-iphoneos/MTTransitions_MTTransitions.build/Metal/MTBowTieVerticalTransition.air -MMD -MT dependencies -MF /Users/jackyoustra/Library/Developer/Xcode/DerivedData/MyPackage-randomuuid/Build/Intermediates.noindex/ArchiveIntermediates/NanoFlick/IntermediateBuildFilesPath/MTTransitions.build/Release-iphoneos/MTTransitions_MTTransitions.build/Metal/MTBowTieVerticalTransition.dat /Users/jackyoustra/Library/Developer/Xcode/DerivedData/MyPackage-randomuuid/SourcePackages/checkouts/MTTransitions/MTTransitions/Transitions/MTBowTieVerticalTransition.metal
+
+```
+
+The final step is to figure out how to set environment variables in a custom build command. The documentation states that you can use `ProcessInfo.processInfo.environment` to get the environment variables, but it doesn't say how to set them. Even if we could set them, we'd be setting them at the wrong time - we'd have to set them at build time, not at package resolution time.
+A few minutes of googling showed a hack to get xcode to run with [a custom environment variable](https://forums.swift.org/t/swiftpm-and-swappable-libraries/43593), but opening xcode with a custom console command  seemed error-prone, easy to forget, and difficult to use with whatever other build tools we end up using. Additionally, we might've been able to use a scheme, but at this point, I was disillusioned with the odds of gettting an environment variable to work.
+
+## Patching xcode's build rules (works)
+
+At this point, I decided to look again at the original command, and realized that the xcode compile commands probably define how to invoke the compiler, and default arguments passed.
+Running `rg CompileMetalFile /Applications/Xcode.app/` showed that the compiler is invoked in a file called `MetalCompiler.xcspec` in the xcode app bundle.
+A quick look at the file showed that it's a plist file specifying the different xcode build settings that can be changed in the `.pbxproj` file and how these build
+settings translated to command-line arguments. For example
+    
+```xml
+{
+    Name = "MTL_FAST_MATH";
+    Type = Bool;
+    DefaultValue = YES;
+    Category = BuildOptions;
+    CommandLineArgs = {
+        YES = (
+            "-ffast-math",
+        );
+        NO = (
+            "-fno-fast-math",
+        );
+    };
+},
+```
+
+There was also our include path, which was defined as a build setting called `MTL_INCLUDE_PATHS`:
+
+```xml
+{
+    Name = "MTL_HEADER_SEARCH_PATHS";
+    Type = PathList;
+    "FlattenRecursiveSearchPathsInValue" = Yes;
+    DefaultValue = "";
+    CommandLinePrefixFlag = "-I";
+    Category = BuildOptions;
+},
+```
+
+To fix this, I wrote a python script that patches the `MetalCompiler.xcspec` file to add the `MetalPetal` headers to the search path.
+
+```python
+import subprocess as sp
+import re
+from pathlib import Path
+
+
+# seeing as the above two didn't work, patch by modifying the .xcspec
+def patch_via_compile_instruction(build_dir):
+    # run xcode-select -p to get the path to the Xcode app
+    response = sp.check_output(["xcode-select", "-p"]).decode("utf-8").strip()
+    xcode_path = Path(response)
+    # find the xcspec file
+    instruction_path = xcode_path.parent / "PlugIns/XCBSpecifications.ideplugin/Contents/Resources/MetalCompiler.xcspec"
+
+    # read the file
+    with open(instruction_path, "r") as f:
+        contents = f.read()
+    # replace the line without a lookbehind
+    contents = re.sub(r'("MTL_HEADER_SEARCH_PATHS";\s*Type = PathList;\s*"FlattenRecursiveSearchPathsInValue" = Yes;\s*DefaultValue = )"";', r'\1' + str(metalpetal_include(build_dir)), contents, flags=re.MULTILINE)
+    # write the file
+    print("Writing changed to " + str(instruction_path))
+    with open(instruction_path, "w") as f:
+        f.write(contents)
+
+def find_build_location():
+    # This assumes you have an xcodeproj from which you host your package. You can probably find the cloned folder another way, too
+    output = sp.check_output(["xcodebuild", "-project", "App/MyPackage.xcodeproj", "-showBuildSettings"]).decode("utf-8").strip()
+    build_dir = re.search(r"^\s*BUILD_DIR = (.*)", output, re.MULTILINE).group(1)
+    return build_dir
+
+# Finds the include file in the MetalPetal include folder and copies (clones) it to the MetalFilter and MetalTransition build directories
+def patch():
+    build_dir = find_build_location()
+    print(build_dir)
+    patch_via_compile_instruction(build_dir)
+
+patch()
+
+```
+
+This script can be run as a plugin, but I just manually run it whenever I see the build error appear. It's not ideal, but it works.

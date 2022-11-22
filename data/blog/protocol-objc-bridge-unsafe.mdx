@@ -1,0 +1,192 @@
+---
+title: 'Unfixable edge cases in using Objective-C protocols in Swift'
+date: '2022-11-21'
+tags: ['swift', 'Objective-C']
+draft: false
+summary: 'Using runtime declarations as a feature in an otherwise strongly-typed language is not a great idea.'
+---
+
+Swift has a pretty good development experience when making apps, but its hindered by its legacy.
+In order to fulfill one of its original core goals, seamless interoperability with Objective-C,
+it has to make safety compromises, similar to that of Rust when interacting with C/C++.
+
+Objective-C protocols have a very nice feature that allows for optional declarations due to the very flexible nature of message dispatch.
+
+protocol Vehicle {
+    // Error! 'optional' can only be applied to members of an @objc protocol
+	optional func honk()
+}
+
+This can’t be replicated with swift protocols - dispatch fundamentally
+is tied to objc with `respondsToSelector` and is much more complicated than traditional Swift
+existential protocol creation. #TODO: write more on this, maybe give ObjC example,
+and write more on POP in general
+
+#### However, you can get the same effect by
+#### doing something like the below.
+```
+protocol VariableHackVehicle {
+    // Ok!
+    var honk: (() -> ())? { get }
+}
+
+extension VariableHackVehicle {
+    var honk: (() -> ())? {
+        nil
+    }
+}
+
+class VariableHackCar : VariableHackVehicle {
+    // Default implementation implied by extension, so sort of "optional" to implement
+    // (but the optional itself is mandatory to include in the witness table)
+}
+
+// Can call with instance of VariableHackCar, will use extension
+// if instance doesn't have honk defined
+func doSomething(v: any VariableHackVehicle) {
+    v.honk?()
+}
+```
+
+However this leads to gnarly problems. Suppose you have the following structure:
+
+// TODO: Write in ObjC to emphasize module split
+@objc protocol P {
+    optional func doSomethingIfItMakesSense()
+}
+
+@objc class C : P { }
+
+Class R: C {
+	override func doTheThing() {
+        super.doTheThing()
+    }
+}
+
+This won't compile, and rightfully so: class C doesn't have any definiton for `doSomethingIfItMakesSense`.
+This will be true for any Swift same-module code.
+
+Unfortunately, not all scenarios are so straightforward.
+
+As an example, lets use the popular settings manager, `InAppSettingsKit`, which is a mixed Swift / Objective-C package.
+A conformant settings menu looks like this:
+```
+class SettingsTableViewController: IASKAppSettingsViewController {
+    // ... implementation
+}
+```
+
+And the definition of `IASKAppSettingsViewController` looks like this:
+```
+@interface IASKAppSettingsViewController : UITableViewController <IASKViewController, UITextFieldDelegate, MFMailComposeViewControllerDelegate>
+// no declarations of the optional methods that it ends up conforming to!!!
+@end
+```
+
+This time, when we end up writing `SettingsTableViewController`, we can call any optional method we want.
+
+```
+class SettingsTableViewController: IASKAppSettingsViewController {
+    func viewDidLoad() {
+        super.viewDidLoad()
+        // IASKAppSettingsViewController doesn't actually define a textFieldDidChangeSelection
+        super.textFieldDidChangeSelection(UITextField())
+    }
+}
+```
+
+Huh? That method doesn't exist, so what's going to happen? Perhaps Swift's interop functionality
+inserts a `respondsToSelector` check before every optional Objective-C call, perhaps it has some other weird behavior,
+or perhaps it crashes. Lets run it and see!
+
+`-[TestModule.SettingsTableViewController textFieldDidChangeSelection:]: unrecognized selector sent to instance 0x7fd78d834800`
+
+It seems like the interop just naively sends a message without checking if the object recognizes it.
+This is probably a good thing - asserting that the function that you're calling actually exists
+is a good assumption, and you can just manually call `respondsToSelector` yourself if you need to check.
+
+Now that we've seen Swift, a pretty safe language, crash with an innocuous method invocation, the next question is...
+
+## Why does this happen?
+The problem is the the concrete class definition (`SettingsTableViewController`) is in a module where its function definitions are private.
+All Swift can see are the header declarations, and, as mentioned above, the intermodular part (`@interface`) of `IASKAppSettingsViewController`
+declared protocol conformances, not individual `@optional` function conformances - it's not required for Objective-C because it's treated as a runtime
+feature in Objective-C anyway, so why declare it!
+Swift can't introspect the module declarations to see if `textFieldDidChangeSelection` is defined, because, if its defined, it will only be defined at the Objective-C module's initialization time in the selctor table.
+
+### Note: why not just run the initialization function for Objective-C methods in the compiler / analyzer to check for this? Because the initializer can be any arbitrary function, so running it exposes the compiler to lag, UB, and not good nor much improved compile time guarantees, all together which make it an awful proposition.
+
+(which is why we can't do compile-time checks in Objective-C, optionality is inherently a runtime property with the selector table).
+
+It turns out it takes it as an article of faith that a superclass implementation exists for all optional function definitions,
+with crashing consequences if its not true.
+
+An (unfortunately, not very contrived) situation like this could lead to crashes.
+
+
+While this function calling convention errs on the side of permissiveness, it's possible to also have situations
+where the compiler is too restrictive.
+In our earlier example, the protocol conformance was public. However, IASK also has private protocol conformances.
+`IASKAppSettingsViewController` also has a conformance for `UITextViewDelegate`, but doesn't declare it in its header.
+
+Suppose we want to override this delegate behavior:
+
+class SettingsTableViewController: IASKAppSettingsViewController {
+	override func textViewDidEndEditing() {
+        // Can’t do this, function not declared
+    }
+}
+
+Okay, its just a visibility thing.
+It turns out just not overriding does the trick, so long as we redeclare conformance.
+But, we can't call super because, again, it's never defined in the header, so we'll end up clobbering 
+
+class SettingsTableViewController: IASKAppSettingsViewController {
+    // Note that this is implicitly @objc due to the whole class being @objc,
+    // so declaring it @objc won't change compiler behavior.
+	func textViewDidEndEditing() {
+        // better!
+        // ...
+        // but can't call super :(
+        super.textViewDidEndEditing()
+    }
+}
+
+How to fix this?
+One option would be to do a runtime cast of super, but
+you can’t do a neat existential construction of super `(super as! UITextViewDelegate).textViewDidEndEditing?(textView)`.
+
+You could also try to declare dummy methods in an extension for the methods you know are privately implemented:
+
+```
+extension IASKAppSettingsViewController : UITextViewDelegate {
+    public func textViewDidEndEditing(_ textView: UITextView) {
+        fatalError("Dummy shouldn't be called")
+    }
+}
+```
+
+While this compiles and implies overriding in the child class as we'd expect, the dummy function is still called.
+
+Another option would be to call the selector on `super` directly
+`super.perform(#selector(UITextViewDelegate.textViewDidEndEditing(_:)))`.
+
+But this is unsafe:
+ - If super ends up not implementing `textViewDidEndEditing` in the future, you'll end up crashing like in the earlier overly optimistic case.
+ - If the function returns a value, you have to manage it yourself (hopefully it balanced its retain count itself and you remember to retain it!).
+ - You don't even get argc checking, let alone argument type checking!
+ If you noticed, I forgot to pass in the argument into that perform call. The correct call is:
+````super.perform(#selector(UITextViewDelegate.textViewDidEndEditing(_:)), with: textView)```.
+
+I can't find any good solution to this problem, so I ended up just copying the trivial code from the supercalss into the subclass.
+You're probably going to want to do the raw selector call or some other clever technique I haven't considered.
+
+
+As a sidenote: I found this in the IASK view controller:
+```
+#if !__has_feature(objc_arc)
+#error "IASK needs ARC"
+#endif
+```
+
+Wow, haven't seen ARC gates in a while!

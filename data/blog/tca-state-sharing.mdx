@@ -1,0 +1,229 @@
+---
+title: 'TCA State Sharing'
+date: '2022-11-14'
+tags: ['swift', 'the-composable-architecture']
+draft: false
+summary: A used in B used in C, but A relies on state owned by C.
+---
+
+_Note: This post mostly discusses concepts in [this github discussion](https://github.com/pointfreeco/swift-composable-architecture/discussions/1445)_
+
+# TCA background
+
+Traditionally, SwiftUI architectures are built on islands of state associated to views. This is a great way to get started, but it can be limiting as your app grows.
+It's challenging to find a way to react to state changes in one view from another view, or to share state between views,
+without resorting to a global state store or repeatedly passing bindings and publishers to each view.
+
+The Composable Architecture (or TCA) is a library for building applications in a predictable and testable way. It is a port of the Elm architecture to Swift.
+If you are interested in learning more about it, I recommend the video series by the creator, [Point-Free](https://www.pointfree.co).
+
+## Elm architecture
+<div className="my-1 w-full overflow-hidden px-2 xl:my-1 xl:w-1/2 xl:px-2">
+    ![Maple](/static/images/tca/elm.jpg)
+</div>
+
+The Elm architecture has three main concepts: the model (state), the view (a pure function that renders the UI), and the update function (a pure function that takes the current state and an action and returns a new state). These concepts are implemented in the three main components: the state, the actions, and the reducers. The reducers are pure functions that take the current state and an action and return a new state. The actions are enums that represent all the possible actions that can be performed on the state. The state is a struct that represents the current state of the application.
+
+## TCA architecture
+
+TCA implements the Elm architecture in a slightly different way as implied by its namesake: it divides functional components into different modules, so each module has its own state, actions, and reducers. This approach has several components over the monolithic approach:
+
+-   It makes it easier to reason about the state of the application as each module has its own state.
+-   It makes it easier to test each module in isolation.
+-   It makes it easier to reuse modules in other applications (or in the same application in different places).
+-   It improves compile times - unless directly depending on other modules, each module can be compiled in parallel.
+
+# The problem
+
+Suppose we have three views: Home(`A`), Profile(`B`), and Profile Detail(`C`), with each one having its own state and actions. The Profile Detail view is a child of the Profile view, and the Profile view is a child of the Home view.
+
+They each refer to a User object, which should only be in one place. Any updates to the User object should reflect everywhere. Logically, every state should at least have the potential to have its own state for modularity and testability - in order for it to be used in isolation, it has to carry (what at least looks like) its environment around with it. How can this be done?
+
+```swift
+// This should probably be a more expressive value type, but for the sake of simplicity, we'll use an int.
+public typealias User = Int
+
+public struct A {
+    var a: User
+    var b: B
+}
+
+struct B {
+    var c: C
+}
+
+struct C {
+    // Injected
+    var a: User
+    var r: String
+}
+
+public func test(_ arg: A) -> User {
+    var a = arg
+    a.b.c.a = 1
+    return a.b.c.a
+}
+
+public func test2(_ arg: A) -> User {
+    var a = arg
+    a.a = 1
+    return a.b.c.a
+}
+```
+
+# The solution
+
+## Memory sharing
+
+The obvious option is to use a reference type to share the state that should be mirrored.
+
+```swift
+public typealias User = Int
+
+class Rc<T> {
+    var value: T
+    init(_ value: T) {
+        self.value = value
+    }
+}
+
+public struct A {
+    private(set) var a: Rc<User>
+    var b: B
+
+    init(a: Rc<User>, b: B) {
+        self.a = a
+        self.b = b
+        self.b.c.a = a
+    }
+
+    // Problem: lose top-level copyability - User will be duplicated
+    // If we could run this code on a clone, the copy semantics would be upheld
+    mutating func copyInternal() {
+        self.a = Rc(self.a.value)
+        self.b.c.a = self.a
+    }
+}
+
+struct B {
+    var c: C
+}
+
+struct C {
+    // Injected
+    var a: Rc<User>
+    var r: String
+}
+
+public func test(_ arg: A) -> User {
+    var a = arg
+    a.b.c.a = 1
+    return a.b.c.a
+}
+
+public func test2(_ arg: A) -> User {
+    var a = arg
+    a.a = 1
+    return a.b.c.a
+}
+```
+
+Unfortunately, we can't override the copy constructor in swift, so we would lose copy semantics for our state objects. This is a problem because we want to be able to copy the state of our application at any time, and we want to be able to run tests on the copied state.
+
+## Computed dependency injection
+
+The 'better' way is just manual injection. It isn't that good - it's really, really verbose, but it's okay.\
+
+```swift
+public typealias User = Int
+
+public struct A {
+    struct Origin {
+        var a: User
+        var b: B.Origin
+    }
+
+    struct Environment {}
+
+    var origin: Origin
+    var environment: Environment
+    
+    var b: B {
+        get {
+            B(origin: origin.b, environment: B.Environment(c: C.Environment(a: origin.a)))
+        }
+        set {
+            origin.b = newValue.origin
+            origin.a = newValue.environment.c.a
+        }
+    }
+}
+
+struct B {
+    // Holds non-dependent data
+    struct Origin {
+        var originC: C.Origin        
+    }
+
+    struct Environment {
+        var c: C.Environment
+    }
+
+    var origin: Origin
+    var environment: Environment
+
+    var c: C {
+        get {
+            C(origin: origin.originC, environment: environment.c)
+        }
+        set {
+            environment.c = newValue.environment
+            origin.originC = newValue.origin
+        }
+    }
+}
+
+struct C {
+    struct Origin {
+        var r: String
+    }
+
+    struct Environment {
+        var a: User
+    }
+
+    var origin: Origin
+    var environment: Environment
+
+    var a: User {
+        get {
+            environment.a
+        }
+        set {
+            environment.a = newValue
+        }
+    }
+}
+
+
+public func test(_ arg: A) -> User {
+    var a = arg
+    a.b.c.a = 1
+    return a.b.c.a
+}
+
+public func test2(_ arg: A) -> User {
+    var a = arg
+    a.a = 1
+    return a.b.c.a
+}
+```
+
+This is a lot better, but it's still not great. We have to manually inject the dependencies, and we have to manually update the dependencies. This is a lot of boilerplate code, and it's easy to make mistakes.
+We can use the compiler to verify that the two test functions yield the same results, and, indeed, [goldbolt shows](https://gcc.godbolt.org/z/sb9TWMq5Y) test is aliased to test2 in the injected solution (line 873 in the asm output).
+
+Ideally, we'd use something like Rust's [proc_macros](https://doc.rust-lang.org/reference/procedural-macros.html), to generate these getters and setters, but unfortunately
+Swift has no metaprogramming facilities at all. There's a very recent SE proposal for [proc_macros in swift](https://forums.swift.org/t/a-possible-vision-for-macros-in-swift/60900) but it's very early on and there's been a [shocking](https://forums.swift.org/t/a-possible-vision-for-macros-in-swift/60900/3) [amount](https://forums.swift.org/t/a-possible-vision-for-macros-in-swift/60900/7) [of](https://forums.swift.org/t/a-possible-vision-for-macros-in-swift/60900/22) [pushback](https://forums.swift.org/t/a-possible-vision-for-macros-in-swift/60900/74) for a system that has been _already tested and loved by the Rust community, which Swift has, for years, taken its cues from!_. I'm not sure why there's so much pushback, but I'm not going to get into that here.
+
+For now, there may lie a solution in the hack that is Sourcery, which is a code generator that can generate code from templates. It's not a perfect solution, but it's a start.
+It's nontrivial to generate these, so for now I'll just be manually writing them until I can figure out a better solution.
