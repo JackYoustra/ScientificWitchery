@@ -1,19 +1,17 @@
 const projectsData = [
   {
-    title: 'A Search Engine',
-    description: `What if you could look up any information in the world? Webpages, images, videos
-    and more. Google has many features to help you find exactly what you're looking
-    for.`,
-    imgSrc: '/static/images/google.png',
-    href: 'https://www.google.com',
+    title: 'NanoFlick',
+    description: `My main pursuit for the last year or so. Check it out!`,
+    imgSrc: '/static/images/nanoflick.webp',
+    href: 'https://www.nanoflick.com',
   },
   {
-    title: 'The Time Machine',
-    description: `Imagine being able to travel back in time or to the future. Simple turn the knob
-    to the desired date and press "Go". No more worrying about lost keys or
-    forgotten headphones with this simple yet affordable solution.`,
+    title: 'Victoria 2 savegame analyzer',
+    description: `A tool to analyze your Victoria 2 savegames.
+    You can view the status of your factories and pops, and synthesize wikiboxes for every war in the game.
+    It's a bit outdated, but still works.`,
     imgSrc: '/static/images/time-machine.jpg',
-    href: '/blog/the-time-machine',
+    href: '/blog/v2-savegame-analyzer',
   },
 ]
 
