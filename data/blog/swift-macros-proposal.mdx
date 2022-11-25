@@ -6,15 +6,143 @@ draft: false
 summary: 'Hopefully this is the beginning of the end of writing Python scripts in Swift code.'
 ---
 
-// TODO: introduction on current SOTA Swift codegen
+<TOCInline toc={props.toc} exclude="Overview" toHeading={2} indentDepth={2} />
+
+# Introduction
+
+Suppose you have a Swift enum like this:
+```swift
+    enum MyEnum {
+        case a
+        case b
+        case c
+    }
+```
+
+And you want to write a function that takes a `MyEnum` and returns a `String`:
+```swift
+    func myFunction(_ myEnum: MyEnum) -> String {
+        switch myEnum {
+        case .a:
+            return "a"
+        case .b:
+            return "b"
+        case .c:
+            return "c"
+        }
+    }
+```
+
+This is a very common pattern in Swift, and it's a bit annoying to write. You have to write the same code over and over again, and you have to remember to update it if you add a new case to the enum. It would be nice if there was a way to write this code once and then use it everywhere.
+
+Well, there is! It's called code generation, where build tools (optimally the compiler) writes code that generates other code.
+In this post, I'll show you the current state of codegen in Swift and a proposal for a proper macro system for the Swift compiler
+(with the capability to generate the `myFunction` function above).
+
+# The current state of codegen
+
+## Builtin macros
+Apple has actually been using macros in its Swift code since the first version.
+Looking at the Swift reference for [literal expressions](https://docs.swift.org/swift-book/ReferenceManual/Expressions.html#grammar_literal-expression),
+you see a small list of (mostly simple)[^1] builtin unary macros:
+
+```swift
+    #file
+    #fileID
+    #filePath
+    #line
+    #column
+    #function
+    #dsohandle
+```
+[^1]: The `#dsohandle` macro is the only really confusing one of these, but it's just an [ID to the parent executable / library](https://twitter.com/jckarter/status/722354557012045824).
+
+You also have a set of macros for Apple's SDKs:
+
+```swift
+  #available
+  #colorLiteral
+  #imageLiteral
+  #selector
+  #keyPath
+```
+
+These aren't particularly useful to us - we want a more portable solution than a compiler patch
+every time we want to use a macro.
+
+## Gyb
+Gyb is a Swift file with inline python code, where the output of the python is inserted inline the Swift,
+and Sourcery is a tool that reads Swift files and generates Swift files. NSHipster has [a good article](https://nshipster.com/swift-gyb/) on GYB,
+but writing `myFunction` with GYB would look like this:
+
+```swift
+    func myFunction(_ myEnum: MyEnum) -> String {
+        switch myEnum {
+        % for case in ['a', 'b', 'c']:
+        case .${case}:
+            return "${case}"
+        % end
+        }
+    }
+```
+
+This is a bit better than writing the same code over and over again, but it's far from ideal.
+ - The code isn't checked by the compiler, so you can easily make mistakes.
+ - The code is hard to read, and it's hard to see what the output will be (although it has a generated file output ready for inspection).
+ - You have to run gyb at least every time the file changes, complicating the build process.
+ - It's not even that much more concise! It would be nice to replace `['a', 'b', 'c']` with `MyEnum.allCases`, but the Python environment is completely detatched from the Swift source context.
+
+## Sourcery
+
+Sourcery takes a different approach than directly embedding Python in the Swift file.
+It allows for conformance to 'phantom protocols' (protocols that hold no specification) and can generate code for any type that conforms to a phantom protocol.
+This makes it more context-aware than GYB, but requires more work: Each phantom protocol must be implemented in its own template file, each of which is limited in its context information.
+Usually the code is written in a DSL called Stencil, but it can also be written in Swift or JavaScript.
+
+```swift
+// Add a conformance of AutoFunctionGeneration to MyEnum in our project files
+extension MyEnum: AutoFunctionGeneration {}
+```
+
+```
+// AutoFunctionGeneration.stencil
+
+{% for enum in types.implementing.AutoFunctionGeneration|enum %}
+{{ enum.accessLevel }} extension {{ enum.name }} {
+  func myFunction() -> String {
+    switch self {
+    {% for case in enum.cases %}
+    case .{{ case.name }}:
+      return "{{ case.name }}"
+    {% endfor %}
+    }
+  }
+}
+{% endfor %}
+```
+
+This is a bit better than GYB, but it's still not ideal:
+ - While contextual injection points are checked by the compiler, the stencil template code still isn't, so you can easily make mistakes.
+ - Creating a template file is a complicated process, and it's much more difficult to learn than just writing a Python script or a Swift function.
+
+There are still the problems of:
+ - The code is hard to read
+ - You have to run Sourcery
+
+The community has settled on Sourcery as the current state of the art, with further progress blocked by lack of first-party compiler integration.
+Fortunately, there's finally stirrings of a proper Swift macro system to replace these tools.
+
+# The Swift macro system
+
+## Introduction
 
 A recent proposal just landed on the [Swift Forums](https://forums.swift.org/t/a-possible-vision-for-macros-in-swift/60900) on Swift macros.
 
-It has an attached ["pitch"](https://gist.github.com/DougGregor/4f3ba5f4eadac474ae62eae836328b71) and a slimmed-down expression macros [pitch](https://github.com/DougGregor/swift-evolution/blob/expression-macros/proposals/nnnn-expression-macros.md)
+It has an attached ["pitch / vision / manifesto"](https://gist.github.com/DougGregor/4f3ba5f4eadac474ae62eae836328b71) and a slimmed-down expression macros [pitch](https://github.com/DougGregor/swift-evolution/blob/expression-macros/proposals/nnnn-expression-macros.md)
 (currently awaiting implementation).
 
-Before I go into this proposal, it would be good to review its inspiration:
-## The [Rust macro system](https://doc.rust-lang.org/book/ch19-06-macros.html):
+Before I go into this proposal, it would be good to review its most recognized inspiration...
+## The [Rust macro system](https://doc.rust-lang.org/book/ch19-06-macros.html)
 
 _Note: A much more detailed primer exists [here](https://veykril.github.io/tlborm/introduction.html).
 If you're very curious about how Rust's system works, skip my explanation and read theirs._
@@ -26,11 +154,11 @@ It involves matching and capturing a contained AST, much like in a regex.
 The matched pattern is replaced with an expansion, a block of code generated as a function of the captures.
 An example in the Rust macro book is a macro that multiplies by five:
 
-```
+```rust
 macro_rules! times_five {
     ($e:expr) => { 5 * $e };
 }
-```.
+```
 
 This macro matches any expression, and replaces it with the expansion `5 * <the expression>`.
 
@@ -40,7 +168,7 @@ It involves writing a function that takes a `TokenStream` (a Rust AST) and retur
 The input is the AST of the macro invocation, and the output is the AST of the expansion.
 An example in the Rust macro book is a macro that prints the AST of an expression:
 
-```
+```rust
 extern crate proc_macro;
 use proc_macro::TokenStream;
 
@@ -49,7 +177,7 @@ pub fn print_ast(input: TokenStream) -> TokenStream {
     println!("{:#?}", input);
     input
 }
-```.
+```
 
 This macro takes an expression, prints its AST, and returns the expression unchanged.
 
@@ -67,7 +195,7 @@ There are some differences, though:
 Swift has a pattern language, but it's not as powerful as Rust's.
 An example is switch matching:
 
-```
+```swift
 enum Choices {
     case a
     case v(Int)
@@ -86,7 +214,7 @@ switch (x, y, z) {
     case (_, _, .v):
         print("v")
 }
-```.
+```
 
 This pattern language is useful for simple, fixed patterns, but it's not powerful enough to match arbitrary expressions,
 such as repetitions.
@@ -115,7 +243,7 @@ I really enjoy this example as a proof of concept, so lets go through it step by
 
 ### Metadata and definition
 
-```
+```swift
 struct PowerAssertMacro: ExpressionMacro {
   static var name: String { "powerAssert" }
 
@@ -151,7 +279,7 @@ This work is delegated to `CodeGenerator`, which holds the core logic of the mac
 The actual member variables of the struct are minimal, just the context of the invocation.
 The interesting logic is in the methods.
 
-```
+```swift
   func generate() -> MacroResult<ExprSyntax> {
     guard let expression = macro.argumentList.first else {
       if let leadingTrivia = macro.leadingTrivia {
@@ -182,7 +310,7 @@ After the macro is fully expanded, the AST is finalized into expression syntax, 
 
 ### Format
 
-```
+```swift
   private func format(_ expression: SyntaxProtocol) -> SyntaxProtocol {
     SourceFileSyntax(
       "\(expression.withoutTrivia())"
@@ -209,7 +337,7 @@ or
 ### Expand
 1.
 
-```
+```swift
     var expressions = [Syntax]()
     parseExpression(expression, storage: &expressions)
     expressions = Array(expressions.dropFirst(2))
@@ -225,6 +353,7 @@ This preamble takes the formatted expression and finds the start and end locatio
 It's used to find the offset of the expression, so the assertion annotations on subsequent lines can be aligned to their tokens.
 
 2.
+```swift
 return """
     PowerAssert.Assertion(#"\(macro.poundToken.withoutTrivia())\(macro.macro)(\(expression))"#, line: \(startLocation.line!))
     .assert(\(expressions.first!))
@@ -246,11 +375,14 @@ return """
 """
 .split(separator: "\n")
 .joined()
+```
 
 This is a key difference from the AST-centric approach of the other macro systems - the output of the expansion function 
 is a string, not an AST. The returned string is the macro expansion returned in the top-level invocation,
 and is parsed by swift-syntax into an AST. The actual contents of the AST just creates an array of the value and position of each subexpression
 in the assertion, and then passes it into a render function, which performs the final formatting at runtime (inside the string).
 
+## Conclusion
+
 The entire macro portion of the library is only about 200 LoC, and yet runs entirely in Swift, with no need for gyb or Sourcery.
-I can't wait for it to land in stable and I can finally start working on a [TCA state sharing macro](/blog/tca-state-sharing).
+I look forward to the release of the macro system and I can finally start working on a [TCA state sharing macro](/blog/tca-state-sharing).

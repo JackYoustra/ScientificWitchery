@@ -2,10 +2,10 @@
 
 /** @type {import("pliny/config").PlinyConfig } */
 const siteMetadata = {
-  title: "Jack's Tech Blog",
+  title: 'Scientific Witchery',
   author: 'Jack Youstra',
-  headerTitle: "Jack's Tech Blog",
-  description: 'My tech blog',
+  headerTitle: 'Scientific Witchery',
+  description: 'Writings on my projects and cool language features.',
   language: 'en-us',
   theme: 'system', // system, dark or light
   siteUrl: 'https://tailwind-nextjs-starter-blog.vercel.app',
@@ -16,9 +16,9 @@ const siteMetadata = {
   email: 'jack@youstra.com',
   github: 'https://github.com/jackyoustra',
   twitter: 'https://twitter.com/master_thrawn',
-  facebook: 'https://facebook.com',
-  youtube: 'https://youtube.com',
-  linkedin: 'https://www.linkedin.com/in/jyoustra',
+  facebook: 'https://www.facebook.com/profile.php?id=100004602496445',
+  // youtube: 'https://youtube.com',
+  linkedin: 'https://www.linkedin.com/in/jackyoustra',
   locale: 'en-US',
   analytics: {
     // If you want to use an analytics provider you have to add it to the

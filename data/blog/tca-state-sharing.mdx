@@ -6,6 +6,8 @@ draft: false
 summary: A used in B used in C, but A relies on state owned by C.
 ---
 
+<TOCInline toc={props.toc} exclude="Overview" toHeading={2} indentDepth={2} />
+
 _Note: This post mostly discusses concepts in [this github discussion](https://github.com/pointfreeco/swift-composable-architecture/discussions/1445)_
 
 # TCA background
@@ -19,10 +21,14 @@ If you are interested in learning more about it, I recommend the video series by
 
 ## Elm architecture
 <div className="my-1 w-full overflow-hidden px-2 xl:my-1 xl:w-1/2 xl:px-2">
-    ![Maple](/static/images/tca/elm.jpg)
+    ![Maple](https://sporto.github.io/elm-workshop/images/diagram-tea.png)
 </div>
+_(Source: [Elm Workshop](https://sporto.github.io/elm-workshop/images/diagram-tea.png))_
 
-The Elm architecture has three main concepts: the model (state), the view (a pure function that renders the UI), and the update function (a pure function that takes the current state and an action and returns a new state). These concepts are implemented in the three main components: the state, the actions, and the reducers. The reducers are pure functions that take the current state and an action and return a new state. The actions are enums that represent all the possible actions that can be performed on the state. The state is a struct that represents the current state of the application.
+The Elm architecture has three main concepts:
+ - Model: A struct that represents the current state of the application.
+ - View: A pure function that renders the UI, whose actions, such as button presses, can send messages to the update function.
+ - Update: A pure function that takes the current state and an action and returns a new state. Can also return an asynchronous command to perform side effects - tasks that submit messages to the update function at a later time.
 
 ## TCA architecture
 
@@ -37,7 +43,8 @@ TCA implements the Elm architecture in a slightly different way as implied by it
 
 Suppose we have three views: Home(`A`), Profile(`B`), and Profile Detail(`C`), with each one having its own state and actions. The Profile Detail view is a child of the Profile view, and the Profile view is a child of the Home view.
 
-They each refer to a User object, which should only be in one place. Any updates to the User object should reflect everywhere. Logically, every state should at least have the potential to have its own state for modularity and testability - in order for it to be used in isolation, it has to carry (what at least looks like) its environment around with it. How can this be done?
+They each refer to a `User` object, which should only be in one place. Any updates to the `User` object should reflect everywhere.
+Logically, every state should at least have the potential to have its own state for modularity and testability - in order for it to be used in isolation, it has to carry (what at least looks like) its environment around with it. How can this be done?
 
 ```swift
 // This should probably be a more expressive value type, but for the sake of simplicity, we'll use an int.
@@ -132,7 +139,8 @@ Unfortunately, we can't override the copy constructor in swift, so we would lose
 
 ## Computed dependency injection
 
-The 'better' way is just manual injection. It isn't that good - it's really, really verbose, but it's okay.\
+The 'better' way is just manual injection.
+It's pretty verbose, but it preserves every correctness property we're concerned with.
 
 ```swift
 public typealias User = Int
@@ -220,10 +228,12 @@ public func test2(_ arg: A) -> User {
 ```
 
 This is a lot better, but it's still not great. We have to manually inject the dependencies, and we have to manually update the dependencies. This is a lot of boilerplate code, and it's easy to make mistakes.
-We can use the compiler to verify that the two test functions yield the same results, and, indeed, [goldbolt shows](https://gcc.godbolt.org/z/sb9TWMq5Y) test is aliased to test2 in the injected solution (line 873 in the asm output).
+We can use the compiler to verify that the two test functions yield the same results, and, indeed, [Godbolt shows](https://gcc.godbolt.org/z/sb9TWMq5Y) `test` is aliased to `test2` in the injected solution (line 873 in the asm output).
 
 Ideally, we'd use something like Rust's [proc_macros](https://doc.rust-lang.org/reference/procedural-macros.html), to generate these getters and setters, but unfortunately
-Swift has no metaprogramming facilities at all. There's a very recent SE proposal for [proc_macros in swift](https://forums.swift.org/t/a-possible-vision-for-macros-in-swift/60900) but it's very early on and there's been a [shocking](https://forums.swift.org/t/a-possible-vision-for-macros-in-swift/60900/3) [amount](https://forums.swift.org/t/a-possible-vision-for-macros-in-swift/60900/7) [of](https://forums.swift.org/t/a-possible-vision-for-macros-in-swift/60900/22) [pushback](https://forums.swift.org/t/a-possible-vision-for-macros-in-swift/60900/74) for a system that has been _already tested and loved by the Rust community, which Swift has, for years, taken its cues from!_. I'm not sure why there's so much pushback, but I'm not going to get into that here.
+Swift has no metaprogramming facilities at all. There's a very recent SE proposal for [proc_macros in swift](https://forums.swift.org/t/a-possible-vision-for-macros-in-swift/60900) but it's very early on and there's been a [shocking](https://forums.swift.org/t/a-possible-vision-for-macros-in-swift/60900/3) [amount](https://forums.swift.org/t/a-possible-vision-for-macros-in-swift/60900/7) [of](https://forums.swift.org/t/a-possible-vision-for-macros-in-swift/60900/22) [pushback](https://forums.swift.org/t/a-possible-vision-for-macros-in-swift/60900/74)
+for a system that has been _already tested and loved by the Rust community, which Swift has, for years, taken its cues from!_
+So, despite [exciting new demos](/blog/swift-macros-proposal), who knows about its future?
 
-For now, there may lie a solution in the hack that is Sourcery, which is a code generator that can generate code from templates. It's not a perfect solution, but it's a start.
+For now, there may lie a solution in the hack that is [Sourcery](https://github.com/krzysztofzablocki/Sourcery), which is a code generator that can generate code from templates. It's not a perfect solution, but it's a start.
 It's nontrivial to generate these, so for now I'll just be manually writing them until I can figure out a better solution.

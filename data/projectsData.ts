@@ -10,7 +10,7 @@ const projectsData = [
     description: `A tool to analyze your Victoria 2 savegames.
     You can view the status of your factories and pops, and synthesize wikiboxes for every war in the game.
     It's a bit outdated, but still works.`,
-    imgSrc: '/static/images/time-machine.jpg',
+    imgSrc: '/static/images/v2.webp',
     href: '/blog/v2-savegame-analyzer',
   },
 ]
