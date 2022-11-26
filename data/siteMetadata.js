@@ -11,7 +11,7 @@ const siteMetadata = {
   siteUrl: 'https://tailwind-nextjs-starter-blog.vercel.app',
   siteRepo: 'https://github.com/timlrx/tailwind-nextjs-starter-blog',
   siteLogo: '/static/images/logo.png',
-  image: '/static/images/avatar.png',
+  image: '/static/images/avatar.webp',
   socialBanner: '/static/images/twitter-card.jpeg',
   email: 'jack@youstra.com',
   github: 'https://github.com/jackyoustra',
