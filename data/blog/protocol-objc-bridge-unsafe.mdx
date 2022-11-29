@@ -46,7 +46,8 @@ if ([vehicle respondsToSelector:@selector(honk)]) {
 This works by introspecting [Objective-C's selector table](https://developer.apple.com/library/archive/documentation/General/Conceptual/DevPedia-CocoaCore/Selector.html)
 at runtime, and checking if the selector is present.
 Because this feature is implemented with runtime introspection,
-it can't be checked at compile-time, which is against Swift's core safety principle.
+it can't be checked at compile-time, which is against Swift's core safety principle
+(although there are [other ways](https://www.guardsquare.com/blog/swift-native-method-swizzling) to get Objective-C like functionality in Swift without touching Objective-C).
 However, you can get a similar effect in Swift by doing something like this:
 
 ```swift
