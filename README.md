@@ -1,3 +1,6 @@
+# Welcome to my blog, Scientific Witchery
+## See the template README below
+
 ![tailwind-nextjs-banner](/public/static/images/twitter-card.png)
 
 # Tailwind Nextjs Starter Blog
