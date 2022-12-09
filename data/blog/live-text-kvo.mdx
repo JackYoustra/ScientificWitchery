@@ -1,0 +1,86 @@
+---
+title: 'Debugging a spurious AVPlayer KVO Crash'
+date: '2022-12-8'
+tags: ['swift', 'ios']
+draft: false
+summary: "Maybe, one day, Apple will switch to using Swift and we'll see a reduction in SDK bugs."
+---
+
+<TOCInline toc={props.toc} exclude="Introduction" toHeading={2} indentDepth={2} />
+
+# Introduction
+
+Yesterday we released NanoFlick, and we started to deal with the usual flurry of crash reports.
+The most difficult one related to a crash after a user had been taking shots and swiping between different shots that occured on iOS 16 only.
+Technically, this involved loading, unloading, and reloading different video files multiple times.
+After the usual wrangling, I reproduce the problem, and am given the following crash log:
+
+>```*** Terminating app due to uncaught exception 'NSInternalInconsistencyException', reason: 'Cannot remove an observer <NSKeyValueObservance 0x1163f0a00> for the key path "currentItem.videoComposition" from <AVQueuePlayer 0x132137da0>, most likely because the value for the key "currentItem" has changed without an appropriate KVO notification being sent. Check the KVO-compliance of the AVQueuePlayer class.'```
+
+# Troubleshooting
+
+The first guess was that `currentItem` wasn't fully [KVO compliant](https://developer.apple.com/library/archive/documentation/Cocoa/Conceptual/KeyValueObserving/Articles/KVOCompliance.html).
+Apple states that [AVPlayer has KVO compliance](https://developer.apple.com/documentation/avfoundation/media_playback/observing_playback_state), but it doesn't explicitly mention `currentItem`
+and KVO compliance in other places is [often a bit of a moving target](https://stackoverflow.com/a/25653797/998335) and makes me reluctant to trust in its implementation.
+
+However, the crash persisted after removing every player listener I had. Clearly, we were not directly causing the KVO error, so I guessed "sdk bug" and tried to reproduce it in a simple project.
+This proved not easy, so I went back to staring at the crash stacktrace and tried to figure out any hints on the error origination, and that's when something stood out to me.
+
+_Fun challenge for the reader: can you spot the problem?_
+
+<div className="my-1 w-full overflow-hidden px-2 xl:my-1 xl:w-1/2 xl:px-2">
+    ![The offending backtrace](/static/images/objc-backtrace.webp)
+</div>
+
+Looking at stack frames 12 and 13, we see `AVVideoFrameVisualAnalyzer` doing stuff with listeners, presumably on `currentItem.videoComposition`, directly leading to the crash.
+iOS 16 added a new feature called [Live Video](https://developer.apple.com/documentation/avkit/avplayerview/3986556-allowsvideoframeanalysis).
+Because it's on by default, it could cause the crash in any app that uses AVPlayer and was crash-free in iOS 15, which fits the characterization of NanoFlick.
+
+# Solution
+
+With a solid lead, the solution should be straightforward: just set `allowsVideoFrameAnalysis` to `false` and we're done, right?
+The problem is that we're using SwiftUI's builtin `VideoPlayer` and it doesn't expose this property.
+The supported workaround is to use `UIViewControllerRepresentable` to wrap the `AVPlayerViewController` and set the property there.
+This is a bit of a pain, so I instead opted to swizzle `AVPlayerViewController`'s `viewWillAppear` method to set the property there,
+piggybacking off of earlier work to remove the playback controls when the player is embedded in a `CaptureView`.
+
+I could use [swift native swizzling](https://www.guardsquare.com/blog/swift-native-method-swizzling),
+but I already am using [Lumos](https://github.com/JackYoustra/lumos) for other swizzling, so I decided to use that instead.
+
+```swift
+import Lumos
+import AVKit
+extension AVPlayerViewController {
+    static let fixPlayerBackground: () = {
+        Lumos.swizzle(
+            type: .instance,
+            originalClass: AVPlayerViewController.self,
+            originalSelector: #selector(AVPlayerViewController.viewWillAppear(_:)),
+            swizzledClass: AVPlayerViewController.self,
+            swizzledSelector: #selector(AVPlayerViewController.fixedOnAppear(_:))
+        )
+    }()
+
+    @objc private func fixedOnAppear(_ animated: Bool) {
+        if String(describing: self.parent).contains("CaptureView") {
+            self.showsPlaybackControls = false
+            if #available(iOS 16.0, *) {
+                self.allowsVideoFrameAnalysis = false
+            }
+        }
+        self.fixedOnAppear(animated)
+    }
+}
+```
+
+# Conclusion
+
+It's fortunate that we don't need Live Video for NanoFlick.
+If we did, we'd probably have to do further investigation and
+see if we could graciously either handle the deregistration code,
+the KVO error, or create a mock player that didn't trigger the bug.
+
+Hopefully, one day, Apple will switch to using Swift instead of Objective-C for its framework code and we'll see a reduction in SDK bugs
+as compiler-enforced KVO safety becomes the norm for SDK code.
+
+Until then, we'll have to keep on swizzling.
