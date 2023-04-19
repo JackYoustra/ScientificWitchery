@@ -178,6 +178,89 @@ withUnsafeMutablePointer(to: &thing) { ptrToThing in
 This is honestly pretty annoying to deal with. The forced unwrapping of the `baseAddress` seems overly harsh when we can actually tolerate a null pointer.
 I'm probably missing something, but this works good enough for me!
 
+I ended up writing some more to have a more general Swift interface.
+
+```swift
+let interposeKeychain = {
+    var stuff = [
+        Interpose(symbolName: "SecItemAdd", targetFunction: unsafeBitCast(MySecItemAdd as NewSecItemAdd, to: UnsafeMutableRawPointer.self))
+    ]
+    interpose(symbols: &stuff)
+    assert(SecItemAdd([:] as CFDictionary, nil) == 12345)
+}()
+
+struct Interpose {
+    let symbolName: String
+    let targetFunction: UnsafeMutableRawPointer
+    var original: UnsafeMutableRawPointer? = nil
+}
+
+func interpose(symbols: inout [Interpose]) {
+    if symbols.isEmpty {
+        return
+    }
+    let cStrings = symbols.map { Array($0.symbolName.utf8CString) }
+    var replaced: ContiguousArray<UnsafeMutableRawPointer> = ContiguousArray(unsafeUninitializedCapacity: symbols.count, initializingWith: { buffer,initializedCount in initializedCount = symbols.count })
+    replaced.withUnsafeMutableBytes { mutableRawBufferPointer in
+        var rebindings = [rebinding]()
+        for (i, elem) in symbols.enumerated() {
+            if elem.symbolName.isEmpty {
+                continue
+            }
+            let asp = UnsafePointer(cStrings[i])
+            let chosen: UnsafeMutableRawPointer = mutableRawBufferPointer.baseAddress!.advanced(by: MemoryLayout<UnsafeMutableRawPointer>.stride * i)
+            rebindings.append(chosen.withMemoryRebound(to: UnsafeMutableRawPointer?.self, capacity: 1) { pointer in
+                rebinding(name: asp, replacement: symbols[i].targetFunction, replaced: pointer)
+            })
+        }
+        rebind_symbols(&rebindings, rebindings.count)
+    }
+    for (i, elem) in symbols.enumerated() {
+        if elem.symbolName.isEmpty {
+            continue
+        }
+        symbols[i].original = replaced[i]
+    }
+}
+```
+
+Pretty neat! It's not as cool as it could be - you have to do the unsafeBitCast and the thinning for each occurance, but
+trying to abstract it fails. Something like
+
+```swift
+let interposeKeychain = {
+    var stuff: [any Interposable] = [
+        Interpose(symbolName: "SecItemAdd", targetFunction: MySecItemAdd)
+    ]
+    interpose(symbols: &stuff)
+    assert(SecItemAdd([:] as CFDictionary, nil) == 12345)
+}()
+
+protocol Interposable {
+    var symbolName: String { get }
+    var targetFunctionPointer: UnsafeMutableRawPointer { get }
+    var original: UnsafeMutableRawPointer? { get set }
+}
+
+struct Interpose<T, U> {
+    let symbolName: String
+    let targetFunction: (T) -> U
+    var original: UnsafeMutableRawPointer? = nil
+}
+
+extension Interpose: Interposable {
+    typealias InterposableFunctionType = @convention(thin) (T) -> U
+    
+    var targetFunctionPointer: UnsafeMutableRawPointer {
+        unsafeBitCast(targetFunction as InterposableFunctionType, to: UnsafeMutableRawPointer.self)
+    }
+}
+```
+
+would get rid of that, but the cast to the thin function type [isn't implemented](https://github.com/apple/swift/blob/f6ceec73b7781cb9281010de6b30fafac3e3855b/lib/SILGen/SILGenExpr.cpp#L1933).
+Just moving the `@convention(thin)` to the `targetFunction` declaration no longer yields an error, although it [does crash the compiler.](https://github.com/apple/swift/issues/65280)
+For now, we're stuck with writing the `unsafeBitCast` and the thinning ourselves.
+
 Anyway, this leads us to the end of our journey. We've successfully rebinding the `SecItemAdd` function to our own implementation, and we've done it in a way that's safe and easy to understand.
 We can now use this to implement our own keychain API, and we can do it in a way that's safe and easy to understand.
 Tune in later to take some of these things to their own packages!
