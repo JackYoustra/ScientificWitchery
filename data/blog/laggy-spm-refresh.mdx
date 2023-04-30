@@ -1,0 +1,107 @@
+---
+title: 'Laggy SPM refresh'
+date: '2023-04-29'
+tags: ['Swift', 'Security']
+draft: false
+summary: 'A post for my wandering mind during the couple frozen minutes after any file change in Xcode.'
+---
+
+I'm going to paint a picture most of you have probably seen: you make any change to your `Package.swift`
+file, and unlike literally any other IDE, Xcode freezes, reloads the entire `Package.swift` file,
+and only stops the beachball (on any open editor, mind you) a couple minutes later. This is
+a pretty terrible UX, but has been the status quo since the introduction of SPM.
+
+Can anything be done about it? Probably! It's hard to tell because we don't have access to the source.
+Here, I'll be trying to patch Xcode to make it a little less terrible.
+
+## Investigation
+
+The (still spinning indicator in the project that caused me to write this post on a whim)
+says "reloading package `<package name>`." We'll start there to try and find some SPM core library in Xcode.
+
+We get a hit (Xcode 14.3) in `PlugIns/IDESwiftPackageCore.framework`. This is a private framework,
+but it's probably the correct private framework for finding out what's going on with SPM.
+
+Copilot keeps suggesting I write something about opening up the application in [Hopper](https://www.hopperapp.com/),
+as opposed to my usual Cutter. It seems pretty neat, but costs $100 😱. Additionally,
+seems that [Ghidra is better](https://news.ycombinator.com/item?id=25087850), I'll stick with Cutter for now.
+
+
+Anyway, while we wait, we may as well profile Xcode to see what it's doing. I'm using Instruments
+to profile Xcode, and I attach after triggering a refresh by changing `Package.swift`.
+
+Looking at instruments, we see a few calls to the `IDESwiftPackageCore` and `SwiftPM` modules.
+The SPMWorkspace class caught my eye. It's referenced in the aforementioned `IDESwiftPackageCore`
+as well as `IDEFoundation` and `SwiftPM.Framework`. It seems to be the main class for interacting with SPM.
+A quick google finds an open source [SwiftPMWorkspace](https://github.com/apple/sourcekit-lsp/blob/main/Sources/SKSwiftPMWorkspace/SwiftPMWorkspace.swift)
+but no `SPMWorkspace`. We can't look at source directly, so lets keep looking through the logs.
+
+A few calls elsewhere (on what I assume is a thread waiting for a file access)
+I find a call to `IDESwiftWorkspace.noteOnePackageNeedsReloading`, followed by
+`SPMWorkspace.processPackageGraphActionsInBackgroundIfNeeded`. This seems to be the
+trigger for all of our freezes!
+
+Going up the chain in `IDESwiftPackageCore`, we see that `noteOnePackageNeedsReloading` is called from `packageStructureDidChange_at_`
+which terminates in a call from `SPMPackageDirectoryStructureFileSystemWatcherDelegate.packageStructureFileSystemWatcherDeDidChange_at:`.
+
+It seems fairly clear what's causing our block! Now, what to do about it?
+
+## Patching
+
+The best option would probably be shoving it on a background thread, but I have no real confidence of my ability
+to write a good concurrent patch. Another option would be to shift to an explicit refresh model:
+instead of refreshing on every change, we could refresh on... something else? I'm not sure
+where the other calls are to the terminal method: `reloadPackage`. However, a search of Xcode's binaries
+revealed that there's one more framework which mentions `SPMWorkspace`: `IDEFoundation`.
+
+Not much luck here: these mehtods seem to just deal with setting up the workspace, not refreshing it.
+
+Anyway, the current idea is to just test our above hypothesis by removing the call to `reloadPackage`.
+The simplest place to do this is at the top level: `SPMPackageDirectoryStructureFileSystemWatcherDelegate.packageStructureFileSystemWatcherDeDidChange_at:`.
+We'll just replace the call with a noop, and see what happens!
+
+<video controls loop>
+<source src="/static/videos/srf.mkv"/>
+</video>
+
+
+## Actually getting the patch to take effect (gone wrong)
+
+Feeling happy and victorious, we fire up the patch 
+aaaand... it crashes! "A memory corruption was found in executable text"
+Right after Xcode's last log message, we see
+`CODE SIGNING: cs_invalid_page(0x111caf000): p=46541[Xcode] final status 0x23006a00, denying page sending SIGKILL`
+
+Ah, we have to resign the modified binary. Luckly, we made a backup before modifying it, so we can just
+resign with the metadata of the backup signature.
+
+Using 
+```codesign --preserve-metadata --force -vvv --sign "Apple Development" Contents/PlugIns/IDESwiftPackageCore.framework/Versions/A/IDESwiftPackageCore```
+
+We start again, and this time it crashes on launch!
+
+```
+AMFI: disallowing exception handler for 'Xcode' (pid: 48428, team: ''), because the handler was set by non-eligible process 'com.apple.dt.ins' (38100) with Team ID '' (not master-entitled).
+```
+At this point, codesigning with my own cert seems a little bleak.
+
+We have one last avenue open to us: we can lean on dyld to 
+[load our own code](https://yairchu.github.io/posts/intercept-to-fix).
+I'm a little worried about this approach: there are [a few ways that it can be blocked](https://pewpewthespells.com/blog/blocking_code_injection_on_ios_and_os_x.html)
+and it wouldn't surprise me if Xcode did one of them.
+
+And yup. Injecting a dylib with `DYLD_INSERT_LIBRARIES` fails 
+```
+...reason: mapping process is a platform binary, but mapped file is not
+```
+Some further inspection casts light on Xcode being hardened and ignoring all dyld environment variables.
+We could resign / unsign xcode, but then we'd lose apple-only private entitlements that xcode probably has associated with it.
+
+Welp, that's the end of my endeavor. If I wanted to push further, I'd probably resign
+everything inside Xcode with my own cert and see if anything breaks or uses private entitlements,
+but there's probably something and it seems like a waste of time. I could also try to disable SIP.
+That would definitely work, but I'd rather not turn off
+security for my whole system.
+
+Oh well. Perhaps someone smarter and / or with access to an apple signing certificate will come up with a solution.
+Until then, time to think about other matters every time Xcode decides to lock the UI on a package refresh.
