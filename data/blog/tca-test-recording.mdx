@@ -1,0 +1,311 @@
+---
+title: 'TCA test recording'
+date: '2023-05-15'
+tags: ['Swift', 'iOS', 'TCA']
+draft: false
+summary: 'If you record all of the actions in an app, assert all of the states at every step, and record all of the side effects, you can replay the recording in a test and verify that the app behaves the same way and investigate why. This is a post about how I built a test recorder for TCA.'
+---
+
+One of the selling points of The Composable Architecture is its comprehensive testability. 
+You can test any action submitted to a store and the result of its long-run effects, as well as stub dependencies
+to get a completely isolated and reproduceable test.
+
+Writing these tests can be very rote, however. A common app has a lot of actions, effects, and interactions with dependencies.
+Replicating all of these in a test can be a lot of work, and it's easy to forget to test something that doesn't match the way
+effects are set up to fire in the app.
+
+This is where test recording comes in. The idea is that you can run your reducer, and it will record all the actions and effects
+that occur. You can then replay these in a test, and verify that the same actions and effects occur.
+Because most apps also interact with the outside world through dependencies, a recorder should also be able to record
+the effects of these dependencies, and replay them in a test.
+
+In this post, I'll go over the design of a test recorder for TCA, and the challenges I ran into while building it.
+
+## Design
+
+There's a few possible models for recording. We have a few goals guiding us:
+    - Completeness: We have to record every state, action, and dependency.
+    - Ease of use: We want to be able to replay the recording in a test as automatically as we can. That means we should either have codegen or have some generic representation that can be generically played back in a dedicated test function.
+    - Source of truth: We want to be able to record in a way that doesn't interfere with the app's normal operation, and the recording should mimic the app's normal operation (without the recorder running) as closely as possible.
+
+First, the actions and states should conform to codable, so we can serialize them in the recorder.
+Slightly more tricky are the dependencies, but we'll get to that later.
+For now, let's consdier how to record.
+
+## Recording
+
+A requirement implicit in the _Source of truth_ goal is that the actions and their result states should be recorded in-order.
+This means any implementation should be sequential. If we were to record actions and states fully in parallel, that would
+leave us vulnerable to data races that would prevent the in-order guarantee.
+
+There are several possible models:
+### Critical path blocking
+
+In the reducer body, we serialize the current state and write it to the file.
+
+Pros:
+    - Simple
+    - No extra copies of objects
+    - Super super easy to show no races
+
+Cons:
+    - Violation of source of truth: the main thread is blocked while we serialize, so the app will not behave the same way as it would without the recorder.
+
+We will only consider non-blocking from now on.
+
+### Global serial worker
+Enqueue each state and action onto a global channel, and have a single worker pull from this channel, serialize, and dump.
+
+Pros:
+    - Relatively low memory ish - you don't have to store extra json copies
+    - Not complex - just have one submission channel
+
+Cons:
+    - Yeah but you have to store the object copies
+    - No parallelism
+
+### Parallelized encoding, single writer
+Pros:
+    - Less average latency if your encoding is slow
+
+Cons:
+    - Have to store string copies
+    - Have to keep things in order
+    - Kind of complex (given a stream, perform an async map on each element, out of order, but consume in order? Probably not too bad to do but doesn't exactly flow off the top of the head).
+
+Note that for any of the non-parallel solutions, you need copies of the objects to actually perform copies.
+If the objects have, at any level, a mutable reference type, a non-blocking solution could lose data before its recorded.
+
+
+Anyway, we'll go with the global serial worker. It's the easiest to implement, and if speed is an issue we can always change it later.
+
+## Testing the recorder
+
+For testing, I just make a simple app that has a counter and a button to increment it. I then record the actions and states, and replay them in a test.
+I make sure to fail the test if it doesn't match the recording, so we have to test both successful cases and failing cases, where the failing cases are expected to throw an `XCTFail` variant.
+
+We run into a problem testing this! Because of TCA's dynamic stubbing of `XCTFail`, we can't use the provided
+`XCTExpectFailure`. We have to roll our own version of catching `XCTFail` calls.
+
+### Side-quest: Catching `XCTFail` manually
+
+The first step is hoping we get lucky. Just running `br set -r "XCTFail"` yields a private `XCTestCase` API called `handleIssue(_ issue: XCTIssue)`.
+Removing it, or just having it return true or false doesn't do anything, so we'll have to substitute a less obvious method.
+
+I use Lumos to trawl the class lists. We want to look at every loaded selector of every non-UI XCTest* method.
+This is relatively straightforward: 
+```swift
+let classes = Lumos.getAllClasses()
+for clazz in classes {
+    let r = try! Regex("XCTest(?!.XCUI)[a-zA-Z]+")
+    if !String(describing: clazz).matches(of: r).isEmpty {
+        print(clazz)
+        print(Lumos.for(clazz).getMethods().map(\.selector))
+    }
+}
+```
+
+A few jump out: `XCTestObserver` `startObserving` could be useful. Jumping over to
+apple's docs, we see that entire section of the XCT framework is deprecated in favor of a less powerful
+`XCTestObservationCenter`. Lumos reports many many private methods on that, including `_suspendObservation` and `_resumeObservation`.
+We'll try and use those!
+
+It is an abject failure. We just get an "unknown test failure" with no other information.
+
+Fortunately, looking around I'm able to find `_recordIssue(_ issue: XCTIssue)` on an extension of `XCTestCase`.
+Overriding that unconditionally makes all the errors go away! Yay! But we can't call the old implementation! Boo!
+
+I'll create an `ignoreIssueResilient` primitive from Lumos
+
+```swift
+func ignoreIssueResilient(_ execute: () throws -> ()) rethrows {
+    Lumos.swizzle(type: .instance, originalClass: Self.self, originalSelector: NSSelectorFromString("_recordIssue:"), swizzledClass: TestRecordingDummyStore.self, swizzledSelector: #selector(TestRecordingDummyStore._recordIssue(_:)))
+    defer {
+        Lumos.swizzle(type: .instance, originalClass: Self.self, originalSelector: NSSelectorFromString("_recordIssue:"), swizzledClass: TestRecordingDummyStore.self, swizzledSelector: #selector(TestRecordingDummyStore._recordIssue(_:)))
+    }
+    try execute()
+}
+```
+
+and now we can just bask in our glory and WRONG! The swizzled function is never called! ☹️.
+However, if I add `_recordIssue:` to `TestRecordingTests`, the swizzled `_recordIssue:` is called.
+This gave me an idea: `_recordIssue:` is defined as a protocol extension on `XCTestCase`, so could our use of `Self` be hindering us here?
+The answer is yes. Swapping out `Self` with `XCTestCase` gets our original behavior. If you know why, please let me know!
+
+Also, `XCTExpectFailure` leaves a grey X instead of the nice green checkmark at the end. That's kinda sad man! Expected behavior should be green check,
+failure should be red X. Like honestly, the top-level "successful" indicator is now a diamond with a dash instead of the diamond with the check, even though they're
+both successful. I don't get it.
+
+## Dependencies
+
+Anyway, our solution works quite well now, but what about dependencies?
+Specifically, suppose we have some reducer like the following:
+
+```swift
+struct R: ReducerProtocol {
+    // ...
+    @Dependency(\.withRandomNumberGenerator) var rng
+    var body: some ReducerProtocolOf<Self> {
+        Reduce { state, action in
+            switch action {
+            case .randomize:
+                rng {
+                    state.count += Int.random(in: 0...100, using: &$0)
+                }
+                return .none
+            }
+        }
+    }
+}
+```
+
+In a normal TCA test, you'd just stub out the dependency:
+
+```swift
+var rng = SomeSeededRNG()
+store.dependencies.withRandomNumberGenerator = .init(rng)
+```
+
+Strictly speaking, in our test framework, we don't have to do as much as this.
+We don't care about the contents of the dependency, we just care about mocking it.[^1]
+Instead of focusing on the replacement point of a normal test, focus on the usage point in the reducer for any given
+dependency. In the case of a random number generator,
+we care about the stream of random values provided. Replaying that should be sufficient: we don't need the underlying structure because
+it will only be called in the same way as it was in the original test (we recorded the state and actions perfectly, after all, and
+so the reducer codepath should be completely reproduceable and deterministic).
+
+Ideally, we would have our dependencies be of the form `() -> some Codable` and then just write something like
+
+```swift
+// Record
+for dependency in store.dependencies {
+    dependency = { value in 
+        record(value)
+        return value
+    }
+}
+
+// Replay
+let recordedDependencyEvents = //...
+for event in someValidTimeMerge(actionEvents, recordedDependencyEvents) {
+    switch event {
+        case .actionEvent:
+            assertActionHappenedAndResultedInCorrectState()
+        case .dependencyEvent(let dependency, let value):
+            store.dependencies[keyPath: dependency] = { _ in value }
+    }
+}
+```
+
+Sadly, pretty much every part of what we're trying to express doesn't work in Swift!
+    - You can't iterate over dependencies or map it or anything - a `DependencyValues` struct isn't iterable, it's subscriptable over `TestDependencyKey` types, which you can't iterate (despite my frantic efforts with rehabilitating the `types` accessor in the [old Swift reflection library Echo](https://github.com/Azoy/Echo). If we were in Objective-C, lumos could probably do it, but we definitely want to support swift dependencies).
+    - Dependencies can be arbitrary types other than `() -> some Codable`
+    - You can't encode / decode keyPaths, and even if you could it could be a security issue
+
+The solution is vastly less elegant and more tiresome because of these constraints. The code for the random number generator dependency alone looks as follows:
+
+```swift
+struct RecordedRNG: RandomNumberGenerator {
+    let isolatedInner: WithRandomNumberGenerator
+    let submission: (UInt64) -> ()
+    
+    init(_ wrng: WithRandomNumberGenerator, submission: @escaping (UInt64) -> ()) {
+        isolatedInner = wrng
+        self.submission = submission
+    }
+    
+    func next() -> UInt64 {
+        var num: UInt64! = nil
+        isolatedInner { rng in
+            num = rng.next()
+            submission(num)
+        }
+        return num
+    }
+}
+
+struct SingleRNG: RandomNumberGenerator {
+    var n: UInt64?
+    
+    init(n: UInt64) {
+        self.n = n
+    }
+    
+    mutating func next() -> UInt64 {
+        defer {
+            n = nil
+        }
+        return n!
+    }
+}
+
+public enum DependencyAction: Codable, Equatable, DependencyOneUseSetting {
+    case setRNG(UInt64)
+
+    func resetDependency(on deps: inout Dependencies.DependencyValues) {
+        switch self {
+        case let .setRNG(rn):
+            deps.withRandomNumberGenerator = .init(SingleRNG(n: rn))
+        }
+    }
+}
+
+public protocol DependencyOneUseSetting {
+    func resetDependency(on: inout DependencyValues)
+}
+
+func test() {
+    // ...
+
+    let submitter = await SharedThing<AppReducer.State, AppReducer.Action, DependencyAction>(url: logLocation)
+    AppReducer()
+        .record(with: submitter) { values, recorder in
+            values.withRandomNumberGenerator = .init(RecordedRNG(values.withRandomNumberGenerator, submission: { recording(.setRNG($0)) }))
+        }
+        .dependency(\.withRandomNumberGenerator, .init(SequentialRNG()))
+
+    // ...
+}
+```
+
+There's a lot going on here, so let's break it down.
+    1) Because we really, really want dependencies to be in the form `() -> some Codable` but there can be dependencies of arbitrary form, we delegate the transformation to the client. For code reuse, we could probably define some protocol transformation, but for now, just explicit transformations. Because the transformation may be one to many, we simplify by providing a callback to yield any recorded dependency event. This seems simpler, but perhaps we'll change it in the future to a transformation to the enum emission.
+    2) We can't make keypaths codable, so we have to explicity handle each dependency event for playback. We do this through a dependency action enum that holds every possible emitted dependency from any source. When an event is played back, the playback manager calls the `resetDependency` method on the enum, which then sets the dependency to the correct value for a one-time playback of the value. The requirements for the action enum are just codability and having that one time playback method, which should be enough to handle all recordable dependencies.[^2]
+
+A side benefit of this manual approach is that it makes clear exactly which dependencies are opt in.
+This is nice if you have a dependency you don't want to opt in, such as a crash-handling dependency that takes the contents of the log and
+sends it to a server for playback. That probably shouldn't be recorded!
+
+#### Fun fact found in dependency work:
+`(inout (() -> ())) -> ())` gets implicitly transformed to `((inout ()) -> ()) -> ()`, which is just... absolutely not what I want!
+
+## Future work
+
+### Codegen
+Of course, not all dependencies can be explicitly recorded. Some SwiftUI packages will use data sources outside the dependency model without
+a convenient way to stub them (such as the `Firebase` coupling with `SDWebImage`). No dev team has an infinite amount of time,
+so it'd probably be useful to make this tool work for first passes at creating a test, such as the record button for XCode's UI tests.
+This wouldn't be particularly hard: just change the replayer to emit code from the log instead of replay the log in a test harness.
+
+### Interactivity
+Most of TCA will be used to build a system that's tightly coupled to UI, and this tool should help diagnose those coupled UI bugs.
+It'd be nice to have a way to replay the UI events as well, so that you can see the UI state at the time of the bug.
+A ReplayStore, or a PlaybackReducer which emits all of the recorded events at the correct timestep, would be useful for this.
+
+### Time-traveler
+I've seen these for redux and really like them. The idea is that if you're debugging an app and have a log and want to try out different behavior / diverge
+at different points, it would be nice to have a time-travelling debugger.
+Here, you'd have a slider that you could move around to see the state of the app at different points in time and diverge.
+It could be tricky (long-running effects? Cancellations? etc) and may involve just restarting the app at each time travel, but perhaps some things can be done.
+There's probably some tricky effect / cancellation management that would have to go into it, but it may be possible. Perhaps another weekend?
+
+Anyway, the swift package is [on github](https://github.com/JackYoustra/TCATestRecording), so give it a try and let me know what you think!
+
+[^1]: Much like how a normal stub works!
+[^2]: A few points
+    - Right now, we don't assert that it emits once and only once for each record (the forced optional unwrap is an assert that it emits at most once, but we don't track if it emits at all).
+A simple way to do this would be to make every dependency of this type a class and assert that it's been used on deinit, or have a `finish` method like the TCA test store does.
+Anyway, perhaps something later.
+    - Unlike most parts of the replayable structure, we don't require equality, but that could be useful for things in the future.
+    - Not a same-type Codable constraint! Just has to be a value in `DependencyAction`.
+
