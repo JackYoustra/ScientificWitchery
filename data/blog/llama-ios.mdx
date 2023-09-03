@@ -1,0 +1,643 @@
+---
+title: 🦙 on iOS
+date: '2023-08-29'
+tags: ['swift', 'c++', 'iOS', 'LLM']
+draft: false
+summary: I never ended up writing up the stable diffusion port and immensely regretted it, so this time y'alls get to hear about this odyssey of a port.
+---
+
+<TOCInline toc={props.toc} exclude="Introduction" toHeading={2} indentDepth={2} />
+
+# Introduction
+
+So (as of a month ago now) I'm about to go away on vacation, and just got llama-2 (after this, referred to interchangeably as llama) to work on my desktop. It's really cool! I can't wait to try it on my phone.
+Sadly, I can't find any client to get it to run on my iPad or my Phone, so, much like stable diffusion when it came out, I'll have to make one myself.
+
+So, for our toolchain, we'll be using
+ - native SwiftUI for UI (I don't want to introduce any complexity with RN - I'm still a novice at doing these ML ports).
+ - [SwiftData](https://developer.apple.com/xcode/swiftdata/), Apple's iOS 17 replacement for Core Data, for data modeling. It's still in beta, but I want to try it out.
+ - Some local implementation of llama.
+
+# Building
+## Getting llama.cpp to run on a mac
+
+This was really straightforward. Cloning [llama.cpp](https://github.com/ggerganov/llama.cpp),
+quantizing the 70b model to a byte, and building and running the examples with the LLAMA_METAL flag set
+worked out of the box. Hopefully, it's similarly straightforward to run on iOS?
+
+<div className="my-1 w-full overflow-hidden px-2 xl:my-1 xl:w-1/2 xl:px-2">
+    ![How is the 🤖, with over 10k targets, still easier to develop for](/static/images/clueless.webp)
+</div>
+
+## Getting llama.cpp to run on iOS
+
+Looking through the Llama.cpp examples, there's a server chatbot that basically looks like what I want.
+The simplest approach doesn't work: you have no way on iOS of executing bundled binaries,
+so we have to link our code against the llama.cpp library and examples code.
+
+There's a provided `Package.swift`, but it's insufficient for our needs. We want to run with metal acceleration and some exotic quantization types,
+as well as use some other files.
+We could just build the library and link it, but changing the `Package.swift` seems like a nice and neat solution that could
+bring the whole project into xcode.
+Following the `CMakeLists.txt` in llama.cpp, we enable the same flags:[^1]
+
+```swift
+// swift-tools-version:5.9
+
+import PackageDescription
+
+let commonFlags = [
+    "-fno-objc-arc",
+]
+
+let package = Package(
+    name: "llama",
+    platforms: [
+        .macOS(.v11),
+        .iOS(.v14),
+    ],
+    products: [
+        .library(name: "llama", targets: ["llama"]),
+    ],
+    targets: [
+        .target(
+            name: "llama",
+            path: ".",
+            sources: ["ggml.c", "llama.cpp", "ggml-metal.m", "k_quants.c", "examples/common.cpp"],
+            resources: [
+                .process("ggml-metal.metal"),
+            ],
+            publicHeadersPath: "spm-headers",
+            cSettings: [
+                .unsafeFlags(["-Wno-shorten-64-to-32"]),
+                .define("GGML_USE_ACCELERATE"),
+                .define("GGML_USE_METAL"),
+                .define("GGML_METAL_NDEBUG"),
+                .define("GGML_USE_K_QUANTS"),
+                .unsafeFlags(commonFlags),
+            ],
+            cxxSettings: [
+                .unsafeFlags(commonFlags),
+            ],
+            swiftSettings: [
+                .interoperabilityMode(.Cxx),
+            ],
+            linkerSettings: [
+                .linkedFramework("Accelerate"),
+                .linkedFramework("Foundation"),
+                .linkedFramework("MetalKit"),
+                .linkedFramework("MetalPerformanceShaders"),
+            ]
+        ),
+    ],
+    cxxLanguageStandard: .cxx11
+)
+```
+
+[^1]: Additionally, for some reason some of the `.mm` seems to disable ARC?? Very strange, but easy enough to disable.
+
+We also have to turn on the [fancy new Cxx interop announced at 2023 WWDC](https://developer.apple.com/videos/play/wwdc2023/10172/) to use a C++ interface.
+We could probably get away with just ObjC interfaces, but I want to try out the new stuff.
+
+Because we have `unsafeFlags` enabled, we have to change our project package dependency every time we want to tweak the server example code.
+You should be able to just use a local package dependency, but I was unable to get that to work, so we're stuck with pushing and incrementing a commit hash to safely experiment.
+
+From this, we can rename the server's `main` function to something like `doMain` and call that from our swift code, and see if that works. Unfortunately, it doesn't! You [can't open raw http ports on iOS](https://developer.apple.com/forums/thread/653072), so we have to make some changes.
+
+We could refactor the entire thing to just pass around structs instead of serialized strings, but I'd like to change the source as little as possible because ~I'm lazy~ I want to be able to easily update the code and avoid mistakes if upstream changes the server example. We'll just change the http socket callback to a provided function. I couldn't figure out how to bridge Swift closures to Cxx `std::function` types (and, looking at the [Swift protocol type parameter or result types](https://github.com/apple/swift/blob/main/docs/CppInteroperability/CppInteroperabilityStatus.md) section of the docs, I don't think it's possible right now).
+Instead, I'll just use our [old, trusty Objective-C block types](https://developer.apple.com/library/archive/documentation/Cocoa/Conceptual/ProgrammingWithObjectiveC/WorkingwithBlocks/WorkingwithBlocks.html), which act like a convenient function pointer to C and a closure to Swift. The hidden context block pointer is
+very conveniently automatically allocated, packed, and deallocated for you.
+
+The header for our `RunContext` class looks like this:
+
+```cpp
+class RunContext {
+    RunContext();
+public:
+    // dumb thing: just shared ptr and do the normal ctors
+    std::shared_ptr<llama_server_context> llama;
+    
+    // copy ctor
+    RunContext(const RunContext &other) : llama(other.llama) {}
+    
+    // move ctor
+    RunContext(RunContext &&other) : llama(std::move(other.llama)) {}
+    
+    void completion(const char* json_params, CompletionCallback callback);
+    
+    static std::variant<int, RunContext> runServer(int argc, char **argv);
+};
+```
+
+Frustratingly, despite the Swift-Cxx docs saying that there's support for `std::variant`,
+I couldn't find any way to get it to translate into anything resembling swift enums,
+so we have to throw in a couple of helper functions to get it to work.
+
+```cpp
+int getInt(const std::variant<int, RunContext>& v) {
+    if (std::holds_alternative<int>(v)) {
+        return std::get<int>(v);
+    }
+    return 0;
+}
+
+RunContext getRunContext(const std::variant<int, RunContext>& v) {
+    return std::get<RunContext>(v);
+}
+```
+
+Not very fun!
+
+Anyway, because the default server has a global lock, we shouldn't have to worry about synchronization from the swift side
+(although it's probably a good idea to add some kind of synchronization in the future to avoid starvation of the fiber pool).
+
+When I tried writing this in Swift, I ran into a couple of problems:
+ - Swift's implementation of `std::string` seems to have strange memory issues? The json prompt kept getting corrupted.
+I tried using `withExtendedLifetime` to keep the string alive, but that didn't work either. Ultimately, I just switched to using C-strings, which worked.
+ - Swift-cxx has a constructor for a `String` from an `std::string`, but, for mac catalyst (which we'll use for reasons to be seen in the future), it doesn't work.
+I had to write a helper function to convert a `std::string` to a `const char*` in cpp-land and then use `String(cString:)` to get it to work.
+I actually can't guess why this didn't make it into the final mac catalyst release - perhaps they were just using an old version and never got around to updating it?
+
+The full Driver.swift looks like the following:
+```swift
+final actor LlamaInstance {
+    static let shared = LlamaInstance()
+    
+    let initializationTask = Task {
+        let args = [
+           "server",
+            "-m", path_model,
+            "-c", "512",
+            "-ngl", "1",
+            "-v"
+        ]
+        // Create [UnsafeMutablePointer<Int8>]:
+        var cargs = args.map { strdup($0) }
+        // Call C function:
+        let result = RunContext.runServer(Int32(args.count), &cargs)
+        let normieResult = getInt(result)
+        assert(normieResult == 0)
+        let rc = getRunContext(result)
+        // free dups
+        for ptr in cargs { free(ptr) }
+        return rc
+    }
+    
+    // implicitly locked, can just rely on engine lock (unless have to worry about cancel?)
+    func run_llama(prompt: String) async throws -> AsyncThrowingStream<String, Error> {
+        var rc = await initializationTask.value
+        return AsyncThrowingStream { continuation in
+            DispatchQueue.global().async {
+                do {
+                    let coder = JSONEncoder()
+                    var input = JsonInput.input
+                    input.prompt = prompt
+                    let jsonData = try coder.encode(input)
+                    let json = String(data: jsonData, encoding: .utf8)!
+                    // ??? ok so cxxstdlib doesn't do lifetimes well...
+                    withExtendedLifetime(json) {
+                        json.utf8CString.withUnsafeBufferPointer { p in
+                            rc.completion(p.baseAddress) { (s: std.string) in
+                                // ugh catalyst no worky with this
+#if targetEnvironment(macCatalyst)
+                                let c = convertToCString(s)!
+                                let stringTransfer = String(cString: c)
+#else
+                                let stringTransfer = String(s)
+#endif
+                                continuation.yield(stringTransfer)
+                            }
+                        }
+                        continuation.yield(with: .success(""))
+                    }
+                } catch {
+                    continuation.finish(throwing: error)
+                }
+            }
+        }
+    }
+}
+
+let path_model = Bundle.main.path(forResource: "quantized_llama", ofType: "bin")!
+```
+
+## Modeling the data
+
+Now that we've gotten the engine to run, we can start working on the UI.
+We want something that vaguely looks like the messages app, but you're talking with llama.
+To model the data, we'll use simple SwiftData model and lens to a more detailed representation
+at runtime. However, even with a simplified data model, SwiftData still has issues:
+
+- You can't have default values or there's an error for no backing store
+- You can't have cloudkit without default values
+
+This seems like a catch-22, but there's a way around it.
+You can make every value private and optional,
+and expose every value as a non-optional getter and setter, and treat
+nil values as defaults. The compiler will infer the nil default values, which won't trigger the "no backing store" error.
+
+The transformation goes from
+```swift
+@Model
+final class Chat {
+    @Attribute(.unique) var id: UUID
+    var timestamp: Date
+    var messages: [String]
+    var isAnswering: Bool
+}
+```
+
+to
+
+```swift
+@Model
+final class Chat {
+    @Attribute(.unique) var id: UUID
+    var _timestamp: Date?
+    var _messages: [String]?
+    var _isAnswering: Bool?
+    
+    @Transient
+    var timestamp: Date {
+        get { _timestamp ?? .now }
+        set { _timestamp = newValue }
+    }
+    
+    @Transient
+    var messages: [String] {
+        get { _messages ?? [] }
+        set { _messages = newValue }
+    }
+    
+    @Transient
+    var isAnswering: Bool {
+        get { _isAnswering ?? false }
+        set { _isAnswering = newValue }
+    }
+}
+```
+
+## Working on the UI
+I don't want to spend much time on the chat apps, so I went looking around for a SwiftUI chat framework.
+The two I found were [Exyte chat](https://github.com/exyte/Chat) and [SwiftyChat](https://github.com/EnesKaraosman/SwiftyChat).
+Both of them didn't support native MacOS (although SwiftyChat declared native support only to fail on build?).
+My initial aspiration was getting this to work with both native macOS and iOS, via SwiftUI's interoperability,
+but I had to switch to mac catalyst after I couldn't find a native macOS chat framework.
+
+I wrote my code to work with either and allow the user to pick which one they wanted to use, but both had significant issues!
+
+Exyte had random crashes and inconsistencies (I think their manual table cell refreshing was flawed), as well as the frustrating
+decision to name their module and chat struct "Chat", conflicting with my own chat struct and making it impossible to use my
+chat struct and import their module in the same file.
+
+SwiftyChat did no caching and had bad performance and memory usage, especially when aware text was enabled.
+
+I kept both of the chat options available, but I decided to roll my own basic chat, just to have something that worked.
+This involved figuring out how lots of animations and scrolling and such worked. I didn't want to have to create a whole new chat every time I tried out the app, so we needed to stub the llama engine during tests.
+
+### Dependency management
+
+I enjoy iterating with SwiftUI previews instead of having to manually create huge chats out of different runs of the app to show different states.
+We can get the previews to work with SwiftData, but it'd be nice to preview what it looks like when it's actually running
+or incrementally responding. I used TCA's [dependency](https://github.com/pointfreeco/swift-dependencies) library to do this,
+and defined a stream to represent a chat response. For example, a chat response of "Hi, my name is llama" would be roughly equivalent
+to
+
+```swift
+zip(
+    [
+        "Hi",
+        "my",
+        "name",
+        "is",
+        "llama"
+    ].async,
+    SuspendingClock().timer(1.0)
+).map(\.0)
+```
+modulo Swift's [AsyncAlgorithms](https://github.com/apple/swift-async-algorithms) package.
+
+For actual mock data, I used [LoremSwiftum](https://github.com/lukaskubanek/LoremSwiftum) in the spirit of apple,
+and a space-separated markdown sample for the markdown preview.
+
+### Markdown support
+
+Because llama's chat engine supports markdown output and the other chat UIs support markdown text, I wanted to add markdown support.
+My first instinct was to use Apple's built-in markdown engine, but the support was very very limited![^3]
+
+[^3]: If I were doing this seriously, I would've used TCA and used a snapshot test / recorder to have super synced-up scrolling.
+    Alas, manual time this time. Actually lining them up and labeling them was a *bear* getting this to work in ffmpeg. The final command is:
+    ```bash
+    ffmpeg -i no\ markdown.mov -i apple\ markdown.mov -i github\ markdown.mov -filter_complex "[0:v] drawtext=text='Plaintext':fontsize=64:x=w/2-text_w/2:y=h/10-text_h/2:fontcolor=red [a]; [1:v] drawtext=text='Apple':fontsize=64:x=w/2-text_w/2:y=h/10-text_h/2:fontcolor=red [b]; [2:v] drawtext=text='MarkdownUI':fontsize=64:x=w/2-text_w/2:y=h/10-text_h/2:fontcolor=red [c]; [a] [b] [c] hstack=inputs=3 [out];" -map "[out]" -c:v libvpx-vp9 -b:v 0 -crf 30 -pass 1 -an -f null /dev/null && \
+    ffmpeg -i no\ markdown.mov -i apple\ markdown.mov -i github\ markdown.mov -filter_complex "[0:v] drawtext=text='Plaintext':fontsize=64:x=w/2-text_w/2:y=h/10-text_h/2:fontcolor=red [a]; [1:v] drawtext=text='Apple':fontsize=64:x=w/2-text_w/2:y=h/10-text_h/2:fontcolor=red [b]; [2:v] drawtext=text='MarkdownUI':fontsize=64:x=w/2-text_w/2:y=h/10-text_h/2:fontcolor=red [c]; [a] [b] [c] hstack=inputs=3 [out];" -map "[out]" -c:v libvpx-vp9 -b:v 0 -crf 30 -pass 2 -c:a libopus output.webm
+    ```
+    And it turned out to not be needed, as I decided to just use av1 and get the smallest possible bitrate
+    ```
+    -c:v libsvtav1 -crf 63
+    ```
+
+    The amount of control is pretty great, though. Hopefully NanoFlick eventually migrates to ffmpeg.
+
+I ended up using [MarkdownUI](https://github.com/gonzalezreal/swift-markdown-ui). It's got great theming and support for
+markdown.
+
+<video controls loop>
+<source src="/static/videos/markdown comparison.webm"/>
+</video>
+
+Anyway, it ultimately turned out pretty good.
+
+<div className="my-1 w-full overflow-hidden px-2 xl:my-1 xl:w-1/2 xl:px-2">
+    ![Not quite the messages app, but much more stable than the alternative frameworks](/static/images/chat-app.webp)
+</div>
+
+Making the chat menu was just a simple SwiftUI list.
+
+### iOS 16 support
+
+SwiftData and the new `Observable` macro aren't backwards compatible across OS versions,
+so to support iOS 16 I had to duplicate every model and write the `@Bindable` as `@Binding` instead.
+For the data store, I did a simple handwritten file-backed data store where every chat is a json file of the converrsation.
+Easily done! Just a little annoying to do.
+
+# Testing on M2 mac
+
+The first step was to run the app as an M2 mac running as a catalyst app. Because it's the same machine, we should be able to get the same performance as the sample reference app. Sadly, it was not to be.
+
+## 🐞🐛🐜 (bug bug slowdown bug)
+
+One last problem: the code on the iOS app and the server sample are basically the same, and yet we see a huge slowdown with
+the same prompt and the same model! Fruitless hours are spent looking for any problems with my modifications to the server sample,
+so time to fire up instruments.
+
+We can track a symptom down to `ggml_fp16_to_fp32`:
+on the server example it takes 85ms over the lifespan of a session, whereas on the app it takes 6.5 seconds.
+The function seems to be defined as a simple float cast, but I have my suspicions!!!
+I can't find an easy way to check, so into the assembly we gooooooooo
+
+server example:
+```asm
+000000010007ac20 <_ggml_fp16_to_fp32>:
+10007ac20: 1ee24000     fcvt    s0, h0
+10007ac24: d65f03c0     ret
+```
+
+iOS app:
+```asm
+_ggml_fp16_to_fp32:
+1001b3aa8:      e8 1d 00 d0     adrp    x8, 958 ; 0x100571000
+1001b3aac:      09 c9 43 f9     ldr     x9, [x8, #1936]
+1001b3ab0:      29 05 00 91     add     x9, x9, #1
+1001b3ab4:      09 c9 03 f9     str     x9, [x8, #1936]
+1001b3ab8:      00 40 e2 1e     fcvt    s0, h0
+1001b3abc:      c0 03 5f d6     ret
+```
+
+[Godbolt](https://godbolt.org/z/9GGfTE8bd) (and the ARM reference) confirms the server's example is optimal.
+
+So it looks like the iOS app is doing some kind of reference counting? I can't think of why else there'd be an increment. I'm not sure, but it's definitely not good. Lets look at the compile command used for the app, and see if we can get godbolt to change its output.
+
+And we do! The offending flag [turned out to be](https://godbolt.org/z/a58zzMTMz)
+`-fprofile-instr-generate`
+...damn. I feel like a bit of a fool now,[^5] it's just incrementing a performance counter.
+For a comparable test, we should probably turn that off! As we've [discussed before](/blog/recursive-metal-includes),
+all of the default compiler flags for different compile commands (such as "compile a swift file") are in
+Xcode's bundled `XCBSpecifications.ideplugin` file. As the vast majority of applications rely on the default
+flags, these files are essentially uneditable unless in very specific circumstances. Additionally, you can't change any of the commands
+from the default in SPM, as far as I know.
+
+Fortunately, we can *add* flags. Specifically, the `-fno-profile-instr-generate` flag, which negates an earlier profiling flag.
+So, all we have to do is change our `Package.swift` file from earlier and add `-fno-profile-instr-generate` to the `commonFlags` array.
+Now all we have to do is get lucky and hope that `.unsafeFlags` is defined as coming after the default flags.
+
+We are lucky, and an inspection of the assembly verifies the fix.
+
+Running it again, we get a prompt eval time of 51 ms per token, waaaayyyy down from the earlier few seconds per token and
+in-line with the server example.
+
+[^5]: Remember that earlier decision to compile the server example with Package.swift instead of linking the static library compiled by CMake? We could've avoided all this pain if we'd done that, so perhaps a mistake.
+
+## 🏞️ Exploring new grounds, the iPad 🌄
+
+Now, we compile for the next most powerful device, my iOS 17 M2 iPad. It crashes immediately.
+This was expected: I ran into it when making my earlier stable diffusion port.
+In order to run high-memory applications, you need a high memory applications entitlement[^4].
+Turning that on also causes it to crash because the GPU runs out of decoder memory. Changing the decoding context to 1024 tokens
+(for now) fixes that. However, it now runs quite quite slow, about a word every thirty seconds.
+Inspecting the quick-look run instruments in xcode, we see that the disk is consistently active at 1gb read per second, even
+after the model is already loaded.
+
+[^4]: I couldn't figure out why? Could someone let me know why?
+
+I suspect that the virtual memory cache of the mmap'ed file is thrashing, so let's verify that guess with the system trace instrument.
+
+The instruments say basically that: the system is paging in 1gb of memory every second from our model file.
+Lets try pinning the model file in memory with `mlock` and see if that helps.
+
+It... isn't slow anymore, it just crashes. I suspect it's out of memory? Checking the allocations instrument shows that the
+slow version only has 1.35gb allocated at any given time. Perhaps we should look into that?
+Every time, it peaks at 1.35gb of allocation and pages the rest.
+
+A quick look at a [blog on virtual memory in iOS](https://alwaysprocessing.blog/2022/02/20/size-matters)
+shows that the address space is far smaller than I'd expect. Perhaps this is the issue?
+It mentions the use of an extended virtual addressing entitlement[^4] to get more address space, so lets try that.
+
+In any event, if we want to get this to run on my old iPhone Xs (4gb ram), we're going to have to use a smaller model. Q3_K_M clocks in
+at around 3gb with similar amounts of perceptual loss as 4 bit quantization, so lets try that.
+
+It works! We can find out why the memory is the size that it is by looking at a diagnostic:
+mem required  = 3463.85 MB (+  512.00 MB per state).
+
+We can further see the breakdown in the log output
+
+ggml_metal_add_buffer: allocated 'data            ' buffer, size =  2048.00 MB, offs =            0
+ggml_metal_add_buffer: allocated 'data            ' buffer, size =  1184.42 MB, offs =   2039939072, ( 3233.06 /  5461.34)
+ggml_metal_add_buffer: allocated 'eval            ' buffer, size =    10.17 MB, ( 3243.23 /  5461.34)
+ggml_metal_add_buffer: allocated 'kv              ' buffer, size =   514.00 MB, ( 3757.23 /  5461.34)
+ggml_metal_add_buffer: allocated 'scr0            ' buffer, size =   164.00 MB, ( 3921.23 /  5461.34)
+ggml_metal_add_buffer: allocated 'scr1            ' buffer, size =   160.00 MB, ( 4081.23 /  5461.34)
+
+Or, in excel form,
+
+| buffer name | size | offset | total size |
+| ----------- | ---- | ------ | ---------- |
+| data | 2048.00 MB | 0 | 2048.00 MB |
+| data | 1184.42 MB | 2039939072 | 3232.42 MB |
+| eval | 10.17 MB | 0 | 3242.59 MB |
+| kv | 514.00 MB | 0 | 3756.59 MB |
+| scr0 | 164.00 MB | 0 | 3920.59 MB |
+| scr1 | 160.00 MB | 0 | 4080.59 MB |
+
+This out of the recommended amount of 5.4gb of memory for the iPad before things start getting unstable.
+
+So we're using the 3.4gb that the Q3_K_M weights need, plus a half gig for the key value cache, and another ~half gig for the scratch space.
+
+Okay, that works! However, bumping up the kv cache to store a context of 2048 leads to (less severe) paging behavior.
+This is strange - we're well into our memory limit of 5.4gb (on a 8gb ipad, strangely), and we're still getting evicted.
+Maybe `mlock` will help here?
+
+It does! No paging performance problems anymore and it runs nice and quickly.
+
+I'm curious how far we can push this - we'll try a context size of 3378, and see if it runs within our 5.4 `ggml_metal_add_buffer` limit (the MPS recommended size).
+It doesn't![^6] The app probably needs some overhead. How does mmm about a half gig work? Still doesn't.
+
+[^6]: The app actually never crashed with a memory error; iOS either froze or panic'ed. It should probably not do that? I'm not sure what the POSIX standard is for `mlock`ing (slightly) more memory than is available, but it's probably some variant of OOM killing that doesn't involve bringing down the rest of the system.
+
+It looks like 2048 is the sweet spot: 3gb for the rest of the system (5gb for our app), and of that, 3gb for the model, 1gb for the kv cache, and 1gb for other app stuff.
+
+This, however, is quite worrying for the iPhone Xs that's my lowest-end device. It has 4gb of ram, and we're using 5gb of ram.
+I originally have a sliver of hope: using the q2_k quantization, we get 2.7gb of memory usage, and if the system is more
+conservative and we chop down our context to something unreasonable like 256 or 512, with some luck we can get it to run.
+
+Sadly, we foolishly blew all of our luck budget on getting the swift compile command to work way earlier.
+`maxRecommendedWorkingSet` returns ~2.5gb, so there's no combination of quantization and context size that will run comparably on the iPhone Xs.
+We can remove `mlock` from a subsection and get it to run, but that will just thrash the page cache and run very slowly overall. (Additionally, we got `Compiler failed to build request` on our shader pipelines, so there's probably a correctness issue too).
+
+Looking at the [memory allocations for different phones](https://9to5mac.com/2022/12/31/iphone-ram-list/),
+we see that around half of the iOS 17 phones won't be supported 😕. If we really want,
+we could find a 3b or 4b model and try quantizing that to 4 bytes or something, but lets punt that later. We're trying to get 
+Llama to run, after all, and if we can only run it on 12+ pros, that's fine.
+ - - -
+Actually, after a night sleep, I really really want to get it to run after all.
+I got a [4-bit quantized version of llama-3b](https://huggingface.co/SlyEcho/open_llama_3b_ggml/tree/main), which comes at 1.7gb of memory usage.
+It works and runs and all that good stuff!
+Sadly, we still run into that `Compiler failed to build request` error that causes a crash.
+Further investigation in console yields 
+
+```
+default	16:29:27.277291-0700	MTLCompilerService	Build request: pipeline
+debug	16:29:27.279575-0700	MTLCompilerService	dyld image path for pointer 0x2063e7918 is /System/Library/PrivateFrameworks/MTLCompiler.framework/MTLCompiler
+debug	16:29:27.279812-0700	MTLCompilerService	dlfcn check load bundle CFBundle 0x28300c380 </System/Library/PrivateFrameworks/MTLCompiler.framework> (not loaded), dlopen of /System/Library/PrivateFrameworks/MTLCompiler.framework/MTLCompiler mode 0x115 getting handle 0x170a0386312df1
+debug	16:29:27.280177-0700	MTLCompilerService	dlfcn check load bundle CFBundle 0x2830080e0 </System/Library/Frameworks/Metal.framework> (not loaded), dlopen of /System/Library/Frameworks/Metal.framework/Metal mode 0x115 getting handle 0x1d47838634c7a9
+debug	16:29:27.280643-0700	cfprefsd	Process 519 (MTLCompilerService) sent a request related to { com.apple.MTLCompilerService, user: mobile, kCFPreferencesCurrentHost, /Library/Managed Preferences/mobile/com.apple.MTLCompilerService.plist, managed: 1 } (0x6e6d20120)
+debug	16:29:27.280716-0700	cfprefsd	Couldn't open <private> due to No such file or directory
+debug	16:29:27.280775-0700	cfprefsd	Process 519 (MTLCompilerService) sent a request related to { com.apple.MTLCompilerService, user: kCFPreferencesAnyUser, kCFPreferencesCurrentHost, /Library/Managed Preferences/com.apple.MTLCompilerService.plist, managed: 1 } (0x6e6d20120)
+debug	16:29:27.280843-0700	cfprefsd	Couldn't open <private> due to No such file or directory
+debug	16:29:27.280900-0700	cfprefsd	Process 519 (MTLCompilerService) sent a request related to { com.apple.MTLCompilerService, user: mobile, kCFPreferencesAnyHost, /var/mobile/Library/Preferences/com.apple.MTLCompilerService.plist, managed: 0 } (0x6e6d201c0)
+debug	16:29:27.281044-0700	cfprefsd	Couldn't open <private> due to No such file or directory
+debug	16:29:27.281362-0700	cfprefsd	Process 519 (MTLCompilerService) sent a request related to { com.apple.MTLCompilerService, user: kCFPreferencesAnyUser, kCFPreferencesCurrentHost, /var/preferences/com.apple.MTLCompilerService.plist, managed: 0 } (0x6e6e21570)
+debug	16:29:27.281475-0700	cfprefsd	Couldn't open <private> due to No such file or directory
+debug	16:29:27.281699-0700	MTLCompilerService	CFPrefsManagedSource<0x282719b80> (Domain: com.apple.MTLCompilerService, User: kCFPreferencesCurrentUser, ByHost: Yes, Container: (null), Contents Need Refresh: No) loaded: an empty base plist and no additional changes from the base plist
+debug	16:29:27.281769-0700	MTLCompilerService	CFPrefsManagedSource<0x28271a400> (Domain: com.apple.MTLCompilerService, User: kCFPreferencesAnyUser, ByHost: Yes, Container: (null), Contents Need Refresh: No) loaded: an empty base plist and no additional changes from the base plist
+debug	16:29:27.281833-0700	MTLCompilerService	CFPrefsPlistSource<0x282719800> (Domain: com.apple.MTLCompilerService, User: kCFPreferencesCurrentUser, ByHost: No, Container: (null), Contents Need Refresh: No) loaded: an empty base plist and no additional changes from the base plist
+debug	16:29:27.281944-0700	MTLCompilerService	CFPrefsPlistSource<0x28271a580> (Domain: com.apple.MTLCompilerService, User: kCFPreferencesAnyUser, ByHost: Yes, Container: (null), Contents Need Refresh: No) loaded: an empty base plist and no additional changes from the base plist
+debug	16:29:27.282001-0700	MTLCompilerService	looked up value <private> for key AppleLanguages in CFPrefsPlistSource<0x28271f700> (Domain: kCFPreferencesAnyApplication, User: kCFPreferencesCurrentUser, ByHost: No, Container: (null), Contents Need Refresh: No) via CFPrefsSearchListSource<0x282719900> (Domain: com.apple.MTLCompilerService, Container: (null))
+debug	16:29:27.282143-0700	MTLCompilerService	Language lookup at <private>
+	Localizations : [English]
+	Dev language  : English
+	User prefs    : [en-US, zh-Hans-US]
+	Main bundle   : [<null>]
+	Allow mixed   : 0
+	Result        : [English]
+debug	16:29:27.282210-0700	MTLCompilerService	Language lookup at <private>
+	Localizations : [en]
+	Dev language  : English
+	User prefs    : [en-US, zh-Hans-US]
+	Main bundle   : [English]
+	Allow mixed   : 0
+	Result        : [en]
+debug	16:29:27.282274-0700	MTLCompilerService	Using ~iphone resources
+debug	16:29:27.282382-0700	DTServiceHub	Data Size: 0, Rows Sent: 0, Stack depth: 12
+debug	16:29:27.282641-0700	MTLCompilerService	Resource lookup at <private>
+	Request       : MTLRaytracingRuntime type: rtlib
+	Result        : file:///System/Library/Frameworks/Metal.framework/MTLRaytracingRuntime.rtlib
+fault	16:29:27.288387-0700	MTLCompilerService	Encountered unlowered function call to <private>
+error	16:29:27.288508-0700	illama	Compiler failed to build request
+```
+
+I'm guessing that the `file not found` on the private symbol could be a problem?
+Lets look at the equivalent on the iPad and see if we can find any differences?
+My iPad is running iOS 17, so it won't be a perfect comparison, but it's the best I can do until
+an iOS 16 device is available to test.
+
+It's a lot more boring
+
+```
+default	16:50:22.154588-0700	MTLCompilerService	Build request: pipeline
+default	16:50:22.235677-0700	MTLCompilerService	Compilation (pipeline) time 80.539416 ms
+```
+
+But that's probably because I came way too late in the process. Lets try again after a restart.
+
+```
+default	16:53:33.216581-0700	MTLCompilerService	Build request: pipeline
+debug	16:53:33.216972-0700	MTLCompilerService	dyld image path for pointer 0x1d3804884 is /System/Library/PrivateFrameworks/MTLCompiler.framework/MTLCompiler
+debug	16:53:33.217122-0700	MTLCompilerService	dlfcn check load bundle CFBundle 0xcee200540 </System/Library/PrivateFrameworks/MTLCompiler.framework> (not loaded), dlopen of /System/Library/PrivateFrameworks/MTLCompiler.framework/MTLCompiler mode 0x115 getting handle 0x760003ffe15851
+debug	16:53:33.217300-0700	MTLCompilerService	dlfcn check load bundle CFBundle 0xcee200620 </System/Library/Frameworks/Metal.framework> (not loaded), dlopen of /System/Library/Frameworks/Metal.framework/Metal mode 0x115 getting handle 0x4f0003ffefcab1
+debug	16:53:33.217729-0700	MTLCompilerService	CFPrefsManagedSource<0xcee02c8c0> (Domain: com.apple.MTLCompilerService, User: kCFPreferencesAnyUser, ByHost: Yes, Container: (null), Contents Need Refresh: No) loaded: an empty base plist and no additional changes from the base plist
+debug	16:53:33.217758-0700	MTLCompilerService	CFPrefsPlistSource<0xcee02caa0> (Domain: com.apple.MTLCompilerService, User: kCFPreferencesAnyUser, ByHost: Yes, Container: (null), Contents Need Refresh: No) loaded: an empty base plist and no additional changes from the base plist
+debug	16:53:33.217791-0700	MTLCompilerService	CFPrefsManagedSource<0xcee02c6e0> (Domain: com.apple.MTLCompilerService, User: kCFPreferencesCurrentUser, ByHost: Yes, Container: (null), Contents Need Refresh: No) loaded: an empty base plist and no additional changes from the base plist
+debug	16:53:33.217812-0700	MTLCompilerService	CFPrefsPlistSource<0xcee02c960> (Domain: com.apple.MTLCompilerService, User: kCFPreferencesCurrentUser, ByHost: No, Container: (null), Contents Need Refresh: No) loaded: an empty base plist and no additional changes from the base plist
+debug	16:53:33.217936-0700	MTLCompilerService	looked up value <private> for key AppleLanguages in CFPrefsPlistSource<0xcee02c3c0> (Domain: kCFPreferencesAnyApplication, User: kCFPreferencesCurrentUser, ByHost: No, Container: (null), Contents Need Refresh: No) via CFPrefsSearchListSource<0xcee02c780> (Domain: com.apple.MTLCompilerService, Container: (null))
+debug	16:53:33.218013-0700	MTLCompilerService	Language lookup at <private>
+	Localizations : [English]
+	Dev language  : English
+	User prefs    : [en-US, zh-Hans-US]
+	Main bundle   : [<null>]
+	Allow mixed   : 0 
+	Result        : [English]
+debug	16:53:33.218053-0700	MTLCompilerService	Language lookup at <private>
+	Localizations : [en]
+	Dev language  : English
+	User prefs    : [en-US, zh-Hans-US]
+	Main bundle   : [English]
+	Allow mixed   : 0 
+	Result        : [en]
+debug	16:53:33.218072-0700	MTLCompilerService	Using ~ipad resources
+debug	16:53:33.218110-0700	MTLCompilerService	Resource lookup at <private>
+	Request       : MTLRaytracingRuntime type: rtlib
+	Result        : file:///System/Library/Frameworks/Metal.framework/MTLRaytracingRuntime.rtlib
+default	16:53:33.219360-0700	MTLCompilerService	Compilation (pipeline) time 8.889708 ms
+```
+
+There doesn't seem to be any difference at the failed step! It's probably an OS issue with the `MTLCompilerService`.
+As a last-gasp effort, I'll try to find that string in the `MTLCompilerService` binary on my mac at
+```
+/System/Library/Frameworks/Metal.framework/Versions/A/XPCServices/MTLCompilerService.xpc/Contents/MacOS/MTLCompilerService
+```
+A quick inspection reveals the likely culprit source file, `MTLCompilerService.mm`, which can't be found anywhere online.
+
+If we truuuly wanted to make this work, we'd probably try and precompile the shader files AOT and then load them in at runtime.
+At the very least, this would allow us to dive deep more into what compiler bug[^2] is causing this shader to not work.
+Alternatively, we could use something like [Naga](https://github.com/gfx-rs/naga) and compile them to SPIR-V, before
+compiling them back to metal and hoping that the compiler (1) doesn't fail then and (2) we don't suffer too much of a
+penalty from the extra compilation step.
+
+[^2]: It's probably a compiler bug? It works on the iPad and the metal is the same...
+
+Seeing how these errors changed in the past from [os to os](https://github.com/xmartlabs/Bender/issues/38), hopefully
+it'll be fixed in the future. For now, we'll just have to live with the fact that we can't run on iOS 16.[^7]
+
+[^7]: Note that, once again, this wouldn't have happened with javascript (see: https://milhidaka.github.io/webgpu-blas/).
+    Next time I do an ML project, I'll probably use some webview solution instead.
+
+## *Or can we*
+
+I used some of my family's other devices and verified that it ran on iOS 16, on both an M-series iPad and an A-series iPhone 13.
+I'm now really really unsure why it didn't work on my old phone. It could be space, memory, or something to do with that particular
+line of phones. I'm not sure, but it's not a problem with the OS version.
+In any event, this is good enough to ship!
+
+iPad | iPhone
+:-------------------------:|:-------------------------:
+![It works on the iPad...](/static/images/ipad-works.webp) | ![...as well as the iPhone](/static/images/iphone-works.webp)
+
+This piqued my curiousity, and I modified the llama.cpp library to spit out many more logger errors, and I got
+`AGXMetalA12 Code=3 "Encountered unlowered function call to air.simd_sum.f32"` on my iPhone Xs.
+The culprit is likely `all_sum = simd_sum(all_sum);` in `kernel_rms_norm` in the `ggml_metal.metal` file.
+How strange! That almost certainly means that it's tied to the exact chip. Maybe it has to do with an ISA extension? Please contact me if you know!
+In any event, a way around it is probably [just rewriting the function](https://betterprogramming.pub/optimizing-parallel-reduction-in-metal-for-apple-m1-8e8677b49b01),
+so perhaps I'll intergrate that at some point.
+
+# Conclusions
+    - It would be really, really nice to have a different run scheme for previews. Having to remember to change back and forth between debug and release when running on previews (inference stubbed) vs on the phone (inference enabled) was frustrating and terrifying when I'd believed it was a performance regression.
+    - Theoretically, we probably could perform pretty well if we used a different cache policy for the virtual memory page cache, but I'm not sure how to do that. A quick look at the [xnu sources](https://github.com/apple-oss-distributions/xnu/blob/main/osfmk/vm/vm_purgeable.c) don't show any obvious way to modify the page cache policy (in fact, it looks like it's pretty hardcoded in). I could probably write my own cache handler, but that's a lot lot lot of work - I'd have to either do a huge edit of the code or write my own segfault handler or something like that. Perhaps another day, especially when I can just quantize more or work on NanoFlick.
+    - iOS is, as usual, pretty buggy
+    - It's very very possible to achieve near-laptop performance with llama.cpp, but....
+    - ...there are opaque memory restrictions that make it very hard to load a model with any good quality in phone memory without a tailor-made caching solution.
+    - OS page caching policies are immutable.
+    - SwiftData is not ready for primetime! Hopefully soon.
+    - Neither is Swift-Cxx, although I didn't really use it in any way that was impossible to use the tried-and-true Swift-C bindings.
+    - There aren't many good open source chat packages.
+
+If anyone wants to try and polish out the rounded corners on this project, let me know!
