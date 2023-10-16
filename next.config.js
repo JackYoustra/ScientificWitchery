@@ -13,7 +13,7 @@ const ContentSecurityPolicy = `
   media-src 'self';
   connect-src *;
   font-src 'self';
-  frame-src giscus.app gcc.godbolt.org;
+  frame-src giscus.app gcc.godbolt.org gist.github.com;
 `
 
 const securityHeaders = [
