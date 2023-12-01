@@ -1,0 +1,198 @@
+---
+title: Fixing uFeature app binary sizes
+date: '2023-11-30'
+tags: ['swift', 'iOS']
+draft: false
+summary: Porting an app to a uFeature architecture leads to a doubling in binary size. Why? How can we fix it?
+---
+
+# Introduction
+
+So right now I'm putting the finishing touches on the TCA rewrite of NanoFlick, and it's looking pretty slick!
+Unfortunately, it's literally double the size! The release executable of NanoFlick is ~80mb, while the release
+executable of NanoFlickTCA is ~175mb!
+
+This is way, way too much of an increase based on what's actually being expressed, so lets try and get it down.
+
+# Diagnosis
+The first port of call is a tool my friend showed me called [bloaty](https://github.com/google/bloaty). It's
+a tool that can analyse the size of a binary and break it down into sections. Here's the output of NanoFlickTCA:
+
+```
+bloaty /Users/jack/Library/Developer/Xcode/DerivedData/NanoFlickTCA-eubkyvwpfwodfccpjvlfzmaqklts/Build/Products/Release-iphoneos/NanoFlickTCA.app/NanoFlickTCA --debug-file /Users/jack/Library/Developer/Xcode/DerivedData/NanoFlickTCA-eubkyvwpfwodfccpjvlfzmaqklts/Build/Products/Release-iphoneos/NanoFlickTCA.app.dSYM/Contents/Resources/DWARF/NanoFlickTCA  -d compileunits
+    FILE SIZE        VM SIZE
+ --------------  --------------
+  61.2%   101Mi  60.7%   101Mi    [__LINKEDIT]
+  24.8%  41.3Mi  24.9%  41.7Mi    [3116 Others]
+   3.6%  5.96Mi   3.6%  5.96Mi    [__TEXT,__text]
+   1.4%  2.37Mi   1.4%  2.37Mi    [__LLVM_COV,__llvm_covfun]
+   1.3%  2.14Mi   1.3%  2.14Mi    [__DATA,__llvm_prf_data]
+   1.1%  1.74Mi   1.0%  1.75Mi    /Users/jack/Library/Developer/Xcode/DerivedData/NanoFlickTCA-eubkyvwpfwodfccpjvlfzmaqklts/SourcePackages/checkouts/firebase-ios-sdk/FirebaseCore/Sources/FIROptions.m
+   1.0%  1.65Mi   1.0%  1.65Mi    [__TEXT,__const]
+   0.8%  1.37Mi   0.8%  1.37Mi    [__DATA,__llvm_prf_names]
+   0.8%  1.26Mi   0.7%  1.26Mi    [__TEXT,__cstring]
+   0.7%  1.14Mi   0.7%  1.14Mi    [__DATA_CONST,__const]
+   0.5%   890Ki   0.5%   890Ki    [__TEXT,__swift5_typeref]
+   0.2%   282Ki   0.4%   693Ki    /Users/jack/Library/Developer/Xcode/DerivedData/NanoFlickTCA-eubkyvwpfwodfccpjvlfzmaqklts/SourcePackages/checkouts/MetalPetal/Sources/MetalPetalObjectiveC/MTIVertex.m
+   0.4%   626Ki   0.4%   626Ki    [__DATA,__llvm_prf_cnts]
+   0.4%   626Ki   0.4%   626Ki    [__DATA,__objc_const]
+   0.4%   613Ki   0.4%   613Ki    [__DATA,__data]
+   0.3%   565Ki   0.3%   565Ki    [__TEXT,__unwind_info]
+   0.2%   281Ki   0.3%   564Ki    /Users/jack/Library/Developer/Xcode/DerivedData/NanoFlickTCA-eubkyvwpfwodfccpjvlfzmaqklts/SourcePackages/checkouts/Aspects/Sources/Aspects/Aspects.m
+   0.2%   256Ki   0.3%   544Ki    /Users/jack/Library/Developer/Xcode/DerivedData/NanoFlickTCA-eubkyvwpfwodfccpjvlfzmaqklts/SourcePackages/checkouts/YoutubePlayer-in-WKWebView/WKYTPlayerView/WKYTPlayerView.m
+   0.3%   525Ki   0.3%   525Ki    /Users/jack/Library/Developer/Xcode/DerivedData/NanoFlickTCA-eubkyvwpfwodfccpjvlfzmaqklts/SourcePackages/checkouts/swift-overture/Sources/Overture/Curry.swift
+   0.3%   508Ki   0.3%   508Ki    /Users/jack/Documents/NanoFlickPrototypes/NanoFlickTCA/Sources/CaptureFeature/Capture.swift
+   0.3%   507Ki   0.3%   507Ki    [__LLVM_COV,__llvm_covmap]
+ 100.0%   166Mi 100.0%   167Mi    TOTAL
+ ```
+
+And here's the output of NanoFlick:
+
+```
+bloaty /Users/jack/Library/Developer/Xcode/DerivedData/NanoFlick-ccweukbolvpvhhbzbqpybnoefatw/Build/Products/Release-iphoneos/NanoFlick.app/NanoFlick --debug-file /Users/jack/Library/Developer/Xcode/DerivedData/NanoFlick-ccweukbolvpvhhbzbqpybnoefatw/Build/Products/Release-iphoneos/NanoFlick.app.dSYM/Contents/Resources/DWARF/NanoFlick -d compileunits
+    FILE SIZE        VM SIZE
+ --------------  --------------
+  37.2%  30.4Mi  37.5%  31.1Mi    [3002 Others]
+  33.8%  27.6Mi  33.4%  27.6Mi    [__LINKEDIT]
+  11.6%  9.45Mi  11.4%  9.45Mi    [__TEXT,__text]
+   5.2%  4.22Mi   5.1%  4.22Mi    /Users/jack/Library/Developer/Xcode/DerivedData/NanoFlick-ccweukbolvpvhhbzbqpybnoefatw/SourcePackages/checkouts/FirebaseUI-iOS/FirebasePhoneAuthUI/Sources/FUIPhoneAuthStrings.m
+   2.4%  1.97Mi   2.4%  1.97Mi    [__TEXT,__const]
+   1.8%  1.46Mi   1.8%  1.46Mi    [__TEXT,__cstring]
+   1.1%   900Ki   1.1%   900Ki    /Users/jack/Documents/NanoFlick/NanoFlick/Logging/AnalyticsManager.swift
+   0.9%   782Ki   0.9%   782Ki    [__DATA,__objc_const]
+   0.9%   762Ki   0.9%   762Ki    [__TEXT,__swift5_typeref]
+   0.7%   555Ki   0.7%   555Ki    /Users/jack/Library/Developer/Xcode/DerivedData/NanoFlick-ccweukbolvpvhhbzbqpybnoefatw/SourcePackages/checkouts/GoogleSignIn-iOS/GoogleSignIn/Sources/GIDAuthentication.m
+   0.6%   534Ki   0.6%   534Ki    [__TEXT,__unwind_info]
+   0.6%   500Ki   0.6%   500Ki    [__TEXT,__objc_methname]
+   0.5%   411Ki   0.5%   411Ki    /Users/jack/Library/Developer/Xcode/DerivedData/NanoFlick-ccweukbolvpvhhbzbqpybnoefatw/SourcePackages/checkouts/GoogleUtilities/GoogleUtilities/Logger/GULLogger.m
+   0.5%   410Ki   0.5%   410Ki    /Users/jack/Documents/NanoFlick/NanoFlick/CaptureView.swift
+   0.5%   392Ki   0.5%   392Ki    [__TEXT,__gcc_except_tab]
+   0.2%   145Ki   0.4%   353Ki    /Users/jack/Library/Developer/Xcode/DerivedData/NanoFlick-ccweukbolvpvhhbzbqpybnoefatw/SourcePackages/checkouts/MetalPetal/Sources/MetalPetalObjectiveC/MTIVertex.m
+   0.4%   345Ki   0.4%   345Ki    /Users/jack/Library/Developer/Xcode/DerivedData/NanoFlick-ccweukbolvpvhhbzbqpybnoefatw/SourcePackages/checkouts/MetalPetal/Sources/MetalPetalObjectiveC/MTIContext.m
+   0.2%   152Ki   0.4%   340Ki    /Users/jack/Library/Developer/Xcode/DerivedData/NanoFlick-ccweukbolvpvhhbzbqpybnoefatw/SourcePackages/checkouts/CombineCocoa/Sources/Runtime/ObjcDelegateProxy.m
+   0.4%   325Ki   0.4%   325Ki    [__DATA,__objc_data]
+   0.4%   295Ki   0.3%   295Ki    [__TEXT,__eh_frame]
+   0.3%   286Ki   0.3%   286Ki    [__TEXT,__constg_swiftt]
+ 100.0%  81.8Mi 100.0%  82.8Mi    TOTAL
+```
+
+So, the first thing to notice is that the `__LINKEDIT` section is much larger in NanoFlickTCA.
+One of the big things we did in TCA was rewrite to a [uFeatures](https://docs.tuist.io/building-at-scale/microfeatures/) architecture to save on compile times.
+A consequence is we have a lot more modules, and therefore a lot more linking to do.
+The `__LINKEDIT` section is where the linker puts all of the symbols that it needs to link to, so it makes sense that it's larger.
+I tried [my normal trick](https://forums.swift.org/t/no-resilience-just-go-fast-compiler-flag/34758?page=2) of adding `-cross-module-optimization` and `-Xllvm -sil-cross-module-serialize-all`, but
+it didn't seem to make much of a difference.
+
+A quick ask to Bing Chat led me to consider that dead code stripping might be the culprit.
+[Some](https://forums.swift.org/t/dead-code-stripping-on-a-dynamic-framework-doesnt-strip-unused-symbols-from-a-linked-static-library-spm/63690)
+[people](https://forums.swift.org/t/why-public-symbols-are-always-no-dead-strip/47264/7) on the Swift forums
+have noticed a similar issue, with the recommended solution being to add `-Xfrontend -internalize-at-link` to the linker flags.[^1]
+
+And that helped nothing! Three megabytes off of the total size shaved off! What gives?
+Cutter was unhelpful at looking at the `__LINKEDIT`, and checking `nm` showed that there were 50% more symbols in NanoFlickTCA than NanoFlick.
+Perhaps that's a culprit? Looking at a diff of the outputs on `nm`, it seems that NanoFlickTCA has a lot more symbols with third-party libraries.
+Apparently those never get stripped! How can I fix that?
+
+Looking at a [blog post from emergetools](https://www.emergetools.com/blog/posts/how-xcode14-unintentionally-increases-app-size), it
+seems like a change introduced in xcode 14 affected apps with uFeatures architectures.
+<sub>I'm a little jealous of their cool size graph, expect to see that a different date on this blog.</sub>
+That sounds like our app! It seems like we can address this problem [by stripping binary symbols](https://docs.emergetools.com/docs/strip-binary-symbols).
+And that fixed it! We're now sitting pretty at 54.5 mb. That's a 120mb reduction, or 68% of the original size!
+```
+bloaty /Users/jack/Library/Developer/Xcode/DerivedData/NanoFlickTCA-eubkyvwpfwodfccpjvlfzmaqklts/Build/Products/Release-iphoneos/NanoFlickTCA.app/NanoFlickTCA --debug-file /Users/jack/Library/Developer/Xcode/DerivedData/NanoFlickTCA-eubkyvwpfwodfccpjvlfzmaqklts/Build/Products/Release-iphoneos/NanoFlickTCA.app.dSYM/Contents/Resources/DWARF/NanoFlickTCA  -d symbols
+    FILE SIZE        VM SIZE
+ --------------  --------------
+  26.3%  13.7Mi  25.7%  13.7Mi    [10583 Others]
+  11.4%  5.92Mi  11.1%  5.92Mi    _MTIVertexEqualToVertex
+   8.9%  4.63Mi   8.7%  4.63Mi    _main
+   8.3%  4.31Mi   8.1%  4.33Mi    [__LINKEDIT]
+   5.8%  3.03Mi   5.7%  3.03Mi    SoundpipeDSPBase::handleMIDIEvent()
+   5.6%  2.91Mi   5.5%  2.91Mi    _sd_executeCleanupBlock
+   4.9%  2.53Mi   4.7%  2.53Mi    _FIRRemoteConfigHasDeviceContextChanged
+   4.6%  2.37Mi   4.4%  2.37Mi    [__LLVM_COV,__llvm_covfun]
+   4.5%  2.36Mi   4.4%  2.36Mi    _GTLR_EnsureNSNumber
+   4.2%  2.16Mi   4.0%  2.16Mi    [__DATA,__llvm_prf_data]
+   2.6%  1.38Mi   2.6%  1.38Mi    [__DATA,__llvm_prf_names]
+   0.0%       0   2.5%  1.35Mi    [__DATA,__bss]
+   2.4%  1.26Mi   2.3%  1.26Mi    [__TEXT,__cstring]
+   2.1%  1.12Mi   2.1%  1.12Mi    _sp_zitarev_compute
+   1.7%   893Ki   1.6%   893Ki    [__TEXT,__swift5_typeref]
+   1.6%   864Ki   1.6%   864Ki    _getVariableFromInstance
+   1.2%   630Ki   1.2%   630Ki    [__DATA,__llvm_prf_cnts]
+   1.2%   625Ki   1.1%   625Ki    [__DATA,__objc_const]
+   1.1%   567Ki   1.0%   567Ki    [__TEXT,__unwind_info]
+   1.0%   507Ki   0.9%   507Ki    [__LLVM_COV,__llvm_covmap]
+   0.7%   394Ki   0.7%   394Ki    [__TEXT,__objc_methname]
+ 100.0%  52.0Mi 100.0%  53.4Mi    TOTAL
+```
+
+Amazing! We're going to want to modify the strip command (we'd really like debug symbols if possible), but this is a great start!
+
+Anyway, this *still* doesn't work because we get an error now when launching! "Bad Executable", it says.
+Just checking that it still runs without the strip command, and it does. So what's going on?
+
+Well, it turns out that the strip command is stripping out the `__LLVM_COV` section, which is used for code coverage.
+I suspect that's causing the issue. Changing the strip command from
+`strip -rSTx`
+to
+`strip -rx`
+seemed to only leave 5MB on the table while preserving the `__LLVM_COV` section, and leading the app to launch.
+Unfortunately, our debug symbols are gone!
+`warning: (arm64) /Users/jack/Library/Developer/Xcode/DerivedData/NanoFlickTCA-eubkyvwpfwodfccpjvlfzmaqklts/Build/Products/Release-iphoneos/NanoFlickTCA.app/NanoFlickTCA empty dSYM file detected, dSYM was created with an executable with no debug info.`
+
+I really really want debug symbols and breakpoint support, so I wonder if there's a way to remove the local symbols without destroying everything else.
+
+
+# A better way
+I got pointed to using... an xcode build flag! [Deployment Postprocessing](https://dennisbabkin.com/blog/?t=macos-programming-xcode-build-schemes-diagnose-memory-corruption-and-crashes#dbg_w_crash_log),
+so I decided to try that out. I'm a little nervous because it's off by default, but I can't see anyone saying anything
+bad about it, so I'm going to try it out.
+
+Op, that was literally exactly what we wanted. 54mb binary, debug symbols, slim `__LINKEDIT` and `__LLVM_COV` sections. Here's the output of bloaty:[^2]
+
+```
+bloaty /Users/jack/Library/Developer/Xcode/DerivedData/NanoFlickTCA-eubkyvwpfwodfccpjvlfzmaqklts/Build/Products/Release-iphoneos/NanoFlickTCA.app/NanoFlickTCA --debug-file /Users/jack/Library/Developer/Xcode/DerivedData/NanoFlickTCA-eubkyvwpfwodfccpjvlfzmaqklts/Build/Products/Release-iphoneos/NanoFlickTCA.app.dSYM/Contents/Resources/DWARF/NanoFlickTCA  -d symbols
+    FILE SIZE        VM SIZE
+ --------------  --------------
+  81.7%  41.8Mi  82.2%  43.2Mi    [419247 Others]
+   7.1%  3.63Mi   6.9%  3.64Mi    [__LINKEDIT]
+   2.7%  1.37Mi   2.6%  1.37Mi    [__DATA,__llvm_prf_names]
+   1.6%   817Ki   1.5%   817Ki    [__TEXT,__cstring]
+   1.1%   564Ki   1.0%   564Ki    [__TEXT,__unwind_info]
+   1.0%   507Ki   0.9%   507Ki    [__LLVM_COV,__llvm_covmap]
+   0.8%   394Ki   0.7%   394Ki    [__TEXT,__objc_methname]
+   0.7%   388Ki   0.7%   388Ki    [__TEXT,__eh_frame]
+   0.5%   277Ki   0.5%   277Ki    firebase::firestore::remote::grpc_root_certificates_generated_data
+   0.5%   236Ki   0.4%   236Ki    [__TEXT,__swift5_reflstr]
+   0.4%   197Ki   0.4%   197Ki    [__TEXT,__swift5_capture]
+   0.3%   171Ki   0.3%   171Ki    _descriptor
+   0.3%   131Ki   0.2%   131Ki    [__DATA_CONST,__cfstring]
+   0.2%   124Ki   0.2%   124Ki    firebase::firestore::util::(anonymous namespace)::kAutoIdAlphabet
+   0.2%   121Ki   0.2%   121Ki    _$s8SwiftUIX12SFSymbolNameO8rawValueACSgSS_tcfCTf4nd_n
+   0.2%   106Ki   0.2%   106Ki    [__TEXT,__objc_methtype]
+   0.2%   102Ki   0.2%   102Ki    _$s4Hero28DefaultAnimationPreprocessorC7process9fromViews02toG0ySaySo6UIViewCG_AItF
+   0.2%  99.6Ki   0.2%  99.6Ki    grpc_core::PercentEncodeSlice()::hex
+   0.2%  90.9Ki   0.2%  90.9Ki    std::__1::__function::__func<>::operator()()
+   0.2%  80.1Ki   0.1%  80.1Ki    [__DATA,__objc_selrefs]
+   0.1%  72.6Ki   0.1%  72.6Ki    std::__1::__function::__func<>
+ 100.0%  51.2Mi 100.0%  52.6Mi    TOTAL
+```
+
+[^2]: I'm not soooo sure about these precise numbers and attributions, but the broad point is that it's a lot smaller.
+
+Actual xcbuild setting from god right there. I'm really curious what it changed.
+Looking at the build logs before and after, the only difference appears to be a
+`Strip NanoFlickTCA` step. We can either look through the xcspec files or just look in the inspector to find out what it does (I want to do both).
+ - In our log, it does just
+```
+/Applications/Xcode-15.0.1.app/Contents/Developer/Toolchains/XcodeDefault.xctoolchain/usr/bin/strip -D /Users/jack/Library/Developer/Xcode/DerivedData/NanoFlickTCA-eubkyvwpfwodfccpjvlfzmaqklts/Build/Products/Release-iphoneos/NanoFlickTCA.app/NanoFlickTCA
+```
+ - It seems to refer to the `StripSymbols` XCSpec! We could've done the strip command inside xcode the whole time.
+I'm a little worried about our debug symbols, but firebase should be able to symbolicate with our full dSYM file.
+
+Anyway, this is a great result! I'm really happy with this.
+I'd have liked this to be the default, but hopefully this blog post will help people who are in a similar situation.
+
+[^1]: They also mentioned using `-Xfrontend -disable-reflection-metadata`, but that has [implications for SwiftUI](https://twitter.com/pointum/status/1347833028006047744) (at least since I last checked),
+so I'm not going to try that. I do wonder, though, if you could opt-in to reflection metadata for TCA only and then, by only observe stores, avoid
+SwiftUI's reliance on reflection metadata. Perhaps a post for a different day?
