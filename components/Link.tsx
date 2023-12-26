@@ -10,11 +10,7 @@ const CustomLink = ({
   const isAnchorLink = href && href.startsWith('#')
 
   if (isInternalLink) {
-    return (
-      <Link href={href}>
-        <a {...rest} />
-      </Link>
-    )
+    return <Link href={href} {...rest} ref={undefined}></Link>
   }
 
   if (isAnchorLink) {
