@@ -1,0 +1,3 @@
+{
+    "buildCommand": "INIT_CWD=$PWD ./vercel_build.sh && next build"
+}

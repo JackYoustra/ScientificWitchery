@@ -79,6 +79,8 @@ module.exports = () => {
         use: ['@svgr/webpack'],
       })
 
+      config.experiments.asyncWebAssembly = true
+
       return config
     },
   })
