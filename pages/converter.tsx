@@ -27,9 +27,19 @@ export default function Converter() {
       </h1>
       <h2>
         Thanks
-        <a className="m-1 font-medium text-blue-600 dark:text-blue-500 hover:underline" href="https://docs.rs/jomini/latest/jomini/">Jomini Rust</a>
+        <a
+          className="m-1 font-medium text-blue-600 hover:underline dark:text-blue-500"
+          href="https://docs.rs/jomini/latest/jomini/"
+        >
+          Jomini Rust
+        </a>
         by
-        <a className="m-1 font-medium text-blue-600 dark:text-blue-500 hover:underline" href="https://nickb.dev/">Nick Babcock</a>
+        <a
+          className="m-1 font-medium text-blue-600 hover:underline dark:text-blue-500"
+          href="https://nickb.dev/"
+        >
+          Nick Babcock
+        </a>
       </h2>
       <div className="h-full w-full">
         <div className="grid h-full grid-cols-2 gap-4">
