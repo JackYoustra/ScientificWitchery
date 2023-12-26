@@ -1,0 +1,66 @@
+---
+title: Choosing iOS project managers
+date: '2023-11-30'
+tags: ['xcode', 'iOS']
+draft: false
+summary: SPM modules are laggy and stuff. Are there better options?
+---
+
+# Introduction
+We've just about finished the rewrite to NanoFlick's TCA port 🎉🥳.
+The only thing left is some UI tests.
+However, making these reveals a blind spot in our project setup! Up until now,
+we've been able to get away with a vanilla `Package.swift` and a shell
+`.xcodeproj` file. However, UI tests are an xcode-specific target type,
+so we have to make these in xcode. For this, we have a few choices:
+
+# Choices
+
+In increasing order of flexibility...
+ - Xcode project
+ - Xcode workspace
+ - SPM project via Xcode project **(we are here)**
+------
+ - [Tuist](https://github.com/tuist/tuist)
+ - [rules_xcodeproj](https://github.com/MobileNativeFoundation/rules_xcodeproj) (just [Bazel](https://bazel.build/))
+
+When trying to have stuff like feature examples and lots of different targets with reproducible and configuable customization options, as well as allowing for environment variables in build flags.
+Basically, everything above the line doesn't allow for this, and everything below the line does.
+For NanoFlick, we're going to just consider anything below the line so we can get neat target configuration options, good build performance, interpretable settings with rich scripting support, and avoid merge conflicts.
+
+That leaves two options: Tuist and Bazel.
+
+Between bazel and tuist, the real difference lies in maturity and degree.
+You can think of tuist as "as much customizability as you could possibly get, just using Build with Xcode (BwX)", whereas bazel is "no compromising customizeability, even if it means potentially more maintenance". 
+
+Right now, we're going with Tuist. Its lower maintenance overhead means we don't have to worry about using new features without waiting for more skilled community members to write patches, and it hopefully should be more resilient to esoteric things.
+
+Unlike SPM, there's also no build setting I've seen NanoFlick need that isn't available via Xcode (although it's sometimes very tucked in!).
+
+Also there are quite a few horror stories
+ - [hn](https://news.ycombinator.com/item?id=32828584)
+ - [reddit](https://www.reddit.com/r/programming/comments/xdbo6o/when_to_use_bazel/)
+
+and finally, a blog which only recommends it if your builds are getting out of hand, like with many languages
+and million+ lines, something which is very far off for NanoFlick
+- [earthly](https://earthly.dev/blog/bazel-build/)
+
+## Result of Tuist port
+
+Sadly, the port didn't go as straightforward as I'd hoped!
+The documentation is [basically nonexistant](https://tuist.github.io/tuist/main/documentation/projectdescription/project) and, when it is existant, [not very clear](https://docs.tuist.io/commands/clean), especially for external dependencies. Getting metalpetal to work took a whole day, and, a couple months on, there's no ability to build the [leading crop component or database plugin](https://github.com/tuist/tuist/issues/5400). I tried to patch this, but there were a few problems:
+ - I couldn't run it locally! It just said that it couldn't find `PackageDescription`
+ - It's really, really dense code with enough documentation to see why decisions were made, but not
+ enough to see potential caveats that might be relevant to my use case.
+Credit where credit is due, though: Tuist's test suite is **excellent**. Once I got it built and running, I could conclude that any change I could see to get CropViewController working would lead to a regression.
+
+Anyway, the CropViewController problem was eventually resolved by using it as a *carthage* dependency instead of an SPM dependency. Bet you haven't heard that name in a while! I quit after trying to migrate every objective c project in my codebase - this is clearly not a very resilient tool, and SPM's modularization is good enough to carry the day~.
+
+Bazel is probably much more competitive after the difficulty of figuring out how to solve this problem.
+
+# Conclusion
+
+At this point, unless you have a yuuuuuge project that absolutely needs bazel, or you need something special from one of them[^1] it just doesn't matter. Pick whatever your dependencies run well on, and stick with that.
+
+[^1]: such as stencils from tuist or visionOS support *right now*
+[^2]: unless you have an intel mac - then building anything unnecessarily sucks and choose Bazel for absolute minimum build + farming ability, but really you should look to upgrade whenever you can at this point.
