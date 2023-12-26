@@ -12,7 +12,7 @@ curl https://rustwasm.github.io/wasm-pack/installer/init.sh -sSf | sh -s -- -y
 # Actually build the thing in a sibling directory named "rust-wasm" in a subshell
 # so we don't pollute the current directory
 (
-  cd ../rust-wasm
+  cd rust-wasm
   echo "Building Rust..."
   wasm-pack build
 )
