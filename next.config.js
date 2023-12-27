@@ -76,6 +76,7 @@ module.exports = () => {
     webpack: (config, options) => {
       config.module.rules.push({
         test: /\.svg$/,
+        exclude: [__dirname + '/rust-wasm'],
         use: ['@svgr/webpack'],
       })
 
