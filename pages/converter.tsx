@@ -10,14 +10,21 @@ import { parse_jomini } from 'rust-wasm'
 
 export default function Converter() {
   const [output, setOutput] = useState('')
+  const [checked, setChecked] = useState(true)
   const inputRef = useRef(null)
+
+  const handleChange = () => {
+    setChecked(!checked)
+  }
 
   const handleButtonClick = () => {
     const input = inputRef.current.value
-    console.log(parse_jomini)
-    const result = parse_jomini(input)
-    console.log(result)
-    setOutput(result)
+    try {
+      const result = parse_jomini(input)
+      setOutput(result)
+    } catch (e) {
+      setOutput(e)
+    }
   }
 
   return (
@@ -40,6 +47,8 @@ export default function Converter() {
         >
           Nick Babcock
         </a>
+        . ⚡️ Fast Refresh ⚡️
+        <input type="checkbox" checked={checked} onChange={handleChange} />
       </h2>
       <div className="h-full w-full">
         <div className="grid h-full grid-cols-2 gap-4">
@@ -47,6 +56,7 @@ export default function Converter() {
             className="focus:shadow-outline-blue h-full w-full flex-grow grow appearance-none rounded-md border border-gray-300 bg-white px-4 py-3 pr-12 text-base leading-6 text-gray-900 placeholder-gray-500 transition duration-150 ease-in-out focus:border-blue-300 focus:outline-none sm:text-sm sm:leading-5"
             placeholder="Input"
             ref={inputRef}
+            onChange={checked ? handleButtonClick : null}
           />
           <textarea
             readOnly
