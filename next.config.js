@@ -54,6 +54,7 @@ const securityHeaders = [
   },
 ]
 
+// see: https://github.com/vercel/next.js/issues/25852
 function patchWasmModuleImport(config, isServer) {
   config.experiments = Object.assign(config.experiments || {}, {
     asyncWebAssembly: true,

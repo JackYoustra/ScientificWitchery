@@ -19,6 +19,15 @@ const projectsData = [
     imgSrc: '/static/images/v2.webp',
     href: '/blog/v2-savegame-analyzer',
   },
+  {
+    title: 'Pdx Data Parser',
+    description: `Convert your paradox games to JSON files!
+    Scripting this stuff is a pain, and I've used many hacking tools in the past to get around it.
+    Now, you can use the excellent jomini crate to do parsing in realtime, right in the browser.
+    New features coming soon!`,
+    imgSrc: '/static/images/v2.webp',
+    href: '/converter',
+  },
 ]
 
 export default projectsData
