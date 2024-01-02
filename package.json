@@ -33,6 +33,7 @@
     "react": "latest",
     "react-dom": "latest",
     "reading-time": "1.5.0",
+    "reaviz": "^15.5.0",
     "rehype-autolink-headings": "^6.1.0",
     "rehype-citation": "^0.4.0",
     "rehype-katex": "^6.0.2",

@@ -30,10 +30,12 @@ wee_alloc = { version = "0.4.5", optional = true }
 twiggy-parser = { branch = "master", git = "https://github.com/jackyoustra/twiggy" }
 twiggy-analyze = { branch = "master", git = "https://github.com/jackyoustra/twiggy" }
 twiggy-opt = { branch = "master", git = "https://github.com/jackyoustra/twiggy" }
+console_log = "1.0.0"
+log = "0.4.20"
+js-sys = "0.3.66"
 
 [dev-dependencies]
 wasm-bindgen-test = "0.3.13"
-js-sys = "0.3.66"
 
 [profile.release]
 # Tell `rustc` to optimize for small code size.

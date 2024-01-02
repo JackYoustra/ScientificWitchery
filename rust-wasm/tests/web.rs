@@ -19,13 +19,12 @@ fn pass() {
 fn parse_file() {
     // lol
     let data = include_bytes!("../pkg/rust_wasm_bg.wasm");
-    let result = parse_wasm_binary(data)
+    let arrayBuffer = js_sys::Uint8Array::default();
+    arrayBuffer.copy_from(data);
+    let result = parse_wasm_binary(&arrayBuffer.buffer())
         .map_err(JsValue::from)
         .unwrap();
-    // pretty-print the result json
-    let json = js_sys::JSON::parse(&result).unwrap();
-    let pretty = js_sys::JSON::stringify_with_replacer_and_space(&json, &JsValue::null(), &JsValue::from(4i32)).unwrap();
-    // console_log!("result: {}", pretty);
-    console_log!("json: {}", result);
+    // make sure result isn't empty
+    assert!(result.len() > 0);
     assert_eq!(1 + 1, 2);
 }
