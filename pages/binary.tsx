@@ -38,30 +38,27 @@ type TableDataProps = {
       }
 }
 
-function TableData(props: TableDataProps) {
+function TableData(props: TableDataProps): JSX.Element {
   const { state } = props
-  if (state && 'files' in state) {
+  if (state && 'files' in state && state.files.length > 0) {
     const { files } = state
     return (
       <>
-        {files.length > 0 && (
-          <>
-            <h1>Loading Files...</h1>
-            <ul>
-              {files.map((file) => (
-                <li key={file.name}>
-                  {file.name} - {file.size} bytes
-                </li>
-              ))}
-            </ul>
-          </>
-        )}
+        <h1>Loading Files...</h1>
+        <ul>
+          {files.map((file) => (
+            <li key={file.name}>
+              {file.name} - {file.size} bytes
+            </li>
+          ))}
+        </ul>
       </>
     )
-  } else if (state && 'data' in state) {
+  } else if (state && 'data' in state && state.data.length > 0) {
+    console.log(state.data)
     return (
       <>
-        <TreeMap data={state} />
+        <TreeMap height={450} width={450} data={state} />
       </>
     )
   } else {
@@ -69,7 +66,7 @@ function TableData(props: TableDataProps) {
   }
 }
 
-export default function Binary() {
+export default function Binary(): JSX.Element {
   const [isOver, setIsOver] = useState(false)
   const [files, setFiles] = useState<File[]>([])
   const [chartData, setChartData] = useState<ChartDataEntry[]>([])
@@ -122,10 +119,11 @@ export default function Binary() {
     // await all promises
     Promise.all(promises).then((entries) => {
       console.log(entries)
+      setChartData(entries)
     })
   }
 
-  let childData: TableDataProps = undefined
+  let childData: TableDataProps | undefined = undefined
   if (chartData.length > 0) {
     childData = { data: chartData }
   } else {
@@ -146,7 +144,7 @@ export default function Binary() {
         backgroundColor: isOver ? 'lightgray' : 'black',
       }}
     >
-      <TableData state={{ files }} />
+      <TableData state={childData} />
     </div>
   )
 }
