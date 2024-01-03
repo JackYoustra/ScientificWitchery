@@ -1,6 +1,7 @@
 import { DragEvent, useState } from 'react'
 import { parse_wasm_binary } from 'rust-wasm'
 import dynamic from 'next/dynamic'
+import Link from 'next/link'
 const EChart = dynamic(() => import('@kbox-labs/react-echarts').then((mod) => mod.EChart), {
   ssr: false,
 })
@@ -102,7 +103,22 @@ function TableData(props: TableDataProps): JSX.Element {
       </>
     )
   } else {
-    return <>Drag and drop some files here to analyze them.</>
+    return (
+      <>
+        <div className="flex flex-col space-y-4">
+          <span>
+            Welcome to my wasm converter, powered by{' '}
+            <Link
+              className="m-1 font-medium text-blue-600 hover:underline dark:text-blue-500"
+              href="https://github.com/rustwasm/twiggy"
+            >
+              Twiggy🌱
+            </Link>
+          </span>
+          <span>Drag and drop some files here to analyze them.</span>
+        </div>
+      </>
+    )
   }
 }
 
@@ -147,7 +163,6 @@ export default function Binary(): JSX.Element {
         const result: string = parse_wasm_binary(buffer)
         // parse
         const parsed: ParseWasmBinary = JSON.parse(result)
-        console.log(parsed)
         // convert to chart data
         function convertToChartData(item: Item): ChartNestedDataShape {
           const children = item.children?.map((child) => convertToChartData(child))
@@ -190,16 +205,18 @@ export default function Binary(): JSX.Element {
   }
 
   return (
-    <div
-      onDragOver={handleDragOver}
-      onDragLeave={handleDragLeave}
-      onDrop={handleDrop}
-      className={
-        'flex w-full grow items-center justify-center border-2 border-dashed' +
-        (isOver ? ' bg-gray-200 dark:bg-gray-700' : ' bg-white dark:bg-gray-800')
-      }
-    >
-      <TableData state={tableData.state} />
-    </div>
+    <>
+      <div
+        onDragOver={handleDragOver}
+        onDragLeave={handleDragLeave}
+        onDrop={handleDrop}
+        className={
+          'flex w-full grow items-center justify-center border-2 border-dashed' +
+          (isOver ? ' bg-gray-200 dark:bg-gray-700' : ' bg-white dark:bg-gray-800')
+        }
+      >
+        <TableData state={tableData.state} />
+      </div>
+    </>
   )
 }

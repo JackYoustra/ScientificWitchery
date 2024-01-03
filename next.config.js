@@ -86,8 +86,6 @@ module.exports = () => {
     eslint: {
       dirs: ['pages', 'components', 'lib', 'layouts', 'scripts'],
     },
-    // https://github.com/ecomfe/vue-echarts/issues/536
-    transpilePackages: ['/echarts/, /zrender/'],
     async headers() {
       return [
         {
