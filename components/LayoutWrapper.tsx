@@ -21,13 +21,12 @@ const LayoutWrapper = ({ children }: Props) => {
     // use flex if we're on a page which needs to grow to whole
     // (binary, converter)
     let style = ''
-    const flex_pages = ['/binary', '/converter']
-    for (const page of flex_pages) {
-      if (currentRoute.startsWith(page)) {
-        style = ' flex'
-        break
-      }
+    if (currentRoute.startsWith('/binary')) {
+      style = ' flex'
+    } else if (currentRoute.startsWith('/converter')) {
+      style = ' flex flex-col'
     }
+    console.log(style)
     return 'mb-auto h-full grow' + style
   }, [currentRoute])
 
