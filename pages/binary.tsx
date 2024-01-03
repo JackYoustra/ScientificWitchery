@@ -81,7 +81,7 @@ function TableData(props: TableDataProps): JSX.Element {
     return (
       <>
         <EChart
-          className='h-96 w-full'
+          className="h-full w-full"
           // do tree shaking later
           // use={[SVGRenderer, TreemapChart]}
           series={[
@@ -139,7 +139,8 @@ export default function Binary(): JSX.Element {
         // convert to chart data
         function convertToChartData(item: Item): ChartNestedDataShape {
           const children = item.children?.map((child) => convertToChartData(child))
-          const childrenSize = children?.reduce((acc, child) => acc + firstValue(child.value), 0) ?? 0
+          const childrenSize =
+            children?.reduce((acc, child) => acc + firstValue(child.value), 0) ?? 0
           const entry: ChartNestedDataShape = {
             name: item.name,
             value: item.shallow_size + childrenSize,
@@ -176,14 +177,10 @@ export default function Binary(): JSX.Element {
       onDragOver={handleDragOver}
       onDragLeave={handleDragLeave}
       onDrop={handleDrop}
-      style={{
-        display: 'flex',
-        justifyContent: 'center',
-        alignItems: 'center',
-        height: '100%',
-        border: '1px dotted',
-        backgroundColor: isOver ? 'lightgray' : 'black',
-      }}
+      className={
+        'flex h-full w-full items-center justify-center border-2 border-dashed' +
+        (isOver ? ' bg-gray-200 dark:bg-gray-700' : ' bg-white dark:bg-gray-800')
+      }
     >
       <TableData state={childData.state} />
     </div>
