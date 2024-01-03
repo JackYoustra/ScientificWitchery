@@ -58,6 +58,9 @@ type TableDataProps = {
     | {
         data: ChartDataEntry[]
       }
+    | {
+        error: string
+      }
 }
 
 function TableData(props: TableDataProps): JSX.Element {
@@ -93,6 +96,12 @@ function TableData(props: TableDataProps): JSX.Element {
         />
       </>
     )
+  } else if (state && 'error' in state) {
+    return (
+      <>
+        <div className="text-red-400">{state.error}</div>
+      </>
+    )
   } else {
     return <>Drag and drop some files here to analyze them.</>
   }
@@ -108,8 +117,7 @@ function firstValue<T>(arr: T[] | T): T {
 
 export default function Binary(): JSX.Element {
   const [isOver, setIsOver] = useState(false)
-  const [files, setFiles] = useState<File[]>([])
-  const [chartData, setChartData] = useState<ChartDataEntry[]>([])
+  const [tableData, setTableData] = useState<TableDataProps>({})
 
   // Define the event handlers
   const handleDragOver = (event: DragEvent<HTMLDivElement>) => {
@@ -128,7 +136,11 @@ export default function Binary(): JSX.Element {
 
     // Fetch the files
     const droppedFiles = Array.from(event.dataTransfer.files)
-    setFiles(droppedFiles)
+    setTableData({
+      state: {
+        files: droppedFiles,
+      },
+    })
 
     // Use FileReader to read file content
     const promises = droppedFiles.map((file) => {
@@ -159,17 +171,22 @@ export default function Binary(): JSX.Element {
     })
 
     // await all promises
-    Promise.all(promises).then((entries) => {
-      console.log(entries)
-      setChartData(entries)
-    })
-  }
-
-  let childData: TableDataProps | undefined = undefined
-  if (chartData.length > 0) {
-    childData = { state: { data: chartData } }
-  } else {
-    childData = { state: { files } }
+    Promise.all(promises)
+      .then((entries) => {
+        console.log(entries)
+        setTableData({
+          state: {
+            data: entries,
+          },
+        })
+      })
+      .catch((err) => {
+        setTableData({
+          state: {
+            error: err.toString(),
+          },
+        })
+      })
   }
 
   return (
@@ -178,11 +195,11 @@ export default function Binary(): JSX.Element {
       onDragLeave={handleDragLeave}
       onDrop={handleDrop}
       className={
-        'flex grow w-full items-center justify-center border-2 border-dashed' +
+        'flex w-full grow items-center justify-center border-2 border-dashed' +
         (isOver ? ' bg-gray-200 dark:bg-gray-700' : ' bg-white dark:bg-gray-800')
       }
     >
-      <TableData state={childData.state} />
+      <TableData state={tableData.state} />
     </div>
   )
 }
