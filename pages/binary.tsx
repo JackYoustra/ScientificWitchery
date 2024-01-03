@@ -1,4 +1,4 @@
-import { DragEvent, useState } from 'react'
+import { DragEvent, useRef, useState } from 'react'
 import { parse_wasm_binary } from 'rust-wasm'
 import dynamic from 'next/dynamic'
 import Link from 'next/link'
@@ -115,7 +115,7 @@ function TableData(props: TableDataProps): JSX.Element {
               Twiggy🌱
             </Link>
           </span>
-          <span>Drag and drop some files here to analyze them.</span>
+          <span>Drag and drop (or just click!) some files here to analyze them.</span>
         </div>
       </>
     )
@@ -133,24 +133,16 @@ function firstValue<T>(arr: T[] | T): T {
 export default function Binary(): JSX.Element {
   const [isOver, setIsOver] = useState(false)
   const [tableData, setTableData] = useState<TableDataProps>({})
+  const fileInput = useRef<HTMLInputElement>(null)
 
-  // Define the event handlers
-  const handleDragOver = (event: DragEvent<HTMLDivElement>) => {
-    event.preventDefault()
-    setIsOver(true)
-  }
-
-  const handleDragLeave = (event: DragEvent<HTMLDivElement>) => {
-    event.preventDefault()
+  const handleUpload = (droppedFiles: File[]) => {
     setIsOver(false)
-  }
 
-  const handleDrop = (event: DragEvent<HTMLDivElement>) => {
-    event.preventDefault()
-    setIsOver(false)
+    if (droppedFiles.length === 0) {
+      return
+    }
 
     // Fetch the files
-    const droppedFiles = Array.from(event.dataTransfer.files)
     setTableData({
       state: {
         files: droppedFiles,
@@ -204,19 +196,49 @@ export default function Binary(): JSX.Element {
       })
   }
 
+  const handleUploadButton = (event: React.ChangeEvent<HTMLInputElement>) => {
+    event.preventDefault()
+    handleUpload(Array.from(event.target.files))
+  }
+
+  // Define the event handlers
+  const handleDragOver = (event: DragEvent<HTMLButtonElement>) => {
+    event.preventDefault()
+    setIsOver(true)
+  }
+
+  const handleDragLeave = (event: DragEvent<HTMLButtonElement>) => {
+    event.preventDefault()
+    setIsOver(false)
+  }
+
+  const handleDrop = (event: DragEvent<HTMLButtonElement>) => {
+    event.preventDefault()
+    handleUpload(Array.from(event.dataTransfer.files))
+  }
+
   return (
     <>
-      <div
+      <input
+        type="file"
+        ref={fileInput}
+        className="hidden"
+        accept=".wasm, .wat"
+        onChange={handleUploadButton}
+      />
+      <button
         onDragOver={handleDragOver}
         onDragLeave={handleDragLeave}
         onDrop={handleDrop}
+        onClick={() => fileInput.current.click()}
+        disabled={tableData.state && 'data' in tableData.state}
         className={
           'flex w-full grow items-center justify-center border-2 border-dashed' +
           (isOver ? ' bg-gray-200 dark:bg-gray-700' : ' bg-white dark:bg-gray-800')
         }
       >
         <TableData state={tableData.state} />
-      </div>
+      </button>
     </>
   )
 }
