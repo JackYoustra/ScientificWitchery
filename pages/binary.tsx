@@ -15,7 +15,7 @@ const EChart = dynamic(() => import('@kbox-labs/react-echarts').then((mod) => mo
 
 export interface ParseWasmBinary {
   items: Item[]
-  summary: Summary[]
+  summary?: Summary[]
 }
 
 export interface Item {
@@ -80,7 +80,6 @@ function TableData(props: TableDataProps): JSX.Element {
       </>
     )
   } else if (state && 'data' in state && state.data.length > 0) {
-    console.log(state.data)
     return (
       <>
         <EChart
@@ -148,6 +147,7 @@ export default function Binary(): JSX.Element {
         const result: string = parse_wasm_binary(buffer)
         // parse
         const parsed: ParseWasmBinary = JSON.parse(result)
+        console.log(parsed)
         // convert to chart data
         function convertToChartData(item: Item): ChartNestedDataShape {
           const children = item.children?.map((child) => convertToChartData(child))
@@ -161,9 +161,10 @@ export default function Binary(): JSX.Element {
           return entry
         }
         const chartData = parsed.items.map((item) => convertToChartData(item))
+        const sizeOfTopLevel = parsed.items.reduce((acc, item) => acc + item.retained_size, 0)
         const entry: ChartDataEntry = {
           name: file.name,
-          value: parsed.summary[0].retained_size,
+          value: sizeOfTopLevel,
           children: chartData,
         }
         return entry
@@ -173,7 +174,6 @@ export default function Binary(): JSX.Element {
     // await all promises
     Promise.all(promises)
       .then((entries) => {
-        console.log(entries)
         setTableData({
           state: {
             data: entries,

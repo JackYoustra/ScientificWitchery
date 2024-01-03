@@ -18,7 +18,7 @@ use crate::utils::set_panic_hook;
 
 fn initialize() {
     set_panic_hook();
-    console_log::init().expect("error initializing logger");
+    let _ = console_log::init();
 }
 
 #[wasm_bindgen]
