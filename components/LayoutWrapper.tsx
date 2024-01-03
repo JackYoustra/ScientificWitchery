@@ -6,13 +6,31 @@ import SectionContainer from './SectionContainer'
 import Footer from './Footer'
 import MobileNav from './MobileNav'
 import ThemeSwitch from './ThemeSwitch'
-import { ReactNode } from 'react'
+import { ReactNode, useMemo } from 'react'
+import { useRouter } from 'next/router'
 
 interface Props {
   children: ReactNode
 }
 
 const LayoutWrapper = ({ children }: Props) => {
+  const router = useRouter()
+  const currentRoute = router.pathname
+
+  const pathItems = useMemo(() => {
+    // use flex if we're on a page which needs to grow to whole
+    // (binary, converter)
+    let style = ''
+    const flex_pages = ['/binary', '/converter']
+    for (const page of flex_pages) {
+      if (currentRoute.startsWith(page)) {
+        style = ' flex'
+        break
+      }
+    }
+    return 'mb-auto h-full grow' + style
+  }, [currentRoute])
+
   return (
     <SectionContainer>
       <div className="flex min-h-screen flex-col justify-between">
@@ -49,7 +67,7 @@ const LayoutWrapper = ({ children }: Props) => {
             <MobileNav />
           </div>
         </header>
-        <main className="mb-auto h-full grow">{children}</main>
+        <main className={pathItems}>{children}</main>
         <Footer />
       </div>
     </SectionContainer>

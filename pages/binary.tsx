@@ -178,7 +178,7 @@ export default function Binary(): JSX.Element {
       onDragLeave={handleDragLeave}
       onDrop={handleDrop}
       className={
-        'flex h-full w-full items-center justify-center border-2 border-dashed' +
+        'flex grow w-full items-center justify-center border-2 border-dashed' +
         (isOver ? ' bg-gray-200 dark:bg-gray-700' : ' bg-white dark:bg-gray-800')
       }
     >
