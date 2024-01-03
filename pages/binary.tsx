@@ -1,6 +1,17 @@
 import { DragEvent, useState } from 'react'
 import { parse_wasm_binary } from 'rust-wasm'
-import { TreeMap, ChartNestedDataShape } from 'reaviz'
+import dynamic from 'next/dynamic'
+const EChart = dynamic(() => import('@kbox-labs/react-echarts').then((mod) => mod.EChart), {
+  ssr: false,
+})
+// // import { TreemapChart } from 'echarts/charts'
+// const TreemapChart = dynamic(() => import('echarts/charts').then((mod) => mod.TreemapChart), {
+//   ssr: false,
+// })
+// // import { SVGRenderer } from 'echarts/renderers'
+// const SVGRenderer = dynamic(() => import('echarts/renderers').then((mod) => mod.SVGRenderer), {
+//   ssr: false,
+// })
 
 export interface ParseWasmBinary {
   items: Item[]
@@ -24,8 +35,19 @@ export interface Summary {
   retained_size_percent: number
 }
 
-type ChartDataEntry = ChartNestedDataShape & {
-  data: ChartNestedDataShape[]
+type ChartDataEntry = EchartDataShape
+type ChartNestedDataShape = EchartDataShape
+
+type EchartDataShape = {
+  name?: string
+  // Multiple numbers are allowed for the same node.
+  // If there are multiple numbers, the first one is used as the node value,
+  // and the rest are used as different rendering hints (such as secondary heatmaps, etc)
+  // Note that this has to be the total for the parent node, and not the individual value
+  // for the current node. For example, if a parent node has two children, one with value 10,
+  // and the other with value 20, then the parent node should have value 30.
+  value: number | number[]
+  children?: EchartDataShape[]
 }
 
 type TableDataProps = {
@@ -58,11 +80,29 @@ function TableData(props: TableDataProps): JSX.Element {
     console.log(state.data)
     return (
       <>
-        <TreeMap height={450} width={450} data={state} />
+        <EChart
+          className='h-96 w-full'
+          // do tree shaking later
+          // use={[SVGRenderer, TreemapChart]}
+          series={[
+            {
+              type: 'treemap',
+              data: state.data,
+            },
+          ]}
+        />
       </>
     )
   } else {
     return <>Drag and drop some files here to analyze them.</>
+  }
+}
+
+function firstValue<T>(arr: T[] | T): T {
+  if (Array.isArray(arr)) {
+    return arr[0]
+  } else {
+    return arr
   }
 }
 
@@ -97,20 +137,21 @@ export default function Binary(): JSX.Element {
         // parse
         const parsed: ParseWasmBinary = JSON.parse(result)
         // convert to chart data
-        const chartData: ChartNestedDataShape[] = parsed.items.map((item) => {
-          return {
-            key: item.name,
-            data: item.children?.map((child) => {
-              return {
-                key: child.name,
-                data: child.shallow_size,
-              }
-            }),
+        function convertToChartData(item: Item): ChartNestedDataShape {
+          const children = item.children?.map((child) => convertToChartData(child))
+          const childrenSize = children?.reduce((acc, child) => acc + firstValue(child.value), 0) ?? 0
+          const entry: ChartNestedDataShape = {
+            name: item.name,
+            value: item.shallow_size + childrenSize,
+            children,
           }
-        })
+          return entry
+        }
+        const chartData = parsed.items.map((item) => convertToChartData(item))
         const entry: ChartDataEntry = {
-          key: file.name,
-          data: chartData,
+          name: file.name,
+          value: parsed.summary[0].retained_size,
+          children: chartData,
         }
         return entry
       })
@@ -125,9 +166,9 @@ export default function Binary(): JSX.Element {
 
   let childData: TableDataProps | undefined = undefined
   if (chartData.length > 0) {
-    childData = { data: chartData }
+    childData = { state: { data: chartData } }
   } else {
-    childData = { files }
+    childData = { state: { files } }
   }
 
   return (
@@ -144,7 +185,7 @@ export default function Binary(): JSX.Element {
         backgroundColor: isOver ? 'lightgray' : 'black',
       }}
     >
-      <TableData state={childData} />
+      <TableData state={childData.state} />
     </div>
   )
 }
