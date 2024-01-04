@@ -16,3 +16,4 @@ curl https://rustwasm.github.io/wasm-pack/installer/init.sh -sSf | sh -s -- -y
   echo "Building Rust..."
   wasm-pack build -- --target-dir ../.next/cache/vercel/rust-wasm
 )
+yarn add ./rust-wasm/pkg --update-checksums
