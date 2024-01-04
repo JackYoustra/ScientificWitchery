@@ -1,19 +1,32 @@
 const projectsData = [
   {
-    title: 'A Search Engine',
-    description: `What if you could look up any information in the world? Webpages, images, videos
-    and more. Google has many features to help you find exactly what you're looking
-    for.`,
-    imgSrc: '/static/images/google.png',
-    href: 'https://www.google.com',
+    title: 'NanoFlick',
+    description: `My main pursuit for the last year or so. Check it out!`,
+    imgSrc: '/static/images/nanoflick.webp',
+    href: 'https://www.nanoflick.com',
   },
   {
-    title: 'The Time Machine',
-    description: `Imagine being able to travel back in time or to the future. Simple turn the knob
-    to the desired date and press "Go". No more worrying about lost keys or
-    forgotten headphones with this simple yet affordable solution.`,
-    imgSrc: '/static/images/time-machine.jpg',
-    href: '/blog/the-time-machine',
+    title: 'WTF Happened in 1791?',
+    description: `After reading Slouching Towards Utopia, and reading WTF Happened in 1971 one too many times, I decided to make a parody site for the year 1791. It turns out you only need one graph!`,
+    imgSrc: '/static/images/1791.webp',
+    href: 'https://www.wtfhappenedin1791.com',
+  },
+  {
+    title: 'Victoria 2 savegame analyzer',
+    description: `A tool to analyze your Victoria 2 savegames.
+    You can view the status of your factories and pops, and synthesize wikiboxes for every war in the game.
+    It's a bit outdated, but still works.`,
+    imgSrc: '/static/images/v2.webp',
+    href: '/blog/v2-savegame-analyzer',
+  },
+  {
+    title: 'Pdx Data Parser',
+    description: `Convert your paradox games to JSON files!
+    Scripting this stuff is a pain, and I've used many hacking tools in the past to get around it.
+    Now, you can use the excellent jomini crate to do parsing in realtime, right in the browser.
+    New features coming soon!`,
+    imgSrc: '/static/images/v2.webp',
+    href: '/converter',
   },
 ]
 
