@@ -247,8 +247,8 @@ export default dynamic(
       )
     }
   },
-  { 
+  {
     ssr: false,
     loading: () => <div>Loading...</div>,
-  },
-);
+  }
+)
