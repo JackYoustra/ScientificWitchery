@@ -82,10 +82,21 @@ module.exports = () => {
       ]
     },
     webpack: (config, options) => {
-      config.module.rules.push({
-        test: /\.svg$/,
-        use: ['@svgr/webpack'],
-      })
+      config.module.rules = [
+        ...config.module.rules,
+        {
+          test: /\.svg$/,
+          exclude: [__dirname + '/rust-wasm'],
+          use: ['@svgr/webpack'],
+        },
+        {
+          test: /\.wasm$/,
+          type: 'webassembly/async',
+        }
+      ]
+
+      config.experiments.asyncWebAssembly = true
+      config.experiments.layers = true
 
       return config
     },

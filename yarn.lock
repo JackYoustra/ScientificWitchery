@@ -10357,6 +10357,13 @@ __metadata:
   languageName: node
   linkType: hard
 
+"rust-wasm@file:rust-wasm/pkg::locator=tailwind-nextjs-starter-blog%40workspace%3A.":
+  version: 0.1.0
+  resolution: "rust-wasm@file:rust-wasm/pkg#rust-wasm/pkg::hash=8305c8&locator=tailwind-nextjs-starter-blog%40workspace%3A."
+  checksum: daafd0d7e2d9d407151393a38463783db64cfd8acf2a2efd02fe39f1bf954dbc1c13e8be2da88e672919d56e1d2b902a5b64844a354ab7affc65fdb51502b851
+  languageName: node
+  linkType: hard
+
 "sade@npm:^1.7.3":
   version: 1.8.1
   resolution: "sade@npm:1.8.1"
@@ -10981,6 +10988,7 @@ __metadata:
     remark: ^14.0.2
     remark-gfm: ^3.0.1
     remark-math: ^5.1.1
+    rust-wasm: "file:rust-wasm/pkg"
     tailwindcss: ^3.3.3
     typescript: ^5.1.3
     unist-util-visit: ^4.1.0
