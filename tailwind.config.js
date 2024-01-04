@@ -21,12 +21,13 @@ module.exports = {
         13: '3.25rem',
         14: '3.5rem',
       },
+      // shameless rosenzweig.io ripoff
       fontFamily: {
-        sans: ['var(--font-space-grotesk)', ...fontFamily.sans],
+        sans: ['Cantarell', 'InterVariable', ...fontFamily.sans],
       },
       colors: {
-        primary: colors.pink,
-        gray: colors.gray,
+        primary: colors.teal,
+        gray: colors.neutral,
       },
       typography: ({ theme }) => ({
         DEFAULT: {
