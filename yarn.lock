@@ -2401,6 +2401,16 @@ __metadata:
   languageName: node
   linkType: hard
 
+"@kbox-labs/react-echarts@npm:1.0.3":
+  version: 1.0.3
+  resolution: "@kbox-labs/react-echarts@npm:1.0.3"
+  peerDependencies:
+    echarts: ^5
+    react: ^18
+  checksum: 8ec13927553f11a12864a6f81fbc108e1ad159be1ef090a6177f20a8f17c346b573c95bcd95d7d21aea2622349e7813e1f13f9ea3782da610c7ed307c75d09d9
+  languageName: node
+  linkType: hard
+
 "@lit-labs/ssr-dom-shim@npm:^1.0.0, @lit-labs/ssr-dom-shim@npm:^1.1.0":
   version: 1.1.2
   resolution: "@lit-labs/ssr-dom-shim@npm:1.1.2"
@@ -4812,6 +4822,16 @@ __metadata:
   version: 0.2.0
   resolution: "eastasianwidth@npm:0.2.0"
   checksum: 7d00d7cd8e49b9afa762a813faac332dee781932d6f2c848dc348939c4253f1d4564341b7af1d041853bc3f32c2ef141b58e0a4d9862c17a7f08f68df1e0f1ed
+  languageName: node
+  linkType: hard
+
+"echarts@npm:5.4.3":
+  version: 5.4.3
+  resolution: "echarts@npm:5.4.3"
+  dependencies:
+    tslib: 2.3.0
+    zrender: 5.4.4
+  checksum: f4f69becf1cf8f546f9488ffa3bffaa971dcfbd49f5d635f288cbc8c5177839154bd6c325d6ed72c2b822c89c9bba4947ac73400614fd23c6f2f7ace3c939132
   languageName: node
   linkType: hard
 
@@ -10948,6 +10968,7 @@ __metadata:
   version: 0.0.0-use.local
   resolution: "tailwind-nextjs-starter-blog@workspace:."
   dependencies:
+    "@kbox-labs/react-echarts": 1.0.3
     "@next/bundle-analyzer": 14.0.3
     "@svgr/webpack": ^8.0.1
     "@tailwindcss/forms": ^0.5.4
@@ -10959,6 +10980,7 @@ __metadata:
     autoprefixer: ^10.4.13
     contentlayer: 0.3.4
     cross-env: ^7.0.3
+    echarts: 5.4.3
     esbuild: 0.18.11
     eslint: ^8.45.0
     eslint-config-next: 14.0.3
@@ -11181,6 +11203,13 @@ __metadata:
     minimist: ^1.2.6
     strip-bom: ^3.0.0
   checksum: a6162eaa1aed680537f93621b82399c7856afd10ec299867b13a0675e981acac4e0ec00896860480efc59fc10fd0b16fdc928c0b885865b52be62cadac692447
+  languageName: node
+  linkType: hard
+
+"tslib@npm:2.3.0":
+  version: 2.3.0
+  resolution: "tslib@npm:2.3.0"
+  checksum: 8869694c26e4a7b56d449662fd54a4f9ba872c889d991202c74462bd99f10e61d5bd63199566c4284c0f742277736292a969642cc7b590f98727a7cae9529122
   languageName: node
   linkType: hard
 
@@ -11855,6 +11884,15 @@ __metadata:
   version: 3.22.4
   resolution: "zod@npm:3.22.4"
   checksum: 80bfd7f8039b24fddeb0718a2ec7c02aa9856e4838d6aa4864335a047b6b37a3273b191ef335bf0b2002e5c514ef261ffcda5a589fb084a48c336ffc4cdbab7f
+  languageName: node
+  linkType: hard
+
+"zrender@npm:5.4.4":
+  version: 5.4.4
+  resolution: "zrender@npm:5.4.4"
+  dependencies:
+    tslib: 2.3.0
+  checksum: 4b317346af8eca38e62ba029239c3a13e97eac4fa15b3ddadbae23442d8b373f0e937c255dee8080d6bb2fc79c9da54f1106415586ed8942bd8bc684b3890ea9
   languageName: node
   linkType: hard
 

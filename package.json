@@ -11,11 +11,13 @@
     "lint": "next lint --fix --dir pages --dir app --dir components --dir lib --dir layouts --dir scripts"
   },
   "dependencies": {
+    "@kbox-labs/react-echarts": "1.0.3",
     "@next/bundle-analyzer": "14.0.3",
     "@tailwindcss/forms": "^0.5.4",
     "@tailwindcss/typography": "^0.5.9",
     "autoprefixer": "^10.4.13",
     "contentlayer": "0.3.4",
+    "echarts": "5.4.3",
     "esbuild": "0.18.11",
     "github-slugger": "^1.4.0",
     "gray-matter": "^4.0.2",
