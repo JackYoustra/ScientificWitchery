@@ -156,8 +156,8 @@ export default function Converter() {
         Pdx Converter
       </h1>
       <h2>
-        To translate all of your Clausewitz engine game files to a more convenient format.
-        Let me know if you'd like other options (such as duplicate value handling).
+        To translate all of your Clausewitz engine game files to a more convenient format. Let me
+        know if you'd like other options (such as duplicate value handling).
       </h2>
       <h2>
         Thanks
