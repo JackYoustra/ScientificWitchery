@@ -1,7 +1,7 @@
 'use client'
 
-import { DragEvent, useRef, useState } from 'react'
-import dynamic from 'next/dynamic'
+import { ComponentType, DragEvent, FC, FunctionComponent, useRef, useState } from 'react'
+import dynamic, { LoaderComponent } from 'next/dynamic'
 import Link from 'next/link'
 const EChart = dynamic(() => import('@kbox-labs/react-echarts').then((mod) => mod.EChart), {
   ssr: false,
@@ -132,7 +132,7 @@ function firstValue<T>(arr: T[] | T): T {
 }
 
 export default dynamic(
-  async function Binary(): Promise<JSX.Element> {
+  async function Binary(): Promise<FC<Record<string, never>>> {
     const { parse_wasm_binary } = await import('rust-wasm')
     return function BinaryLoaded(): JSX.Element {
       const [isOver, setIsOver] = useState(false)
@@ -202,7 +202,9 @@ export default dynamic(
 
       const handleUploadButton = (event: React.ChangeEvent<HTMLInputElement>) => {
         event.preventDefault()
-        handleUpload(Array.from(event.target.files))
+        if (event.target.files) {
+          handleUpload(Array.from(event.target.files))
+        }
       }
 
       // Define the event handlers
@@ -234,8 +236,8 @@ export default dynamic(
             onDragOver={handleDragOver}
             onDragLeave={handleDragLeave}
             onDrop={handleDrop}
-            onClick={() => fileInput.current.click()}
-            disabled={tableData.state && 'data' in tableData.state}
+            onClick={() => fileInput.current?.click()}
+            disabled={!fileInput.current || (tableData.state && 'data' in tableData.state)}
             className={
               'flex w-full grow items-center justify-center border-2 border-dashed' +
               (isOver ? ' bg-gray-200 dark:bg-gray-700' : ' bg-white dark:bg-gray-800')
