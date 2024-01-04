@@ -1,0 +1,43 @@
+---
+title: The case against uFeature architectures
+date: '2023-12-21'
+tags: ['swift', 'iOS']
+draft: false
+summary: uFeatures offer lower compile times, better modularity, better testability, stronger isolation, and more! Why wouldn't I use them?
+---
+
+Merry Christmas, everyone!
+
+So, everyone is moving to a uFeatures architecture, and everyone is loving it!
+I've seen no dissent that it's the correct thing to do as your codebase scales,
+as it gets around walls of compile times and really allows for good testability.
+
+My experience adopting it was far more mixed, so I just wanted to provide something of a case against it.
+
+# The case for it
+
+But first, a summary of the case for. 
+
+# The case against it
+## The tooling
+The tooling, oh my god the tooling. This deserves a few subsections.
+### The bugs
+The tooling, as is, doesn't even work that well! There are many, many incremental compile errors.
+These will exhibit themselves as false negatives (huh? why is it saying typecheck failed? I changed the type in this file).
+to false positives (generally a cr)
+
+
+### The shortcomings
+These things are not "bugs" in the sense that they don't affect correctness, but they are really not desirable behavior.
+You'd hope that, in the presence of an overly-aggresive compiler, you'd at least get performance - surely a compiler which is too aggressive
+also isn't too conservative. Nope! While most REPL-like flows are fine, if you find yourself changing targets, you can
+end up recompiling an arbitrary number of files, and if, god forbid, you toggle between previews and not previews,
+you force essentially a whole-project recompilation, as every included package has to be marked stale and recompiled in a preview configuration.
+I wonder if there's a way to patch the build system to have xcode maintain three target caches (Debug, Release, Canvas)
+instead of the current two (Debug, Release). Alas, even if we found a way, [we couldn't implement it](/laggy-spm-refresh).
+
+Additionally, while your compile time is admittedly pretty good when dealing with REPL flows, xcode still freezes (on m-series chips)
+for a solid 10-30 seconds while relaunching tests, so it may as well actually just have a bad compile time as far as your velocity is concerned!
+The exception here is swift packages - if you somehow manage to isolate your logic (and package dependencies) to the point where you can
+run test binaries exclusively for macOS or, even better, pure swift targets, you can use vscode's spm tooling instead
+and have much quicker velocity 🎉. Perhaps one day we'll do this, but for now xcode is sufficient.

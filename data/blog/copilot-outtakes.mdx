@@ -1,0 +1,51 @@
+---
+title: 'Copilot outtakes'
+date: '2022-11-29'
+tags: ['copilot']
+draft: false
+summary: 'The curse of dimentionality meets (ai generated:) the curse of copilot'
+---
+
+## In here, I'll be collecting the best and worst of copilot
+
+### The totality of what copilot typed out when given this page's metadata and the swift language as a prompt
+```swift
+import UIKit
+import CopilotAPIAccess
+
+class ViewController: UIViewController {
+    override func viewDidLoad() {
+        super.viewDidLoad()
+        // Do any additional setup after loading the view.
+        Copilot.instance.initialize
+    }
+}
+```
+
+### Creating a [TCA](https://github.com/pointfreeco/swift-composable-architecture) preview dependency for NanoFlick
+
+```swift
+    static let preview = {
+        // Copilot prompted
+        var store = Self.noop
+        store.loadMovies = { _ in
+            Just(IdentifiedArrayOf([
+                Movie(
+                    id: UUID(),
+                    title: "Test Movie",
+                    shots: IdentifiedArrayOf([
+                        Shot(
+                            id: UUID(),
+                            title: "Test Shot",
+                            duration: 5,
+                            filePath: URL(fileURLWithPath: "/Users/alex/Desktop/Screen Recording 2021-05-01 at 11.34.01 AM.mov"),
+                            musicTargetLocation: URL(fileURLWithPath: "/Users/alex/Desktop/Screen Recording 2021-05-01 at 11.34.01 AM.mov")
+                        )
+                    ])
+                )
+            ])).eraseToAnyPublisher()
+        }
+        return store
+    }()
+```
+_Who is alex??_

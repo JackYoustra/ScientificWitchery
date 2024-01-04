@@ -1,0 +1,136 @@
+---
+title: Trying to improve fatalError
+date: '2023-11-30'
+tags: ['swift', 'iOS']
+draft: false
+summary: It would be nice to catch fatal assertions, and magically turn all functions into throwing functions. Is it possible?
+---
+
+# Introduction
+So I've been looking at john holdsworth's github, and it has many, many gems.
+It has DLKit[^1],
+SwiftTrace, SwiftInjection, and, something that caught my eye, Fortify!
+
+[^1]: Far superior to the [ratchet fishhooking code introduced earlier](/dylib-swizzling.mdx).
+
+It only has a few stars, but it's a great idea. It uses [fishhooking](/dylib-swizzling.mdx) to
+wrap the fatal error / assertion failure calls with [setjmp/longjmp](google.com), so
+that you can catch these hitherto unrecoverable errors and do something with them.
+Note that at this point most of the application state is undefined, so it's not very useful for much!
+
+But it's really nice for, y'know, tests! Right now, parallel test runners in xcode
+are really bad in the face of a crash - they bring down the entire test suite
+instead of marking just the test as "failed". Additionally, a crashed test halts
+the run and you don't get to see the results of the other tests.
+Ideally, a crash would be treated as just another kind of throwing test failure.
+
+In this blog post, we'll try and make it so as much as we can!
+
+## The plan
+
+The `Fortify` package is based around this primitive:
+```swift
+try Fortify.protect {
+    // ...
+}
+```
+
+So there's a couple feasible provisional ideas:
+1)
+ a) Swizzle the test runner sometime after the `XCTFail` handler is installed, but before the tests are run.
+ b) Wrap the swizzled call in a `Fortify` closure, and have it catch the crash and reemit it as a `XCTFail`.
+2) Use a macro to insert a `Fortify` closure at runtime, and have it catch the crash and reemit it as a `XCTFail`.
+
+I'm going to go with 1, because I don't really like swift macros as they are right now and this
+is much more transparent. 2 is more resilient against impmlementation changes,
+and if that proves to be the problem we can try and go with 2.
+
+Anyway, let's get started!
+
+## The implementation
+
+So the first thing to do is to crash a sample test. Literally creating a template project
+with tests and inserting a `fatalError` in a test function is enough to get the crash.
+
+The backtrace is the following:
+```bash
+* thread #1, queue = 'com.apple.main-thread', stop reason = Fatal error
+    frame #0: 0x000000019ad889d8 libswiftCore.dylib`_swift_runtime_on_report
+    frame #1: 0x000000019ae469cc libswiftCore.dylib`_swift_stdlib_reportFatalErrorInFile + 208
+    frame #2: 0x000000019aa35554 libswiftCore.dylib`closure #1 (Swift.UnsafeBufferPointer<Swift.UInt8>) -> () in closure #1 (Swift.UnsafeBufferPointer<Swift.UInt8>) -> () in Swift._assertionFailure(_: Swift.StaticString, _: Swift.String, file: Swift.StaticString, line: Swift.UInt, flags: Swift.UInt32) -> Swift.Never + 104
+    frame #3: 0x000000019aa34794 libswiftCore.dylib`Swift._assertionFailure(_: Swift.StaticString, _: Swift.String, file: Swift.StaticString, line: Swift.UInt, flags: Swift.UInt32) -> Swift.Never + 584
+    frame #4: 0x0000000106181524 TestCatcherTimeTests`TestCatcherTimeTests.testExample(self=0x0000000132e24360) at TestCatcherTimeTests.swift:27:9
+    frame #5: 0x0000000106181558 TestCatcherTimeTests`@objc TestCatcherTimeTests.testExample() at <compiler-generated>:0
+    frame #6: 0x000000018b290144 CoreFoundation`__invoking___ + 148
+    frame #7: 0x000000018b28ffbc CoreFoundation`-[NSInvocation invoke] + 428
+    frame #8: 0x0000000105955ee0 XCTestCore`+[XCTFailableInvocation invokeErrorConventionInvocation:completion:] + 96
+    frame #9: 0x0000000105955e78 XCTestCore`__90+[XCTFailableInvocation invokeInvocation:withTestMethodConvention:lastObservedErrorIssue:]_block_invoke + 28
+    frame #10: 0x0000000105955860 XCTestCore`__81+[XCTFailableInvocation invokeWithAsynchronousWait:lastObservedErrorIssue:block:]_block_invoke + 360
+    frame #11: 0x000000010590ea44 XCTestCore`__49+[XCTSwiftErrorObservation observeErrorsInBlock:]_block_invoke + 36
+    frame #12: 0x000000010661bb1c libXCTestSwiftSupport.dylib`function signature specialization <Arg[5] = [Closure Propagated : reabstraction thunk helper from @callee_unowned @convention(block) () -> () to @escaping @callee_guaranteed () -> (), Argument Types : [@callee_unowned @convention(block) () -> ()]> of function signature specialization <Arg[2] = [Closure Propagated : closure #1 () -> () in static (extension in XCTest):__C.XCTSwiftErrorObservation.(_observeErrors in _B0397D3B80CBC8D7FB9A5B33AB2A74B8)(in: () -> ()) -> () -> Swift.Optional<XCTest.XCTIssue>, Argument Types : [@callee_guaranteed () -> ()]> of generic specialization <Swift.Optional<XCTest.ErrorTracker>, ()> of Swift.TaskLocal.withValue<τ_0_0>(_: τ_0_0, operation: () throws -> τ_1_0, file: Swift.String, line: Swift.UInt) throws -> τ_1_0 + 112
+    frame #13: 0x000000010661b9e4 libXCTestSwiftSupport.dylib`function signature specialization <Arg[0] = [Closure Propagated : reabstraction thunk helper from @callee_unowned @convention(block) () -> () to @escaping @callee_guaranteed () -> (), Argument Types : [@callee_unowned @convention(block) () -> ()]> of static __C.XCTSwiftErrorObservation._observeErrors(in: () -> ()) -> () -> Swift.Optional<XCTest.XCTIssue> + 396
+    frame #14: 0x000000010661bbb8 libXCTestSwiftSupport.dylib`@objc static __C.XCTSwiftErrorObservation._observeErrors(in: () -> ()) -> () -> Swift.Optional<XCTest.XCTIssue> + 52
+  * frame #15: 0x000000010590e924 XCTestCore`+[XCTSwiftErrorObservation observeErrorsInBlock:] + 204
+    frame #16: 0x00000001059555f0 XCTestCore`+[XCTFailableInvocation invokeWithAsynchronousWait:lastObservedErrorIssue:block:] + 228
+    frame #17: 0x0000000105955c88 XCTestCore`+[XCTFailableInvocation invokeInvocation:withTestMethodConvention:lastObservedErrorIssue:] + 180
+    frame #18: 0x00000001059561f8 XCTestCore`+[XCTFailableInvocation invokeInvocation:lastObservedErrorIssue:] + 72
+    frame #19: 0x00000001059473f8 XCTestCore`__24-[XCTestCase invokeTest]_block_invoke_2 + 88
+    frame #20: 0x000000010591d278 XCTestCore`-[XCTMemoryChecker _assertInvalidObjectsDeallocatedAfterScope:] + 84
+    frame #21: 0x000000010594a8d4 XCTestCore`-[XCTestCase assertInvalidObjectsDeallocatedAfterScope:] + 92
+    frame #22: 0x0000000105947358 XCTestCore`__24-[XCTestCase invokeTest]_block_invoke.96 + 172
+    frame #23: 0x00000001059054b8 XCTestCore`-[XCTestCase(XCTIssueHandling) _caughtUnhandledDeveloperExceptionPermittingControlFlowInterruptions:caughtInterruptionException:whileExecutingBlock:] + 168
+    frame #24: 0x0000000105946e80 XCTestCore`-[XCTestCase invokeTest] + 764
+    frame #25: 0x0000000105948908 XCTestCore`__26-[XCTestCase performTest:]_block_invoke.149 + 36
+    frame #26: 0x00000001059054b8 XCTestCore`-[XCTestCase(XCTIssueHandling) _caughtUnhandledDeveloperExceptionPermittingControlFlowInterruptions:caughtInterruptionException:whileExecutingBlock:] + 168
+    frame #27: 0x00000001059483ac XCTestCore`__26-[XCTestCase performTest:]_block_invoke.134 + 552
+    frame #28: 0x0000000105929844 XCTestCore`+[XCTContext _runInChildOfContext:forTestCase:markAsReportingBase:block:] + 180
+    frame #29: 0x000000010592972c XCTestCore`+[XCTContext runInContextForTestCase:markAsReportingBase:block:] + 104
+    frame #30: 0x0000000105947e04 XCTestCore`-[XCTestCase performTest:] + 308
+    frame #31: 0x00000001058f00f0 XCTestCore`-[XCTest runTest] + 48    frame #32: 0x000000010592cadc XCTestCore`-[XCTestSuite runTestBasedOnRepetitionPolicy:testRun:] + 68
+    frame #33: 0x000000010592c9a4 XCTestCore`__27-[XCTestSuite performTest:]_block_invoke + 164
+    frame #34: 0x000000010592c408 XCTestCore`__59-[XCTestSuite _performProtectedSectionForTest:testSection:]_block_invoke + 48
+    frame #35: 0x0000000105929844 XCTestCore`+[XCTContext _runInChildOfContext:forTestCase:markAsReportingBase:block:] + 180
+    frame #36: 0x000000010592972c XCTestCore`+[XCTContext runInContextForTestCase:markAsReportingBase:block:] + 104
+    frame #37: 0x000000010592c378 XCTestCore`-[XCTestSuite _performProtectedSectionForTest:testSection:] + 180
+    frame #38: 0x000000010592c658 XCTestCore`-[XCTestSuite performTest:] + 220
+    frame #39: 0x00000001058f00f0 XCTestCore`-[XCTest runTest] + 48
+    frame #40: 0x00000001058f2714 XCTestCore`__89-[XCTTestRunSession executeTestsWithIdentifiers:skippingTestsWithIdentifiers:completion:]_block_invoke + 580
+    frame #41: 0x0000000105929844 XCTestCore`+[XCTContext _runInChildOfContext:forTestCase:markAsReportingBase:block:] + 180
+    frame #42: 0x000000010592972c XCTestCore`+[XCTContext runInContextForTestCase:markAsReportingBase:block:] + 104
+    frame #43: 0x00000001058f23f8 XCTestCore`-[XCTTestRunSession executeTestsWithIdentifiers:skippingTestsWithIdentifiers:completion:] + 296
+    frame #44: 0x000000010596b55c XCTestCore`__103-[XCTExecutionWorker executeTestIdentifiers:skippingTestIdentifiers:completionHandler:completionQueue:]_block_invoke_2 + 136
+    frame #45: 0x000000010596a2c0 XCTestCore`-[XCTExecutionWorker runWithError:] + 132
+    frame #46: 0x0000000105926000 XCTestCore`__25-[XCTestDriver _runTests]_block_invoke.264 + 56
+    frame #47: 0x00000001058fd39c XCTestCore`-[XCTestObservationCenter _observeTestExecutionForTestBundle:inBlock:] + 212
+    frame #48: 0x0000000105925a54 XCTestCore`-[XCTestDriver _runTests] + 1100
+    frame #49: 0x00000001058f07d4 XCTestCore`_XCTestMain + 92
+    frame #50: 0x0000000105213318 libXCTestBundleInject.dylib`__RunTests_block_invoke_2 + 20
+    frame #51: 0x000000018b2af8c0 CoreFoundation`__CFRUNLOOP_IS_CALLING_OUT_TO_A_BLOCK__ + 28
+    frame #52: 0x000000018b2af7d4 CoreFoundation`__CFRunLoopDoBlocks + 356
+    frame #53: 0x000000018b2ae60c CoreFoundation`__CFRunLoopRun + 812
+    frame #54: 0x000000018b2adc2c CoreFoundation`CFRunLoopRunSpecific + 608
+    frame #55: 0x0000000195806448 HIToolbox`RunCurrentEventLoopInMode + 292
+    frame #56: 0x00000001958060d8 HIToolbox`ReceiveNextEventCommon + 220
+    frame #57: 0x0000000195805fdc HIToolbox`_BlockUntilNextEventMatchingListInModeWithFilter + 76
+    frame #58: 0x000000018ea88f90 AppKit`_DPSNextEvent + 660
+    frame #59: 0x000000018f25cb94 AppKit`-[NSApplication(NSEventRouting) _nextEventMatchingEventMask:untilDate:inMode:dequeue:] + 716
+    frame #60: 0x000000018ea7c43c AppKit`-[NSApplication run] + 476
+    frame #61: 0x000000018ea53708 AppKit`NSApplicationMain + 880
+    frame #62: 0x00000001b59e9944 SwiftUI`___lldb_unnamed_symbol84681 + 160
+    frame #63: 0x00000001b6273014 SwiftUI`___lldb_unnamed_symbol139842 + 164
+    frame #64: 0x00000001b668d45c SwiftUI`static SwiftUI.App.main() -> () + 128
+    frame #65: 0x0000000104d4943c TestCatcherTime`static TestCatcherTimeApp.$main(self=TestCatcherTime.TestCatcherTimeApp) at <compiler-generated>:0
+    frame #66: 0x0000000104d494ec TestCatcherTime`main at TestCatcherTimeApp.swift:11:8
+    frame #67: 0x000000018ae59058 dyld`start + 2224
+```
+
+We can probably choose to wrap `XCTSwiftErrorObservation observeErrorsInBlock` in a `Fortify` closure.
+
+# Dead end!
+The problem with this approach lies in async tests.
+Async tests are run in a separate thread, and a fortify call isn't async.
+This is due to a fundamental problem with a setjmp/longjmp pair: [they don't work across threads](https://pubs.opengroup.org/onlinepubs/9699919799/functions/longjmp.html).
+So it looks like transparent failure is kinda sunk for now.
+We can still try and make it work for sync tests, though, and we could make any async function only throw explicit errors (perhaps by a fortify wrapper around its sync contents?).
+However, I'm only interested in async tests: most of my test code has substantial async components, and without custom executors, it is unclear
+how to best proceed. Perhaps another day!

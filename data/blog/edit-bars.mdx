@@ -1,0 +1,97 @@
+---
+title: 'Edit bars'
+date: '2023-03-20'
+tags: ['iOS']
+draft: false
+summary: 'Hard to non-destructive trim!'
+---
+
+In NanoFlick, we let the user trim a shot after taking it.
+There's a lot of potential for regret in the trim operation, though.
+If you mistrim, you can't undo it - we overwrite the file.
+My task for today was to make the trim operation more forgiving.
+Now, if you mistrim, you can just tap the trim button again to reset the trim.
+I decided to implement this by making the trim operation not modify the file, but mark
+the file as "trimmed" in the shot metadata.
+Whenever the movie is compiled (in our case, into an AVComposistion object, but you could imagine an ffmpeg call),
+we only use the trimmed portion of the file.
+
+Unfortunately, the system video editor, `UIVideoEditorController`, only provides a file export API, and
+doesn't provide time ranges.
+I would like to use the stock trimmer view controller but just override what the button does, but there's no out of the box way of finding
+the button in the view controller.
+
+My first instinct was to find what the button was originally calling.
+
+```swift
+final class MyVideoEditor: UIVideoEditorController {    
+    override func viewDidAppear(_ animated: Bool) {
+        super.viewDidAppear(animated)
+        print(navigationBar.topItem!.rightBarButtonItem!.target!)
+        print(navigationBar.topItem!.rightBarButtonItem!.action!)
+    }
+}
+```
+
+The action was a selector called `_trimVideo:`. Pretty bog-standard underscored private API doing basically what we'd expect.
+
+The target, on the other hand, was _not_ `self` but a completely separte instance of `PLUIEditVideoViewController`.
+A few minutes of looking around locally before deciding to google led to a [header dump](https://developer.limneos.net/index.php?ios=16.3&framework=PhotoLibrary.framework&header=PLUIEditVideoViewController.h).
+
+At this point, my hypothesis is that photo pickers also allow for trimming, and that UI code is shared with the video editor.
+The photo picker has a [private field](https://stackoverflow.com/questions/7598254/uivideoeditorcontroller-know-the-start-and-end-point) that noted the trimming start and end times,
+but setting a breakpoint for that delegate method in lldb (`breakpoint set -r didFinishPickingMediaWithInfo`) didn't yield any hits.
+
+So, back to square one. Looking at the implementation of `_trimVideo:` in objdump reveals that it calls `cropOverlayWasOKed:`.
+Loading the library up in cutter[^1] reveals two methods called `cropOverlayWasOKed:` (one UIImageViewController, one UIEditImageViewController), so loading into lldb ()`breakpoint set -r cropOverlayWasOKed`) shows which one we hit.
+
+[^1]: [Cutter](https://cutter.re/) is a great tool for reverse engineering. It's a GUI for the command-line tool radare2. I've heard a lot about it, but only recently started using it. It's great!
+
+We hit on `PLUIImageViewController`'s version (strange, you'd figure `EditVideoViewController` would use the editor, but perhaps it's just a photo editor).
+
+Looking at the disassembly on cutter, we see calls to `_handleVideoSelected`, which has calls to... `startTime` and `endTime`! Yay!
+
+Now that we know the data is there, we have to figure out how to extract it.
+
+I have lldb set a breakpoint on any symbol that looks like `startTime`, and I get a method called `startTime` in `PLVideoView` that calls `scrubberStartTime` and `movieTimeFromScrubberStartTime`.
+Looking at the symbols for `PLVideoView` it appears to handle all the trimming - this is our view. If we find an instance of it,
+we can just call the methods to get the start and end times.
+
+Running `pviews` in lldb (from [Chisel](https://github.com/facebook/chisel)) shows us a list of all the views in the app.
+We can see that there's a `PLVideoView` in the view hiearchy
+
+```bash
+(lldb) pviews
+<UIWindow: 0x100b0a260; frame = (0 0; 375 812); gestureRecognizers = <NSArray: 0x2810ff480>; layer = <UIWindowLayer: 0x2810ff1b0>>
+   | <UITransitionView: 0x100c0a210; frame = (0 0; 375 812); autoresize = W+H; layer = <CALayer: 0x281e96de0>>
+   |    | <UIDropShadowView: 0x100c0a410; frame = (0 0; 375 812); autoresize = W+H; layer = <CALayer: 0x281e8d480>>
+   | <UITransitionView: 0x102805f70; frame = (0 0; 375 812); autoresize = W+H; layer = <CALayer: 0x281eb8640>>
+   |    | <UILayoutContainerView: 0x100b08720; frame = (0 0; 375 812); clipsToBounds = YES; autoresize = W+H; gestureRecognizers = <NSArray: 0x2810e1e30>; layer = <CALayer: 0x281ea4e60>>
+   |    |    | <UINavigationTransitionView: 0x100b12160; frame = (0 0; 375 812); clipsToBounds = YES; autoresize = W+H; layer = <CALayer: 0x281ecc4c0>>
+   |    |    |    | <UIViewControllerWrapperView: 0x100b0e0d0; frame = (0 0; 375 812); autoresize = W+H; layer = <CALayer: 0x281ecd880>>
+   |    |    |    |    | <PLUIView: 0x102a04080; frame = (0 88; 375 724); autoresize = W+H; backgroundColor = UIExtendedGrayColorSpace 0 1; layer = <CALayer: 0x281ea82c0>>
+   |    |    |    |    |    | <PLTileContainerView: 0x100c15de0; frame = (0 0; 375 724); autoresize = W+H; layer = <CALayer: 0x281eb4200>>
+   |    |    |    |    |    |    | *<<PLVideoView: 0x100c14a20; frame = (0 0; 375 724); autoresize = W+H; layer = <CALayer: 0x281ecbe40>> path:/private/var/mobile/Containers/Data/Application/D4D01DBD-3532-4D0E-A1E2-BEF73DBCCF2F/tmp/vater.mov>*
+   |    |    |    |    |    |    |    | <PLMoviePlayerView: 0x1028075a0; frame = (0 0; 375 724); clipsToBounds = YES; autoresize = W+H; layer = <CALayer: 0x281eb8b20>>
+   |    |    |    |    |    |    |    |    | <PLAVPlayerView: 0x102807970; frame = (0 0; 375 724); autoresize = W+H; userInteractionEnabled = NO; layer = <AVPlayerLayer: 0x2810d0390>>
+   |    |    |    |    |    |    |    |    |    | <AVPlayerLayerIntermediateLayer: 0x2810d0300> (layer)
+   |    |    |    |    |    |    |    |    |    |    | <FigVideoContainerLayer: 0x283d94280> (layer)
+   |    |    |    |    |    |    |    |    |    |    |    | <FigVideoLayer: 0x28100c9c0> (layer)
+```
+<figcaption> Abbreviated output of `pviews` in lldb </figcaption>
+
+Getting the video view from this is simply [trawling through views](https://stackoverflow.com/questions/32301336/swift-recursively-cycle-through-all-subviews-to-find-a-specific-class-and-appen).
+Unfortunately, just trying to directly run `videoView.perform(NSSelectorFromString("startTime")).takeRetainedValue()` yields no value,
+so we have to do some more digging. Using [lumos](https://github.com/jackyoustra/lumos) and [customDump](https://github.com/pointfreeco/swift-custom-dump) to explore the object
+revealed MANY variables and options, such as...
+ - `_exportSession` if we want to change the export settings sometime down the line
+ - `_scrubber` of type `UIMovieScrubber` if this approach doesn't pan out and we need another way to get the start/end times
+
+At this point, I realize that it's a trivial property that I can just get, so 
+a simple `videoView.value(forKey: "startTime") as! Double` does the trick. I do the same for `endTime` and we have our start and end times!
+
+## Retrospective
+Two alternate approaches that may've served me better:
+- just have lldb break on symbols with `start` and `end` before pressing the button and hope that the debugger would stop at a place to lead to me finding VideoView.
+- run `pviews` and look at the view class names - this is my bad for assuming that UIVideoEditorController contained all the logic and didn't delegate it to subviews / child view controllers.
+Still, this approach didn't take too long. I probably could've only saved around a half hour doing it this other way, and it was kinda fun this way, so not too big of a deal.

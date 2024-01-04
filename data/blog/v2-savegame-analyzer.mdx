@@ -1,0 +1,426 @@
+---
+title: 'Victoria 2 Savegame Analyzer'
+date: '2021-08-15'
+tags: ['victoria', 'typescript']
+draft: false
+summary: An abandoned attempt to analyze Victoria 2 savegames and do cool website stuff with it. Perhaps I'll pick it up later?
+---
+
+# The link to the whole thing: https://jackyoustra.github.io/victoria-analysis/
+
+_Note: This is a collection of entries from a journal I kept every now and then on this project.
+The date reflects my first publication of the site._
+
+## Introduction
+
+So today, I want to make a website for Victoria 2, one of my favorite economics simulation games. My goals:
+ - Portability - Victoria 2 war + econ analyzer were super hard to get working
+ - Relatively performant. Don’t need to be crazy about it but the files are pretty big
+ - Pretty
+ - Well-developed - would be nice to use SOTA tools to make it nice to work with
+ - Tested - not absolute requirement of every part, but want to obviate the use of a debugger and just rely on tests
+ - Extensible - dovetails with the above
+ - I want to be able to make a tool that’s able to replicate people’s victoria research in different parts (links). 
+ - NOT established tech - I’m completely okay with using a shiny new unproven thing if it looks good and can be justified
+
+The first step was to pick a platform to actually run the app. I have a few options:
+ - Multiple builds of a single binary
+    - Pros: Likely the most performant and shiny
+    - Cons: Likely the most involved setup, weird stuff in nooks and crannies, hard to guarantee support
+ - VM-based solution (Python + Qt, JavaFX, etc)
+    - Pros: Established with what people are doing, lose basically no performance
+    - Cons: Bad experience with the JavaFX tools already out there, such as the [JavaFX war analyzer](https://github.com/TKasekamp/VickyWarAnalyzer), significant friction downloading + installing something, especially with the runtime size
+ - Electron app
+    - Pros: Crazy portable
+    - Cons: Still have to download something, size, etc.
+ - Website
+    - Pros: Literally just have to go to the website to use
+    - Cons: Possible performance, unclear if I’ll be able to implement file watchers, can't autodetect paths.
+
+After considering it for some time, I decided the best course was with a website, with a file picker doing the uploading of a savegame.
+After a few tests, I realized that the web file picker returned a snapshot, not a handle - reading a file after it had changed returned the same file.
+However, I also noticed that chrome extensions had no such problem, so it’ll probably be possible to implement file watchers in a website (so you can have an auto updating game companion on another monitor or another computer over FTP or SAMBA, say) via an optional chrome extension.
+This really obviates the only advantage I could think of (and use) for an electron app over a website, so I decided to run with the website.
+
+For the website, I decided to just use CRA (create react app). However, I quickly ran into a problem: the clausewitz save files require a nontrivial parser in order to work and they’re quite large.
+A responsible person would be worried about JS performance to justify the use of wasm (probably after some profiling), but to be real I just wanted to use the really cool rust for web toolchain I’d heard a lot about but could never justify using before.
+
+## _Note: This was a bad idea and ended up being abandoned, but below is the original plan_ ##
+
+It was surprisingly difficult to get it to work - no tutorial online showed how to use modern CRA with rust, but eventually I pieced together different tutorials and got it to work. The steps:
+  1. Create a local rust package in your working directory (or in a separate one) with wasm-pack.
+  2. Npm-link the directory
+  3. Npm install the project
+  4. Use craco for rust to override the webpack configuration
+  5. Use wasm-bindgen to create JS/rust entrypoints and have it do the glue
+  6. Use web-js to get console.log (println is not supported at this time. Some repos said that they could be glue to automatically do it, but I never got them to work).
+
+Now that that’s done, on with actually writing it!
+
+### National Accounts Page
+Victoria 2 focuses on economics, modeled down to the population level, and it would be really cool to visualize the distribution of all the funds in the entire world across everyone in one snapshot.
+To do this, I’ll read the file in JS and monitor the lifecycle of that job to show the loading interface, and then pass the data to the rust processor module.
+
+#### Step 1. Parse the save file to IR!
+
+After running around the internet comparing different parsing tools, it seemed like rust-peg was a cool new tool that allowed for in-code creation of PEG CFGs via a macro that automatically synthesized parsing rust functions.
+I wrote that with accompanying tests in parser.rs.
+Initially, I tried to parse the file like a JSON file with different symbols, but quickly realized it wasn’t anything close to that and had a LOT of oddities.
+For example: lists were merely space-separated (no commas), and there could be multiple entries for a single item in a map.
+However it was close enough that a CFG was fairly easy to write in peg, so that’s done with step one!
+
+#### Step 2. Parse IR to proper JSON IR
+
+Initially, I thought that you could just parse the clausewitz save file directly to serde.
+An example lies in a snippet of a province definition in a save file, as seen below. Initially, it just looks like a particularly cursed JSON file.
+```
+6=
+{
+        name="Whitehorse"
+        owner="USA"
+        controller="USA"
+        core="CAN"
+        core="USA"
+        garrison=100.000
+        fort=
+        {
+ 4.000 4.000    }
+        railroad=
+        {
+ 5.000 5.000    }
+        aristocrats=
+        {
+                id=893812
+                size=2305
+                nanfaren=mahayana
+                money=151709.23901
+                ideology=
+                {
+1=6.99677
+2=7.02713
+# ...
+                }
+        # ...
+        }
+# ...
+}
+```
+Sure, you have strange spacing, `=` instead of `:`, maps and lists sharing the same syntax, and no commas, but it’s still JSON, right?
+
+Unfortunately, this doesn't hold true in the general case. There are two problematic ways that this is violated, which together make it difficult to mock as anything resembling JSON.
+
+1. There can be duplicate elements in maps.
+
+In Victoria 2, the provinces store party loyalty that can be seen on the population page.
+
+```
+party_loyalty=
+        {
+                ideology="liberal"
+                loyalty_value=0.28677
+        }
+party_loyalty=
+        {
+                ideology="conservative"
+                loyalty_value=0.02896
+        }
+```
+
+To model this in JSON, you would have to do something like this:
+
+```
+party_loyalty=[
+        {
+          ideology: "liberal"
+          loyalty_value: 0.28677
+        },
+        {
+          ideology: "conservative"
+          loyalty_value: 0.02896
+        }
+]
+```
+
+2. Order matters.
+
+This normally wouldn't be a problem in a properly-parsed JSON file, as [JavaScript objects are guaranteed to maintain insertion order when dealing with string keys](https://stackoverflow.com/questions/5525795/does-javascript-guarantee-object-property-order/38218582#38218582).
+I can't find any non-string keys where the order matters, so this would be good enough for us.
+
+3. Finally, heterogeneous types are allowed in maps - you can have unlabeled entries which are apparently treated as just normal list indicies. This could be mocked by a `__list__` key, but it’s not a great solution.
+
+As a special bonus for us, the format is schemaless: expressing no value could be some null key or the complete omission of the key entirely, whereas expressing one value could be the value itself or an array of one, while expressing multiple values could be multiple entries or an array with many elements, and, because the format is schemaless, we have to handle every case for every field.
+
+#### The problem
+The problem lies in  logic code. Consider a slight modification of a snippet from The New Order, a mod for Hearts of Iron 4, which is a Clausewitz game and uses the same file format for its data and saves:
+```
+GRO_has_stationned_troops_kameroon = {
+	custom_trigger_tooltip = {
+		tooltip = GRO_garrison_kameroon_tt
+		tag = GRO
+		OR = {
+			is_ai = yes
+			divisions_in_state = {
+				size > 5
+				state = 295
+			}
+      side_effect_here = yes
+			divisions_in_state = {
+				size > 5
+				state = 1162
+			}
+			divisions_in_state = {
+				size > 5
+				state = 1171
+			}
+			divisions_in_state = {
+				size > 5
+				state = 1184
+			}
+		}
+	}
+}
+```
+
+Using a JSON object with the above mitigations would look like the following:
+```
+{
+  "GRO_has_stationned_troops_kameroon": {
+    "custom_trigger_tooltip": {
+      "tooltip": "GRO_garrison_kameroon_tt",
+      "tag": "GRO",
+      "OR": [
+        {
+          "is_ai": true
+        },
+        {
+          "side_effect_here": true
+        }
+        divisions_in_state = [
+          {
+            "size": 5,
+            "state": 295
+          },
+          {
+            "size": 5,
+            "state": 1162
+          },
+          {
+            "size": 5,
+            "state": 1171
+          },
+          {
+            "size": 5,
+            "state": 1184
+          }
+        ]
+      ]
+    }
+  }
+}
+```
+
+This is incorrect: the OR clause contains short-circuiting behavior, which the model would lose by flattening all of the divisions_in_state into a single key.
+You could fix this by tacking on an index field to every list element, thus representing every clausewitz `map<T, U>` as `array<(T, U)>` in the JSON structure so as to preserve duplicates.
+
+At this point we're so far from the original spirit of JSON that a custom AST would be cleaner for full parsing. I do this in my TNO book project, but because we don't run into any ordering needs in Victoria 2, the above format conversion works just fine!
+
+#### Step 3) Parse JSON IR to strongly-typed structs
+After a miserable time rolling my own parser, I discovered [serde](https://github.com/serde-rs/serde).
+This convenience library allows me to automatically synthesize property deserializers with `#[derive(Deserialize)]`.
+Additionally, it has a lot of convenience serializers and deserializers for custom types and enums, as well as useful properties like `rename`, `flatten`, and `defaultonerror`.
+Unfortunately, there is no explicit try facility outside of these properties. This is an issue in several cases.
+Countries aren’t listified, but are keyed off of their tag (matching [A-Z]{3}) in the save root.
+This presents a conundrum: there’s no facility in serde to say “parse elements matching this tag,” only an alias that allows for “or”-ing values.
+Additionally, the macro system won’t accept thousands of elements.
+I briefly tried by having python generate every possible three letter all capitalized string as an alias statement, and the compiler crashed.
+The easiest way to deal with this is to preprocess the JSON into the expected JSON to be parsed by serde (essentially running each key through a regex and listifying if it matches)
+I do the same thing with provinces (which are just numbers on the root as province IDs). Then, I can parse these JSON map off of an autosynthesized serde deserializer off of a hashmap of country tag to country (or province ID to provinces).
+Some countries have one state, some have multiple, but it’s not explicitly in a list. We got around this by listifying in the JSON IR, but now it presents us with a different problem: we have a property that serde will either find a list or an element for. I found resources that did this in one context but when I tried to do it in more contexts I couldn’t get it to work (in a generic deserializer replacing visit_str with visit_map, it still called visit_seq and panic-ed because it found a map instead of calling visit_map). Feifei Zhang, my dear friend, relieved me of continuing my hours of trying to find a solution by suggesting implicit enum deserialization! Here, we would have an enum that had a single item, multiple items in a vec, or no item, with a default to no item. Then, we derived deserialize on it and made it untagged, implicitly enabling the backtracking necessary to mock the custom visitor we weren’t able to manually create. For the states field, the full statement was #[serde(rename="state", default)] #[serde_as(as="DefaultOnError")]. Then, just implement an iterator over it, and treat it as an iterable wherever it’s used, and now we’re all set!
+
+#### Step 4) Implementing the aggregation code.
+This was by far the easiest part. I could just write the function functionally, as serde has done all the heavy lifting putting everything into my strongly-typed structs.
+Then, I have wasm_bindgen do all the heavy lifting exporting my object code into JS, where D3 can do the visualization into whatever I want.
+
+
+## React time!
+I have to pick a visualization library now. Looking closely, D3 out of the box isn’t good - it doesn’t play well with react.
+There are a lot of adapters, but none of them seem very clean ([the best one](https://oli.me.uk/d3-within-react-the-right-way/), a fake DOM for D3, was deprecated).
+After comparing [several other libraries](https://blog.theodo.com/2019/08/how-i-chose-the-number-one-react-graphing-library/) where I really wanted to have sunburst, I decided to use Nivo for now.
+
+For now, onto [our sunburst](https://nivo.rocks/sunburst).
+
+I had to rewrite the rust js exporter to export the format that D3 expected. Unfortunately, this killed my processing time, and suggested that nivo was perhaps not the best choice after 23k errors, freezing chrome, and eating 16G of ram.
+However, I suspect that a bigger problem was in a misconception of what I thought D3 would do. I thought it would use efficient data structures to do nesting itself, instead of trying to render every infinitesimally small sliver of wealth of every entity in the world. I appear to be wrong.
+
+Implement some notion of grouping from the rust side. Seeing as how D3 died when it tried to, it’s likely to be rather computationally intensive, so it would be best to keep it on the rust side (as an added bonus, we dodge some overhead shoving the data over).
+
+It’s really unfortunate that we have an integer index, because we can’t directly parse that as a string and just borrow it. We could use dynamic dispatch with an impl, and so avoid the huge majority of strcpy (indeed, we could use an “either” struct to hold either a str or an int to avoid these indexing issues) but I’ll leave that to benchmarking to see how much of a problem that is. If I were to do the either struct, I could have an issue with making it work with serde. Fortunately, the combination of a flatten macro and an untyped foreign protocol trait conformance would do the trick - the first to put the fields directly in D3Atom, and the second to have serde implement serialization without creating an “if” and “else” field explicitly (and ruining the point of lightweight data reuse).
+
+Something that’s striking to me is that Rust is changing (I think?) the way I think of systems programming. When writing cpp or Swift, I almost never think of memory layout, either because I (almost always) don’t have to and it’s tremendously difficult to get it right (cpp) or everything’s just refcounted by default (Swift). In rust, the wide variety of choices, with lifetimes ensuring I don’t make the mistakes I usually do in cpp-land, is making me think very critically about things I previously didn’t think much of, such as where to store parsed integers.
+
+I first wrote subtree_for_node operating off of a string array slice and returning a `Result<D3Node, String>` object, but wasm_bindgen vomited on almost every part of that. The string array slice was instead passed in as a jsvalue and deservialized via serde, and the string error was serialized to js over serde as well.
+
+An aside - the JS version of subtree_for_node is basically just a serialization / deserialization wrapper around subtree_for_node. I’d wanted to add an extension to the error trait to implement from serde_json::Error so I could use the ? function error coalescing operator instead of having to manually map each error before coalescing. Unfortunately, unlike swift, there’s pretty strong coherence in Rust, so I’m not allowed to implement a trait on a trait. Unfortunate! I could get away with it in Swift although it’s probably good that it’s this way. There’s a lot of unexpected surprises you can get, and it’s not very strong.
+
+Some writing and debugging later, I have the optimization function all done!
+
+Optimization notes:
+Looking at the final WASM binary size, we’re pretty big, clocking in at around a megabyte. There’s a feeling of “maybe I should’ve gone with JS and just let turbofan kick in” but then I realized that we’re not really sparing on our allocations and really try and take advantage of Rust’s borrow rules. JS would ignore all of that and spray the heap with tons of objects, even after turbofan kicks in. I don’t know how to prematurely trigger compilation of an entire module, and I definitely don’t know how to replicate the compact object representation wasm has (all of my rust objects are exposed as opaque handles, removing the need to replicate the internal structure of my representations in memory-inefficient JS).
+
+When all is said and done and I actually end up serving the file, it’s only around 300kb. Yay! Probably a good idea to remove wee-alloc at this point - we can probably use a better allocator. The sad part about deployment is it broke my animations and caused svg artifacting. Boo! Perhaps another day I’ll fix it. Commit  is all for now!
+
+### Some time passes
+
+After the Vicky 3 announcement and the conclusion of college, I was motivated to take a few days to work on this project further. First, however, I considered my reflections of what I currently have done.
+The main bottleneck at this point was the visualization, not the processing. Whatever solution I have should probably be amenable to cutting down on visualized datasets.
+Querying after building the overall save datastructure was much more difficult than anticipated. To address this, it would probably be a good idea to use a more formal database than a top-level object on which to run queries (although the top-level object is still pretty nice and I’ll probably keep it around - objects in wasm are probably rather lightweight).
+
+I don’t know much about backend development (or development in general, but especially backend) so there’s a few options I see. First, I could use SQLite. There’s extensive packages for these that are very well-tested and supported, in js and in rust. However, the rust one has trouble compiling to wasm and doesn’t use threads on wasm (this is okay, it just doesn’t take full advantage of the new features). The JS one is serial (of course) and the emscripten (precompiled wasm) JS version only supports multithreading via a webworker (serial background processing queue). None of these options are an obvious slam dunk.
+
+Before we decide, SQLite is pretty heavy for our write-once, create-different-views workload. A dataframe may work just fine. I could use a javascript dataframe, but I’ve already integrated rust (and I enjoy rust more) and the rust solution, pola-rs, could be faster. It’s based on Apache arrow, which seems to just emphasize vectorized, column-first accesses. Because we’ll generally be having compute-heavy operations on sets of attributes rather than sets of entities, this columnar approach suits our workload. Additionally, the obvious regular nature of this aggregation technique lends itself to SIMD parallelization well, and, via GPU support that could eventually be enabled on the web and on rust wasm. This is unlikely to happen anytime soon, as there are large security concerns with revealing a GPU device to any piece of JS on the internet. Additionally, it came with a neat suggestion for an allocator. I’m probably going to examine that later and evaluate some allocators.
+
+If this were a real project with a team depending on me, I’d probably go with one of the SQLite solutions and make them work. Using tried-and-true software is preferable in a domain where I have no experience. However, this is a fun project, and the design philosophy is “try new, strange things.” I can’t see any reason why pola-rs wouldn't work, so that’s what I’ll use.
+
+Additionally, I started to look at how the landscape has changed since I last worked on my project. The first was this nice site that has a list of implemented wasm features. The one that stuck out to me was threads and atomics: having async/await fibers would be really, really nice: if I could run multiple queries in parallel, it could speed up the data processing step after the parse step. Granted, this performance improvement is unlikely to be the bottleneck (text processing is, which is more tricky but still parallelizable), but even then the huge bottleneck is improper visualization. It’s already running in major browsers, so I’ll try and choose a database solution that can make use of it. This could be a little engineering challenge, so I’ll try and see if any database solution has considered wasm threads. 
+
+SIMD support also stuck out to me. This probably could lead to some small future performance improvements if we use a database that can exploit SIMD. It’s not very important, but something to keep an eye out for.
+
+It goes without saying that the NPM package ecosystem has also significantly evolved since I looked at this project. I will probably upgrade NPM packages via some automated test-based system (I think npm-check-updates works well here).  
+
+With all the design points considered, it’s time to move on to beginning work again! A look at the cargo.toml shows some out of date decisions: I think at this point we care way less about wasm binary size: speed is more likely than a few kilobytes of size. I changed the wasm-opt from optimizing on size to speed, as well as rustc. At some point, I should also enable everything rather than mutable globals, but there’s a bug that dissuades me from doing it. One day!
+
+Immediately, we have a problem. Polars’ CSV parsing uses a memmap that doesn’t compile for wasm. The polars lazy feature doesn’t do cfg checks for CSV support, so I can’t use lazy operations for now. This isn’t great, but I suppose it’s fine for now.
+
+After working on polars for a while, I ran into an issue: I can’t just convert the table into a JSON struct, as the paradox structure is way too irregular for the Polars parser. For now, it’s probably a good idea to build the structure in memory first, before supplying it to polars (if we even want to do that at all anymore). Using automatic parser generators don’t work so great (they take the keys as fixed rather than indicators of object contents), and trying to generate a schema automatically yields a similar problem. At this point, I’ve decided to just write the parse code myself.
+
+With what has turned out to just be an extended technical musing behind us, I now take a look at the save file fields. I’m curious about prices and want to do lots of calculations based on prices, so I take a look at the 
+
+### Implementing terrain
+So I’m working on trying to get terrain here, and nothing seems to be working. The `terrain.bmp` file has far more colors than there are terrains, and they don’t seem to line up. Checking the cache for the number of unique colors in the bitmap (identify -format "%k" provincecache.bin) seems like it’s just based on the province data, as it has a similar number as checking the provinces file (identify -format "%k" provinces.bin). At this point, it seems like it’s referring to the palette in terrain.txt. I could manually create a map from the palette to the terrain types, but it’d be good to automatically do it. Unfortunately, I can’t figure out how, so I guess it’s time for me to just write it manually!
+
+Because I can’t use the palette, I’ll just record the terrain values directly. I use this https://imgur.com/a/wxHkL to help guide me, as well as an open copy of the game. Note that more fine-grain control can be made by mods via the province history files (that’s why there are so many types in the HPM map). However, for making our basic map, we don’t need those. After making this table, I checked against the palette of unique colors in the terrain bitmap.
+
+#### Terrain mappings
+
+| Terrain | Color |
+| --- | --- |
+| Plains | Light red |
+| Steppe | Dark red |
+| Mountains | Pink / Purple |
+| Farmland | Light green |
+| Forest | Dark green |
+| Desert | Sand |
+| Arctic | White |
+| Woods | Dark blue |
+| Hills | Light blue |
+| Jungle | Turquoise |
+| Marsh | Turquoise (less blue) |
+
+Exceptions:
+
+| Terrain | Specific color |
+| --- | --- |
+| Farmland | 567C1B |
+| Farmland | 98D383 |
+| Farmland | 86BF5C |
+| Farmland | 6FA239 |
+| Desert | CEA963 |
+| Desert | E1C082 |
+| Desert | F1D297 |
+| Desert | AC8843 |
+| Forest | 40610C |
+| Forest | 274200 |
+| Forest | 4C5604 |
+| Forest | 212800 |
+| Arctic | ECECEC |
+| Arctic | D2D2D2 |
+| Arctic | B0B0B0 |
+| Arctic | 8C8C8C |
+| Arctic | 707070 |
+| Plains | 750B10 |
+| Plains | E72037 |
+| Plains | B30B1B |
+| Plains | 8A0B1A |
+| Jungle | 76F5D9 |
+| Jungle | 61DCC1 |
+| Jungle | 38C7A7 |
+| Jungle | 30AF93 |
+| Mountain | 100B29 |
+| Mountain | 1A1143 |
+| Mountain | 413479 |
+| Mountain | B456B3 |
+| Mountain | B56FB1 |
+| Mountain | A22753 |
+| Mountain | C05A75 |
+| Mountain | D590C7 |
+| Mountain | 2D225F |
+| Hills | 2D7792 |
+| Hills | 4B93AE |
+| Hills | A0D4DC |
+| Hills | 78B4CA |
+| Woods | 25607E |
+| Woods | 0F3F5A |
+| Woods | 06294E |
+| Woods | 021429 |
+| Steppe | 63070B |
+| Steppe | 3E0205 |
+| Steppe | 520408 |
+| Steppe | 270002 |
+| Marsh | 004939 |
+| Marsh | 025E4A |
+| Marsh | 1F9A7F |
+| Marsh | 107A63 |
+
+
+Unverified - good thing I went back to check!
+
+| Ocean | FFFFFF |
+| Mountain | EBB3E9 |
+| Mountain | AD3B53 |
+| Mountain | 974831 |
+| Mountain | 66504B |
+| Mountain | 6F5041 |
+| Mountain | 624F4F |
+| Plains | 565656 |
+| Plains | 4E4E4E |
+| Mountain | 7F183C |
+| Plains | 383838 |
+
+
+Some of these pixels were really hard to find, and it was like doing a where’s waldo to resolve these pixel colors.
+I decided to use a helpful script to find the pixel coordinates, and use affinity to go to each coordinates (I couldn't find a way to get single pixels by color in affinity).
+
+```
+im = cv2.flip(cv2.imread("map/terrain.bmp"), 0)
+np.column_stack(np.where(np.all(im==[blue, green, red],axis=2)))
+```
+
+| Terrain | Specific color |
+| --- | --- |
+| insignificant, only four pixels have this color in himalayas, mountain | 974831 |
+| insignificant, literally just one pixel has it, presumed mountain | 66504B |
+| Eight pixels, mountain | 6F5041 |
+| Eight pixels, mountain | 624F4F |
+
+Okay, this seems fine for now. We’re going to go with the majority algorithm based off of this palette, as outlined in https://www.reddit.com/r/victoria2/comments/5bcrhw/where_is_the_terrain_type_for_provinces_designated/. 
+
+Typing it from my spreadsheet to the document was kinda tedious, so I used `pbpaste | awk NF | sed "s/^/0x/g" | sed "s/$/,/g" | pbcopy` to do each type as a whole.
+
+I changed these to a JSON, which is okay but not the best way to do a lookup. It’s okay though, I can always convert it to a better lookup format later.
+
+The original goal is to make the terrain images show up on the tooltip, so some snooping reveals that these UI images are under the `gfx/interface` folder.
+The ones we want to use are all `.dds`. I don’t like wrestling file formats to the ground, and a quick google search reveals one seldom-used package, https://www.npmjs.com/package/parse-dds,
+and some hoi4 modder (lol) asking github-desktop to support the format https://github.com/desktop/desktop/issues/5337.
+Fortunately, we’re just a fun project, and can run with this actually pretty nice dds parser (it’ll give me the rgb bytes, which is all I really care about - I can just put that into image-js or draw on canvas).
+
+At this point, I realize it’s actually a .tga, which we already handle, but that’s okay, we’ll probably want to use a dds sooner or later and now have that all integrated.
+
+I miss having typed data structures. Fortunately, with TypeScript, we can get the (syntactic) best of both worlds: types as a hint, with the ability to ignore due to Paradox’s crazy syntax when convenient.
+To do this, I can upload the output of v2parser calls to a parse generator, https://app.quicktype.io/.
+These will generate our typescript interfaces (we’re not going to generate checking code. I don’t trust correct paradox saves to look the same as the samples I have).
+This seemed to choke on the root object, but mostly worked for the rest.
+Okay, all done! One thousand lines of type definitions all checked.
+I also uncovered that my date parsing has broken in the PEG module, as has negative number parsing.
+Shoot! This will prompt my creation of test cases and jest. We can’t do strict checking because we use weird indexers, so we’ll just check for json file equality.
+
+If I want to do structures, I’ll have to use a software called Noesis to parse the DDS files.

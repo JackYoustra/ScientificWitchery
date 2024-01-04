@@ -1,0 +1,186 @@
+---
+title: Realtime audio processing in AVComposition in Swift
+date: '2023-10-17'
+tags: ['swift', 'c', 'iOS', 'AVFoundation']
+draft: false
+summary: Trying to make realtime and offline cool audio effects without ffmpeg on iOS. Did someone say undocumented C APIs? I wish they didn't!
+---
+
+(Author's note: This post was originally done in the summer but left uncomplete until now for... general awareness purposes. Oops!)
+
+# Introduction
+
+Trying to make cool audio effects without ffmpeg (native) on iOS, in both realtime and offline in sync with my movie.
+Usually, you can directly use `AVAudioEngine`, but in order to interface with `AVComposition`'s `AVAudioMix`, there's precisely one inpoint: `MTAudioProcessingTap` on `AVAudioMix`.
+
+Several problems with this...
+1) There's no real documentation anywhere? `MediaToolbox` seems to have been scrubbed a long
+time ago, along with the associated WWDC sessions.
+2) There's not really any sample code? The only thing I could find is an iOS 6 project (💀)
+that doesn't even compile anymore and has been long since scrubbed off the internet. See: https://github.com/robovm/apple-ios-samples/tree/master/AudioTapProcessor
+3) It's a C API that requires careful bridging and manual memory management and is picky about audio formats.
+Hopefully I get it right!
+4) It's not clear how to do this in realtime in conjunction with non-trivial graph filters,
+such as those provided by `AVAudioEngine`.
+
+[^1]: This didn't end up making its own project because it was too nanoflick-specific,
+but I had a similar issue when migrating from iOS 15 to 16 where occasionally running an export with an attached
+`AVVideoCompositionCoreAnimationTool` and an animation would cause the UI to hang on a Core Animation block.
+The solution was moving the animation to the compositor, but the real solution was using ffmpeg.
+One of these days I'm going to write a blog post about how to make a video app, and the answer is just always ffmpeg-kit,
+or at the very least core image.
+Writing your own compositor sucks.
+
+# Consideration
+
+As I said, the only interface we have is a `tap` parameter on `AVAudioMix`.
+This is a C API that essentially spits out a data buffer and a format, and we can do whatever we want with it.
+To bridge to the more advanced graphs of `AVAudioEngine`,
+I'm not sure if I can just add a tap to the engine's output node and have it work, or if I need to create a separate graph and
+mixer and somehow sync them up. I hope that just works. If not, perhaps there's a neat frankenstein
+solution where we use the engine online without the `MTAudioProcessingTap` and we block offline, or
+we forego the whole thing and just use the tap offline and then apply the effects to the movie
+afterwards. In any event, I love me some unified, realtime solutions, so we'll do those first.
+
+Our sources are that one sample project mentioned earlier, [this cool write up](https://chritto.wordpress.com/2013/01/07/processing-avplayers-audio-with-mtaudioprocessingtap/),
+and a smattering of aged like 🧀 SO posts.
+
+Anyway, I wanted to try and use a wrapper from AudioKit to amke things less painful.
+I made a quick test project to test the AudioKit side with rendering to a file and found the semantics a bit surprising.
+The semantics needed to render a file is:
+```swift
+try! conductor.engine.renderToFile(file, duration: /*duration*/, prerender: {
+    conductor.player.play()
+}, progress: { progress in
+    print("Progress: \(progress)")
+})
+```
+
+You need to remember to include the `play` call! There's no implicit player play! If you don't have the player play, you'll just get a file with silence for the whole duration,
+with no warning or anything.
+
+From the other direction, we can start with [this gist](https://gist.github.com/Ridwy/025eb9318342cdd35fea1f412fde1067).
+We can verify it works (with both the `AVPlayer` and `AVAssetExportSession` pipelines, you never know with AVFoundation!)
+in a sample project.
+
+And... it mostly does, but we get our second weirdness of the day. Modifying and using a player works in every case,
+but using an `AVAssetExportSession` on the player composition... sometimes does?
+If we have
+
+```swift
+guard let track = player.currentItem?.asset.tracks(withMediaType: .audio).first else {
+    return
+}
+
+let audioMix = AVMutableAudioMix()
+let params = AVMutableAudioMixInputParameters(track: track)
+var callbacks = MTAudioProcessingTapCallbacks(version: kMTAudioProcessingTapCallbacksVersion_0, clientInfo: nil)
+{ tap, _, tapStorageOut in
+    // initialize
+} finalize: { tap in
+    // clean up
+} prepare: { tap, maxFrames, processingFormat in
+    // allocate memory for sound processing
+} unprepare: { tap in
+    // deallocate memory for sound processing
+} process: { tap, numberFrames, flags, bufferListInOut, numberFramesOut, flagsOut in
+    guard noErr == MTAudioProcessingTapGetSourceAudio(tap, numberFrames, bufferListInOut, flagsOut, nil, numberFramesOut) else {
+        return
+    }
+}
+
+var tap: Unmanaged<MTAudioProcessingTap>?
+let error = MTAudioProcessingTapCreate(kCFAllocatorDefault, &callbacks, kMTAudioProcessingTapCreationFlag_PreEffects, &tap)
+assert(error == noErr)
+
+params.audioTapProcessor = tap?.takeUnretainedValue()
+tap?.release()
+
+audioMix.inputParameters = [params]
+player.currentItem!.audioMix = audioMix
+
+// comment this out and you have a race condition!!!
+player.play()
+
+let assetExportSession = AVAssetExportSession(asset: player.currentItem!.asset, presetName: AVAssetExportPresetHighestQuality)!
+let assetExportSpot = FileManager.default.temporaryDirectory.appending(path: "exportBoy.mov")
+assetExportSession.outputFileType = .mov
+assetExportSession.outputURL = assetExportSpot
+assetExportSession.audioMix = audioMix
+try? FileManager.default.removeItem(at: assetExportSpot)
+await assetExportSession.export()
+assert(assetExportSession.error == nil)
+assert(assetExportSession.status == .completed)
+print("Asset exported to \(assetExportSpot)")
+```
+
+It works all the time, but if we comment out the `player.play()` line without
+commenting out processing tap, it only works about half the time. The other half just has a permanent hang on
+`assetExportSession`. This isn't the first time this has happened,[^1] but it's exhibiting in a different way
+(core audio instead of core animation). What a buggy library!
+
+Another strange thing is `MTAudioProcessingTapGetSourceAudio`.
+This actually fills the buffer. You're almost always just going to call this method at the start, but if
+you're doing strange things with autoregression, preserving the previous buffers might be useful.
+
+## Connecting MTAudioProcessingTap 🚰 to AudioKit's AudioEngine 🔊
+Anyway, it is at this point where I make another blunder.
+There are multiple points where a format is needed, but mostly I need a format to create a PCM buffer for 
+AudioKit to render to. In order to do so, it needs a format to refer to. I went with the format of the
+audio track, but that was a mistake. The format of the audio track is not necessarily the processing format of the
+audio tap. Instead of passing through the format from the audio mix, I should get it from the prepare callback instead
+and pass that through the callback's clientdata pointer.
+
+Unfortunately, it seems like the `AVAudioEngine`'s manual rendering format is not the same as the audio tap processor,
+and there's no way to set it. However, it seems... close enough? They're both 32 bit float PCM,
+just the channels and sample rate differ, which should be fine because those should be the same for the audio tap processor.
+
+With just this, I'm able to get some sound out, but it sounds awful, and I'm still getting those format warnings.
+Perhaps we can try to fix the warnings.
+We can change neither the MediaToolbox tap format nor the AudioEngine manual render format, as far as I know,
+so we'll convert between the two in the middle.
+
+🌖 some 🌗 time 🌘 passes
+
+There seemed to be a few issues with going with AudioKit, so I decided to try and use `AVAudioEngine` directly, with `AVAudioUnit` effects.
+Running it as a passthrough effect goes great, but we hear crackling if we try and add an effect.
+This is probably due to the call latency: we setup the whole pipeline every call of the process method, and render in offline mode.
+Lets time each call and see how long it takes.
+
+On 67 samples with passthrough, it takes average of 0.0022 seconds.
+
+However, when we add an effect, we get 0.0038, almost double, but probably not enough to explain the gap.
+
+We embarrasingly reused a buffer. Lets take that out.
+And it's a lot better! But it still has the scratchy gaps that suggest we're not keeping up.
+
+Lets speed things up by actually using the preparation steps as they're meant to be used, and using the
+render body to only actually render.
+
+The tricky part here lies in the manual memory allocation, but we can just hide everything between Swift's nice struct
+RAII wrappers for each phase.
+
+Anyway. After making the 'process' phase truly realtime (no allocations, no blocking calls, just some moves) it works!
+I'm still a little curious about the source audio node - we copy form that buffer, so I did some profiling and found that
+it spends uncountably little time doing that copy. Some more digging yields that the buffers in `AudioBufferList`
+are also boxed, so we're only copying a few pointers. Not just one pointer, but not really that different.
+
+That all works great! We get our first realtime audio effect, and it's pretty cool. However,
+we have a problem with different formats: passing a mono audio file through the effect
+results in an unsupported format crash in the mixer.
+
+This is surprising! The documentation for [AVAudioMixerNode](https://developer.apple.com/documentation/avfaudio/avaudiomixernode)
+seems to allow for any reasonable format. Looking through the assembly of the error, we find that it fails in 
+[`AUV2BridgeBus`'s `setFormat` method](https://github.com/xybp888/iOS-Header/blob/master/13.0/PrivateFrameworks/AudioToolboxCore.framework/AUV2BridgeBus.h)[^2]
+
+Anyway, perhaps I'll come back to this later. For now, it doesn't really matter to us because we control the format
+and can just make sure it's stereo.
+
+The full code is below:
+<iframe className="w-full h-3/6 hover:h-screen" src="https://gist.github.com/JackYoustra/f919d0af61815c6c0de332bcbe428848.pibb"></iframe>
+
+[^2]: The return type is quite curious! The apple SDK (as well as just objective c) already has a [proliferation](https://nshipster.com/bool/)
+[of](https://developer.apple.com/documentation/opengles/gl_bool)
+[bool](https://opensource.apple.com/source/cctools/cctools-384.1/include/mach-o/dyld.h)
+[types](https://opensource.apple.com/source/CommonCrypto/CommonCrypto-36064/LocalTests/utilLib/cspwrap.h.auto.html),
+so I guess `_Bool` is just another one to add to the list. It [appears to just be](https://stackoverflow.com/questions/8724349/difference-between-bool-and-bool-types-in-c) a C macro for bool to backport stdbool.

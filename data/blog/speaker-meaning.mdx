@@ -1,0 +1,123 @@
+---
+title: 'The meaning of the word "Speaker"'
+date: '2023-2-9'
+tags: ['swift', 'iOS']
+draft: false
+summary: The alternative to 'Speaker' is, apparently, 'Receiver'.
+---
+
+This last week, I've been working on a particularly pernicious bug in NanoFlick.
+Following the
+[advice](https://stackoverflow.com/questions/46612223/avaudiorecorder-avaudiosession-with-apple-airpods)
+for [how](https://stackoverflow.com/questions/63513902/setting-playandrecord-category-on-avaudiosession-causes-a-route-change)
+to [handle](https://gist.github.com/rnapier/e953299037989dd768f67dae0465f819)
+AirPods audio, I switched the audio category to 
+`.playAndRecord`, with the options `.allowBluetoothAP` and `.mixedWithOthers`. This worked great, except for one thing:
+when I went to the capture screen to record a shot and looked at the other shots
+without AirPods in, the audio would play... quieter. It would still certainly play,
+but at something like 25% volume.
+
+This was really strange - it happened only on the capture screen, and only when I
+enabled the AirPods.
+
+My first step was figuring out how the audio session was changing at any point in my app.
+There's a notification every time the audio route changes - hooking into that was sufficient for my purposes.
+```swift
+// Somewhere in appDidFinishLaunching...
+NotificationCenter.default.publisher(for: AVAudioSession.routeChangeNotification)
+.sink { (note) in
+    print("Route change. Reason: \(note.userInfo?[AVAudioSessionRouteChangeReasonKey].map { AVAudioSession.RouteChangeReason(rawValue: ($0 as! NSNumber).uintValue) }))\n previous route: \((note.userInfo?[AVAudioSessionRouteChangePreviousRouteKey] as? AVAudioSessionRouteDescription)?.description)\ncurrent route: \(Optional.some(AVAudioSession.sharedInstance().currentRoute)?.description)\nroute options: \(Optional.some(AVAudioSession.sharedInstance().category))\nroute categoryoptions: \(Optional.some(AVAudioSession.sharedInstance().categoryOptions))\nroute available: \(AVAudioSession.sharedInstance().availableCategories)")
+}
+```
+
+There wasn't any distinction in the logs in the runs between me setting the audio category (airpods, but quiet) and
+not setting the audio category (no airpods, good volume) - the only distinction was in the audio category options settings.
+The low-volume run had `[.allowBluetoothAP, .mixWithOthers]`, and the high-volume run had `[.defaultToSpeaker]`.
+The default to speaker seemed to be a toggle between whether the audio should default to the phone speaker or allow bluetooth - it couldn't
+be the cause of the problem, because the volume was high on the other screens.
+I took out the `.allowBluetoothAP` option, expecting the audio to go back to normal, but no!
+I now had nonworking airpods, AND low volume.
+What could be the problem?
+
+After a while playing with different option settings, I changed the setting to `[.allowBluetoothA2DP, .defaultToSpeaker]`,
+and everything worked! The audio was loud, and the airpods worked.
+
+But why did this do the trick? Why didn't defaulting to speaker cause the AirPods to be pre-empted?
+Why did `.defaultToSpeaker` cause the audio to be loud, but only on the screen where I had a recording session running?
+
+I looked at the documentation of the `AVAudioSession.CategoryOptions` enum to see what the options were doing, and found this:
+```
+@var AVAudioSessionCategoryOptionAllowBluetoothA2DP
+        Allows an application to change the default behavior of some audio session categories with
+        regard to whether Bluetooth Advanced Audio Distribution Profile (A2DP) devices are
+        available for routing. The exact behavior depends on the category.
+
+        AVAudioSessionCategoryPlayAndRecord:
+            AllowBluetoothA2DP defaults to false, but can be set to true, allowing a paired
+            Bluetooth A2DP device to appear as an available route for output, while recording
+            through the category-appropriate input.
+
+        AVAudioSessionCategoryMultiRoute and AVAudioSessionCategoryRecord:
+            AllowBluetoothA2DP is false, and cannot be set to true.
+
+        Other categories:
+            AllowBluetoothA2DP is always implicitly true and cannot be changed; Bluetooth A2DP ports
+            are always supported in output-only categories.
+
+        Setting both AVAudioSessionCategoryOptionAllowBluetooth and
+        AVAudioSessionCategoryOptionAllowBluetoothA2DP is allowed. In cases where a single
+        Bluetooth device supports both HFP and A2DP, the HFP ports will be given a higher priority
+        for routing. For HFP and A2DP ports on separate hardware devices, the last-in wins rule
+        applies.
+
+        Introduced in iOS 10.0 / watchOS 3.0 / tvOS 10.0.
+```
+
+Okay, so far so good, basically what you'd expect an "allow bluetooth audio" flag to do and no strange interaction effects.
+What about the speaker option?
+```
+@var AVAudioSessionCategoryOptionDefaultToSpeaker
+        Allows an application to change the default behavior of some audio session categories with
+        regard to the audio route. The exact behavior depends on the category.
+
+        AVAudioSessionCategoryPlayAndRecord:
+            DefaultToSpeaker will default to false, but can be set to true, routing to Speaker
+            (instead of Receiver) when no other audio route is connected.
+
+        Other categories:
+            DefaultToSpeaker is always false and cannot be changed.
+```
+
+Ah, so the speaker option is only for the play and record category. That would
+be why it had no effect on the other screens. But why did it cause the audio to be
+low volume? It seemed to me to confirm my belief,
+that this option would prevent the AirPods from working correctly, because instead of going
+to the connected receiver (the AirPods), it would go to the speaker.
+
+I was wrong, though! The word "receiver" in Google's dictionary says
+
+> the part of a telephone apparatus contained in the earpiece, in which electrical signals are converted into sounds.
+
+...
+
+<div className="-mx-2 flex flex-wrap overflow-hidden xl:-mx-2">
+      <div className="my-1 w-full overflow-hidden px-2 xl:my-1 xl:w-1/2 xl:px-2">
+![The original telephone patent](/static/images/0224138-0.png)
+</div>
+  <div className="my-1 w-full overflow-hidden px-2 xl:my-1 xl:w-1/2 xl:px-2">
+![The accompanying patent text](/static/images/0224138-1.png)
+</div>
+</div>
+
+<figcaption>
+The original patent for a speaking telephone (1880!), with both a transmitter to speak into and a separate __receiver__
+to listen from.
+</figcaption>
+
+`.defaultToSpeaker` doesn't mean default to the speaker __device__ it means default to the speaker __phone__,
+instead of the non-speakerphone mode, as used in a classic phone call. This is presumably for VOIP apps, where you want to be able to
+emulate the low volume when taking a call - this is presumably why it's only active in the play and record category.
+
+This one is a smidgen on me for not reading the docs closely enough, but
+I really doubt I would have realized that "receiver" meant "phone" and not "AirPods" without
+having already known the correct configurartion. Oh well, hopefully this saves someone else the same trek.

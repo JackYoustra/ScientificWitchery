@@ -1,0 +1,266 @@
+---
+title: 'Dylib Swizzling'
+date: '2023-04-18'
+tags: ['iOS', 'C', 'Swift', 'dylib']
+draft: false
+summary: 'When you want to inject a normal C function, things get tricky'
+---
+
+There have been several times we've seen the Objective-C runtime on this blog, whether to [swizzle functions](/blog/live-text-kvo), [call functions](/blog/protocol-objc-bridge-unsafe), or simply [get values](/blog/edit-bars).
+However, some parts of the iOS SDK are written in C, and, as such, don't use the Objective-C runtime.
+
+The example that's bothering NanoFlick is in its SPM unit tests.
+NanoFlick uses Firebase Auth for authentication, which uses keychain.
+The keychain calls will error when using a test runner, so the recommended way to 
+[get around this](https://github.com/onmyway133/blog/issues/92) is to use a host app runner.
+However, this is bad with our package architecture for a few reasons:
+ - We would either need a different app shell target for every test in order to keep tests and test builds parallel and minimal, or we'd have to have one shell which included everything, hurting build times.
+ - We can't actually [use a host runner with swift pacakges!](https://forums.swift.org/t/host-application-for-spm-tests/24363/6). I've written before about the shortcomings of SPM, and this is another one which shows no signs of being fixed.
+
+Of course, there are a few solutions to this problem.
+ - Single-dependency shell apps for each of our test configurations. This kind of sucks, so I'd rather not.
+ - Mocking the keychain. This is a good idea with a couple of downsides, most notably that you're no longer testing the actual code path. Hopefully this isn't much a problem?
+ - Writing a build script to change the `TEST_HOSTS` xcflag somewhere in xcode when it does a build plan. A cursory binary grep of the xcode binaries reveal that this is possible, but a quick browsing of cutter didn't show anything straightforward.
+
+I decided to mock the keychain, which leads to another problem: I'm not the one calling the keychain! Firebase auth is. We have another few options now:
+ - Mock the keychain in the Firebase Auth library and inject it. This is a good idea, but not supported by firebase at this time. Perhaps they'll get around to it.
+ - Mock Firebase Auth entirely. This is a LOT to mock, has a ton of interaction effects, and besides, I actually want to test my system against it, so that's out.
+ - Swizzle the keychain calls. This implicitly injects our keychain mocks into Firebase Auth automatically, so it's what I decided to do.
+
+Unfortunately (as you can proibably tell by the subject of this post) the keychain calls are in C.
+Specifically, our goals are to stub...
+    - `SecItemAdd`
+    - `SecItemCopyMatching`
+    - `SecItemDelete`
+    - `SecItemUpdate`
+
+The first question is whether Swift can just take care of it through its `@_dynamicReplacement` attribute.
+Unfortunately, this is not the case, as the attribute is only available on Objective-C methods, not C functions.
+Additionally, I don't see any way to use it on actual methods, only on freestanding `dynamic` functions.
+
+Fortunately, dyld is up to the task.
+
+There are a few ways of doing this:
+ - At compile time: this is the most straightforward. The Mach-O format has a section called `__DATA,__interpose` which is a list of pairs of function pointers. The first function pointer is the function to be replaced, and the second is the function to replace it with. The linker will automatically replace the first function with the second.
+ While I was interested in using this method (as [originally reported on](https://www.emergetools.com/blog/posts/DyldInterposing) by Noah Martin) this ultimately proved fruitless: there's no way to an `__attribute__` directive
+ in Swift, and you can't call function-like macros across module boundaries, so I couldn't declare it in a third party package and use it from there.
+ - Perhaps some LLVM intrinsics? Didn't look to much at this, not sure if it's possible or if Swift has a facility for this.
+ - At runtime. Techincally, this gives us more power than we need (we want to stub the keychain implementation for the lifetime of the program anyway), but it doesn't have the `__attribute__` directive requirement of the static option, so this is the one I opted to go with.
+
+ - The traditional way is through a library by meta called [fishhook](https://github.com/facebook/fishhook). It's not by default a Swift package, but a quick look through the open PRs found a [PR with SPM support](https://github.com/facebook/fishhook/pull/93).
+ - The cooler, more exotic way is through a cool private dyld command called [dyld_dynamic_interpose](https://github.com/apple-opensource/dyld/blob/e3f88907bebb8421f50f0943595f6874de70ebe0/include/mach-o/dyld_priv.h#L321).
+ It [was used in InjectionIII](http://johnholdsworth.com/dyld_dynamic_interpose.html), but got swapped out for fishhook due to [appstore concerns](https://github.com/johnno1962/SwiftTrace/blob/0443b560ad6d1936ad7cbf0733cfa2ce74ae6e2e/SwiftTraceGuts/include/SwiftTrace.h#L289).
+
+I have no App store concerns, but I also have no reason to prefer one over the other, and fishhook has a Swift package, so I went with that.[^1]
+
+[^1]: Perhaps I'll make the Swift package for dyld_dynamic_interpose later?
+
+
+Anyway, below is the rough shell of what I had written with these decisions:
+```swift
+import XCTest
+import Swcurity
+
+class Tests: XCTestCase {
+    override func setUpWithError() throws {
+        _ = interposeKeychain
+    }
+}
+
+let interposeKeychain = {
+    var thing: UnsafeMutableRawPointer? = nil
+    withUnsafeMutablePointer(to: &thing) { ptrToThing in // 1
+        var rebindings = [rebinding]()
+        rebindings.append(rebinding(name: "SecItemAdd", replacement: unsafeBitCast(MySecItemAdd as NewSecItemAdd, to: UnsafeMutableRawPointer.self), replaced: ptrToThing)) // 2
+        rebind_symbols(&rebindings, rebindings.count)
+        assert(SecItemAdd([:] as CFDictionary, nil) == 12345) // 3
+    }
+}()
+
+typealias NewSecItemAdd = @convention(thin) (_ attributes: CFDictionary, _ result: UnsafeMutablePointer<CFTypeRef?>?) -> OSStatus // 4
+func MySecItemAdd(_ attributes: CFDictionary, _ result: UnsafeMutablePointer<CFTypeRef?>?) -> OSStatus {
+    print("Went through correct path")
+    return 12345
+}
+```
+
+There's a bit more than just some dyld stuff, so I'll go through it and explain (and hopefully get right, comments welcome!) the perhaps more esoteric parts.
+1. Much like in Objective-C, the swizzling process also yields a pointer to the original function. We don't need this, but store it somewhere anyway.
+Because we're using a raw pointer, we can use `withUnsafeMutablePointer` to get a pointer to the pointer, which is what `rebind_symbols` expects.
+This pointer will have a lifetime of at least the duration of the function, so we don't need to worry about it being freed.
+If you want to actually do a cool interposition as seen in InjectionII, you can use this pointer to call the original function.
+
+2. We create a `rebinding` struct, which is a struct with two pointers: the name (symbol) of the function to replace, and a pointer to the function to replace it with.
+Swift does this pointer creation via unsafeBitCast to a function pointer. This isn't actually quite enough: see point 4.
+
+3. We call the function to make sure it works in our ad-hoc test. You can set a breakpoint in our `MySecItemAdd` to verify 
+that it's actually being called.
+
+4. The `@convention(thin)` attribute specifies a function's SIL type. You can look at the [SIL documentation](https://github.com/apple/swift/blob/7a1829f601daa5a2b6d9ac252ba607a890848a13/docs/SIL.rst?plain=1#L414)
+for more details, but the important part is that it's a raw function pointer without context.
+This is necessary because the `rebinding` struct expects a function pointer, but Swift's default calling convention contains a hidden context argument that's passed along with the function pointer.
+We just want the function pointer, so we use `@convention(thin)` and verify that no context is needed.
+
+This looks great, feels great, is nice and clever, and won't work :(
+    
+After setting a few breakpoints in the fishhook library, it's clear that it's trawling the
+symbol tables for... an empty string? It looks like `SecItemAdd` isn't being passed in correctly. Why is this?
+
+A closer look at the `rebinding` struct shows that the `name` field isn't an owned string but a C-style `char*`.
+Our Swift string probably isn't passed correctly, so we need to convert it to a C string, as well as manage the lifetime correctly.
+
+My first hacky revision just chose a static lifetime to make sure that this was indeed the problem:
+
+```swift
+let addSymbol = "SecItemAdd"
+let addSymbolInter = Array(addSymbol.utf8CString)
+let addSymbolPointer = UnsafePointer(addSymbolInter)
+
+let interposeKeychain = {
+var thing: UnsafeMutableRawPointer? = nil
+    withUnsafeMutablePointer(to: &thing) { ptrToThing in
+        var rebindings = [rebinding]()
+        rebindings.append(rebinding(name: addSymbolPointer, replacement: unsafeBitCast(MySecItemAdd as NewSecItemAdd, to: UnsafeMutableRawPointer.self), replaced: ptrToThing))
+//        rebindings.append(rebinding(name: "SecItemCopyMatching", replacement: unsafeBitCast(MySecItemCopyMatching as NewSecItemCopyMatching, to: UnsafeMutableRawPointer.self), replaced: ptrToThing))
+//        rebindings.append(rebinding(name: "SecItemDelete", replacement: unsafeBitCast(MySecItemDelete as NewSecItemDelete, to: UnsafeMutableRawPointer.self), replaced: ptrToThing))
+//        rebindings.append(rebinding(name: "SecItemUpdate", replacement: unsafeBitCast(MySecItemUpdate as NewSecItemUpdate, to: UnsafeMutableRawPointer.self), replaced: ptrToThing))
+        rebind_symbols(&rebindings, rebindings.count)
+        assert(SecItemAdd([:] as CFDictionary, nil) == 12345)
+    }
+}()
+```
+
+Aaaand... it worked! Now, can we get it to work without the static lifetime?
+
+The answer is yes, but it's a bit more complicated. We need to make sure that the C string is still valid when we call `rebind_symbols`, so we need to make sure that it's not freed.
+We can hack together a solution with `withExtendedLifetime`:    
+```swift
+// ...
+var rebindings = [rebinding]()
+let addSymbol = "SecItemAdd"
+let addSymbolInter = Array(addSymbol.utf8CString)
+withExtendedLifetime(addSymbolInter) {
+    let asp = UnsafePointer(addSymbolInter)
+    rebindings.append(rebinding(name: asp, replacement: unsafeBitCast(MySecItemAdd as NewSecItemAdd, to: UnsafeMutableRawPointer.self), replaced: ptrToThing))
+    //        rebindings.append(rebinding(name: "SecItemCopyMatching", replacement: unsafeBitCast(MySecItemCopyMatching as NewSecItemCopyMatching, to: UnsafeMutableRawPointer.self), replaced: ptrToThing))
+    //        rebindings.append(rebinding(name: "SecItemDelete", replacement: unsafeBitCast(MySecItemDelete as NewSecItemDelete, to: UnsafeMutableRawPointer.self), replaced: ptrToThing))
+    //        rebindings.append(rebinding(name: "SecItemUpdate", replacement: unsafeBitCast(MySecItemUpdate as NewSecItemUpdate, to: UnsafeMutableRawPointer.self), replaced: ptrToThing))
+    rebind_symbols(&rebindings, rebindings.count)
+}
+assert(SecItemAdd([:] as CFDictionary, nil) == 12345)
+// ...
+```
+
+And indeed, this will work, but it's a bit hacky. We're using `withExtendedLifetime` to extend the lifetime of the `addSymbolInter` array and then creating a raw pointer (and get a warning for our troubles).
+We can do better with a few Swift facilities:
+
+```swift
+var thing: UnsafeMutableRawPointer? = nil
+withUnsafeMutablePointer(to: &thing) { ptrToThing in
+    var rebindings = [rebinding]()
+    let addSymbol = "SecItemAdd"
+    let addSymbolInter = Array(addSymbol.utf8CString)
+    let addSymbolCount = addSymbolInter.count
+    addSymbolInter.withUnsafeBufferPointer { bufferPointer in
+        let base = bufferPointer.baseAddress!
+        base.withMemoryRebound(to: CChar.self, capacity: addSymbolCount) { coolPointer in
+            rebindings.append(rebinding(name: coolPointer, replacement: unsafeBitCast(MySecItemAdd as NewSecItemAdd, to: UnsafeMutableRawPointer.self), replaced: ptrToThing))
+            //        rebindings.append(rebinding(name: "SecItemCopyMatching", replacement: unsafeBitCast(MySecItemCopyMatching as NewSecItemCopyMatching, to: UnsafeMutableRawPointer.self), replaced: ptrToThing))
+            //        rebindings.append(rebinding(name: "SecItemDelete", replacement: unsafeBitCast(MySecItemDelete as NewSecItemDelete, to: UnsafeMutableRawPointer.self), replaced: ptrToThing))
+            //        rebindings.append(rebinding(name: "SecItemUpdate", replacement: unsafeBitCast(MySecItemUpdate as NewSecItemUpdate, to: UnsafeMutableRawPointer.self), replaced: ptrToThing))
+            rebind_symbols(&rebindings, rebindings.count)
+        }
+    }
+    assert(SecItemAdd([:] as CFDictionary, nil) == 12345)
+}
+```
+
+This is honestly pretty annoying to deal with. The forced unwrapping of the `baseAddress` seems overly harsh when we can actually tolerate a null pointer.
+I'm probably missing something, but this works good enough for me!
+
+I ended up writing some more to have a more general Swift interface.
+
+```swift
+let interposeKeychain = {
+    var stuff = [
+        Interpose(symbolName: "SecItemAdd", targetFunction: unsafeBitCast(MySecItemAdd as NewSecItemAdd, to: UnsafeMutableRawPointer.self))
+    ]
+    interpose(symbols: &stuff)
+    assert(SecItemAdd([:] as CFDictionary, nil) == 12345)
+}()
+
+struct Interpose {
+    let symbolName: String
+    let targetFunction: UnsafeMutableRawPointer
+    var original: UnsafeMutableRawPointer? = nil
+}
+
+func interpose(symbols: inout [Interpose]) {
+    if symbols.isEmpty {
+        return
+    }
+    let cStrings = symbols.map { Array($0.symbolName.utf8CString) }
+    var replaced: ContiguousArray<UnsafeMutableRawPointer> = ContiguousArray(unsafeUninitializedCapacity: symbols.count, initializingWith: { buffer,initializedCount in initializedCount = symbols.count })
+    replaced.withUnsafeMutableBytes { mutableRawBufferPointer in
+        var rebindings = [rebinding]()
+        for (i, elem) in symbols.enumerated() {
+            if elem.symbolName.isEmpty {
+                continue
+            }
+            let asp = UnsafePointer(cStrings[i])
+            let chosen: UnsafeMutableRawPointer = mutableRawBufferPointer.baseAddress!.advanced(by: MemoryLayout<UnsafeMutableRawPointer>.stride * i)
+            rebindings.append(chosen.withMemoryRebound(to: UnsafeMutableRawPointer?.self, capacity: 1) { pointer in
+                rebinding(name: asp, replacement: symbols[i].targetFunction, replaced: pointer)
+            })
+        }
+        rebind_symbols(&rebindings, rebindings.count)
+    }
+    for (i, elem) in symbols.enumerated() {
+        if elem.symbolName.isEmpty {
+            continue
+        }
+        symbols[i].original = replaced[i]
+    }
+}
+```
+
+Pretty neat! It's not as cool as it could be - you have to do the unsafeBitCast and the thinning for each occurance, but
+trying to abstract it fails. Something like
+
+```swift
+let interposeKeychain = {
+    var stuff: [any Interposable] = [
+        Interpose(symbolName: "SecItemAdd", targetFunction: MySecItemAdd)
+    ]
+    interpose(symbols: &stuff)
+    assert(SecItemAdd([:] as CFDictionary, nil) == 12345)
+}()
+
+protocol Interposable {
+    var symbolName: String { get }
+    var targetFunctionPointer: UnsafeMutableRawPointer { get }
+    var original: UnsafeMutableRawPointer? { get set }
+}
+
+struct Interpose<T, U> {
+    let symbolName: String
+    let targetFunction: (T) -> U
+    var original: UnsafeMutableRawPointer? = nil
+}
+
+extension Interpose: Interposable {
+    typealias InterposableFunctionType = @convention(thin) (T) -> U
+    
+    var targetFunctionPointer: UnsafeMutableRawPointer {
+        unsafeBitCast(targetFunction as InterposableFunctionType, to: UnsafeMutableRawPointer.self)
+    }
+}
+```
+
+would get rid of that, but the cast to the thin function type [isn't implemented](https://github.com/apple/swift/blob/f6ceec73b7781cb9281010de6b30fafac3e3855b/lib/SILGen/SILGenExpr.cpp#L1933).
+Just moving the `@convention(thin)` to the `targetFunction` declaration no longer yields an error, although it [does crash the compiler.](https://github.com/apple/swift/issues/65280)
+For now, we're stuck with writing the `unsafeBitCast` and the thinning ourselves.
+
+Anyway, this leads us to the end of our journey. We've successfully rebinding the `SecItemAdd` function to our own implementation, and we've done it in a way that's safe and easy to understand.
+We can now use this to implement our own keychain API, and we can do it in a way that's safe and easy to understand.
+Tune in later to take some of these things to their own packages!

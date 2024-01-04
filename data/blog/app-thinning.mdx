@@ -1,0 +1,367 @@
+---
+title: App thinning 🦙 on iOS
+date: '2023-10-16'
+tags: ['swift', 'xcode']
+draft: false
+summary: What if you want an app with different downloaded weights for different devices?
+---
+
+<TOCInline toc={props.toc} exclude="Introduction" toHeading={2} indentDepth={2} />
+
+# Introduction
+
+So, a few weeks ago, I talked about porting iLlama to iOS, and it's now on the app store. 🎉🥳
+
+My current setup is one app per weight set, but I'd wanted to have a single app that downloads different weights for different devices. Instead of downloading either iLlama or Big Llama and having different weights for each app, it would be cool if you just downloaded iLlama and it downloaded the correct version for your phone without you having to worry about anything.
+The app store supports a few ways of what I'm trying to do, with various trade-offs.
+
+# Options
+## CDN (content delivery network)
+This involves a server that serves the weights and download them on first launch, or sometime after.
+This is how pretty much every LLM service looks at this point: huggingface, civtai, etc. all use this.
+- pros
+    - easy to implement
+    - easy to update weights
+    - pretty much standard practice at this point
+    - one app
+- cons
+    - requires a server
+    - have to host your storage and bandwidth or find someone willing to serve you, so pretty expensive
+## [On-Demand Resources (ODRs)](https://developer.apple.com/library/archive/documentation/FileManagement/Conceptual/On_Demand_Resources_Guide/)
+Unveiled in iOS 9, this allows for dynamic loading of assets stored on apple's servers, subject to [arbitrary limits](https://developer.apple.com/library/archive/documentation/FileManagement/Conceptual/On_Demand_Resources_Guide/PlatformSizesforOn-DemandResources.html#//apple_ref/doc/uid/TP40015083-CH23-SW1).
+- pros
+    - no server required
+    - apple hosts the weights, so no bandwidth or storage costs
+    - one app
+- cons
+    - still requires first launch
+    - some logic (streaming, slicing, copying) to stay within ODR tag limits.
+## [Thinned asset catalogs](https://developer.apple.com/library/archive/documentation/Xcode/Reference/xcode_ref-Asset_Catalog_Format/index.html) (CAR files)
+This feature was initailly introduced for multiple image sizes on different screen
+sizes, with the famous @2x and @3x suffixes. It was later expanded to include different assets for different devices.
+We could use this to have different weights for different devices.
+- pros
+    - no server required
+    - no bandwidth or storage costs
+    - ready on first launch, one app
+- cons
+    - requires a lot of work
+    - requires a lot of black-box reverse engineering
+    - requires interposition of system calls
+    - doesn't actually work for large weights (although I only learn that at the end of this post)
+
+# Thinned asset catalogs
+From the pros and cons list, it seems like asset catalogs are the best option. It was really difficult to find whether I could
+slice based on memory size, but a fortuitous [unity forum post](https://forum.unity.com/threads/ios-app-slicing.875224/)
+revealed that I could. All You have to do is add a
+data asset to your asset catalog and select the attributes inspector in xcode. Then, you can choose from memory and graphics
+to discriminate based on. There's only one problem: llama.cpp uses a folder path, not a data reference, while the API for
+getting data from the xcode bundle is only based on atomic data loading. There's a few options to fix this:
+ - Rewrite llama.cpp to use the `NSDataAsset`, the way that the [apple docs](https://developer.apple.com/documentation/foundation/nsdataasset) suggest to do it. This is probably the right thing to do, but it's a lot of work.
+ - [fishhook](https://github.com/Concoction/fishhook) the `llama_file` methods in llama.cpp to use the atomic data loading API if we're reading from an asset catalog
+Keeping in line with my attempt to never touch llama.cpp, I'm probably going to do the second one.
+
+## Fixing up llama.cpp's syscalls
+Unfortunately, llama.cpp likes to use `mmap`! We can disable this, but I don't reeeealllly want to. Transparent file-backed page caching is pretty cool,
+especially with a system that doesn't implement any other form of swap. At this point, we should probably just proxy the .car file.
+Lets stub everything related to `mmap` (only fixing up the fd) and see what happens.
+
+It all works! The final excerpt of my not really cleaned up work is pretty long, so here's a gist:
+
+<iframe className="w-full h-3/6 hover:h-screen" src="https://gist.github.com/JackYoustra/fe14a3a7b4aa15ee04ccc9810776dee0.pibb"></iframe>
+
+There's a lot being done here, so lets go over it one step at a time:
+- `interposeKeychain` is stolen from [our earlier blog post](/blog/dylib-swizzling) to instead interpose the system calls. As a global computed let, it's [a (the)
+   thread-safe way to do `dispatch_once` in swift](https://stackoverflow.com/questions/37801407/whither-dispatch-once-in-swift-3). If you're curious about how
+   `dispatch_once` was implemented, you should read [this amazing article by Mike Ash about it](https://www.mikeash.com/pyblog/friday-qa-2014-06-06-secrets-of-dispatch_once.html).
+- In this case, we're interposing many more calls. Llama calls (deep breath)
+    - [fopen](https://man7.org/linux/man-pages/man3/fopen.3.html)
+    - [ftell](https://man7.org/linux/man-pages/man3/ftell.3.html)
+    - [fseek](https://man7.org/linux/man-pages/man3/fseek.3.html)
+    - [fread](https://man7.org/linux/man-pages/man3/fread.3.html)
+    - [ferror](https://man7.org/linux/man-pages/man3/ferror.3.html)
+    - [fileno](https://man7.org/linux/man-pages/man3/fileno.3.html)
+    - [mmap](https://man7.org/linux/man-pages/man2/mmap.2.html)
+    - [madvise](https://man7.org/linux/man-pages/man2/madvise.2.html)
+    - [munmap](https://man7.org/linux/man-pages/man2/munmap.2.html)
+    - [mlock](https://man7.org/linux/man-pages/man2/mlock.2.html)
+    - [munlock](https://man7.org/linux/man-pages/man2/munlock.2.html)
+
+For a quick look on C's file API, see [cppreference](https://en.cppreference.com/w/c/io).
+For a quick look on mmap, you're probably going to need to understand virtual memory.
+The linux kernel project has [a cool primer](https://en.cppreference.com/w/c/io),
+as does [wits university](http://www.src.wits.ac.za/groups/psi/linux/rhl-sap-en-8.0/s1-memory-concepts.html). The second one finishes by describing file-backed page caching, the technique llama.cpp uses
+and what we aim to use by preserving mmap behavior instead of allocating ourselves (known in virtual memory parlance as 'anonymous mapping').
+
+Anyway, that's a lot of interposition! Fortunately the code is repetitive, although we can't fully abstract it away because of the bug mentioned in the earlier blog post about fishhooking with issues with generics over `@convention(c)` function types. We probably could use a macro, but swift macro ergonomics... aren't. Copilot is sufficient for grunting out the code, and find and replace is fine for revising. Back to what's happening in the gist.
+ - Before forwarding the calls, we set up our mock `FakeFile` with an opened file handle to the CAR file, and we find the offset by searching for the first five megabytes of the weights in the CAR file. Because it's stored contiguously, we can just take the length of the data and add it to the offset found by byte searching to get the end of the data.
+ - The mocking starts with `fopen`. We check whether the file scheme matches our custom file scheme,
+ `llama-intercept:\\`, or just the full path that we know we're looking for (if not we just return early). If so, we return the file descriptor to the whole file, as managed by the `FakeFile` class.
+ - In `ftell`, we check whether the file descriptor is the one we're looking for, and if so, return the offset into the file.
+- In `fseek`, we check whether the file descriptor is the one we're looking for, and if so, we reimplement the manpage for seek, but with the base of the file being the offset we found earlier.
+- `fread` is essentially just forwarded
+- `ferror` just never yields an error when given our file descriptor. It probably should under error cases but whatever, we'll handle errors as they come up.
+- `fileno` returns a magic number
+- `mmap` checks for the presence of that magic number, and if so, returns a pointer to the data in the CAR file, offset by the offset we found earlier. We actually mmap the whole file and just return the offset instead of calling mmap with an offset because the offset is not guaranteed to be page aligned, and we don't want to have to deal with that.
+- `madvise`, `mlock`, `munmap`, and `munlock` are all forwarded, but with the address fixed up so that it's relative to the CAR file instead of the offset of the data that we returned from `mmap`.
+Fishhooking doesn't work like method swizzling - we can't just recursively call to call the original function. Instead, to forward, we have to look in the struct returned from the fishhook function for the original function pointer and forward to that.
+ - There's some other random stuff here that I forgot to take out (oops). Stuff like
+```swift
+a = fseek
+DispatchQueue.main.async {
+    print(a)
+}
+```
+is just completely unnecessary and was something I had while I was debugging. Oops!
+Note that this whole `FakeFile` construct is configured for only one file at a time for less complexity.
+
+At this point, we have our nice system call interposing framework.
+Unfortunately, at this point, compiling the weights fails with a really ugly file corruption issue.
+The problem appears to be in the asset catalog compiling tool: `actool`, which converts our thinnable asset catalogs to thinned CAR files. Oops!
+
+## Tinkering with the CAR file
+I'm not sure how to read the `.car` file. A few googles lead to a neat app called [Asset Catalog Tinkerer](https://github.com/insidegui/AssetCatalogTinkerer).
+It appears it uses a private framework called `CoreUI` to read the `.car` file.
+We find ourselves in the entirely unoriginal position (for this blog) of rummaging through the headers of a private framework.
+There are a [few blogs](https://blog.timac.org/2018/1018-reverse-engineering-the-car-file-format/) written on the topic, but they're pretty dense. Basically, it's not a straightforward file format
+with no easy way to read or write it without writing a tool by hand, something I want to avoid.
+
+Lets start from reading and use a stripped-down app project and a global [swift trace](https://github.com/johnno1962/SwiftTrace) to see what happens when we read a data file from an asset catalog.
+
+Our snippet looks like
+```swift
+@main
+struct MultiBundleTestApp: App {
+    init() {
+        print("Hello, World!")
+        SwiftTrace.traceClasses(matchingPattern:"^CUI")
+        // read a data asset from a compiled asset catalog
+        let asset = NSDataAsset(name: "prizofstate")!
+        print("Asset gotten")
+        let data = asset.data
+        print("Asset actually gotten")
+        // it's utf string data
+        let string = String(data: data, encoding: .utf8)!
+        print(string)
+        SwiftTrace.removeAllTraces()
+    }
+    // ...
+```
+
+Curiously, it seems like it's a lazy accessor:
+```
+Asset gotten
+-[<CUINamedData 0x600001764840>/CUINamedLookup _renditionForSpecificKey:<CUIRenditionKey: 0x6000029097a0>
+element: 85,
+part: 181,
+identifier: 40587,
+direction: 0,
+dim1: 0,
+dim2: 0,
+sizeClassHorizontal: 0,
+sizeClassVertical: 0,
+idiom: 0,
+subtype: 0,
+scale: 1
+gamut: 0
+target: 0
+memoryClass 0
+graphicsClass:0
+deployment: 0
+appearance identifier: 0 
+localization identifier: 0 
+glyph size: 0 
+glyph weight: 0 ]
+  -[<CUIRenditionKey 0x6000029097a0> keyList] -> (r^{_renditionkeytoken=SS}) 0.0ms
+  -[<CUIStructuredThemeStore 0x600002625860> renditionWithKey:(r^{_renditionkeytoken=SS}) usingKeySignature:(@)] -> <_CUIRawDataRendition: 0x600003b10700> -- Rendition name: CoreStructuredImage 0.0ms
+<- <_CUIRawDataRendition: 0x600003b10700> -- Rendition name: CoreStructuredImage 0.1ms
+Asset actually gotten
+```
+
+At this point, I realize that properly finding the asset is unnecessary. From the calls,
+it seems to be contiguously stored, which means that we can do something much simpler: just read the data straight from the asset catalog,
+and then read the CAR file directly and find what offset the data is at.
+We do this in the gist, although we only do it for the first five megabytes to avoid unnecessary memory and compute - that's plenty to identify the unique file, given that each file is densely packed neural network weights.
+
+Anyway, after doing alll this, it looks like it works! 😊
+
+Unfortunately, it works for the phone weights only. 😭
+
+When we run it on the iPad, with its 5G weights, we get
+```bash
+CoreUI: -[CUIStructuredThemeStore lookupAssetForKey:] got invalid CSIData for AssetCatalog '/private/var/containers/Bundle/Application/2C30074C-08C9-4EFA-BA22-EBB9E557D744/illama.app/Assets.car'
+CoreUI: -[CUIStructuredThemeStore lookupAssetForKey:] got invalid CSIData for AssetCatalog '/private/var/containers/Bundle/Application/2C30074C-08C9-4EFA-BA22-EBB9E557D744/illama.app/Assets.car'
+```
+Inspecting the CAR file in [assetutil](https://keith.github.io/xcode-man-pages/assetutil.1.html) reveals a corrupted data entry, and inspecting in [hex fiend](https://hexfiend.com/), a hex editor, reveals a gigantic null section.
+
+Could this be... could this be because the data asset is too big? The small openllama file that is loaded on the phone is 1.8G, whereas
+the one for the pad is much bigger. If they use an Int32 for the size, then it would overflow and be 0. This is probably the case,
+so we'll test by making a dummy data asset with just under 2G of data and another with just over 2G of data, and see if the
+bug reproduces.
+
+**😐**
+
+Yup, a 1.9G file fails whereas a 2.0G file works. This is probably the issue (and unbelievably frustrating).
+
+Looking at the `CompileAssetCatalog` step in the build log, we see the output of
+```
+BOMStreamFlush: write: Invalid argument
+BOMStreamFlush: write: Invalid argument
+/* com.apple.actool.document.notices */
+/Users/jack/Documents/programs/illama/illama/Assets.xcassets:./AppIcon.appiconset/[][ipad][76x76][][][1x][][][]: notice: 76x76@1x app icons only apply to iPad apps targeting releases of iOS prior to 10.0.
+/* com.apple.actool.compilation-results */
+/Users/jack/Library/Developer/Xcode/DerivedData/illama-awmdfasbxliudhfcqcjkysgxwrpo/Build/Intermediates.noindex/illama.build/Release-iphoneos/iLlama.build/assetcatalog_generated_info.plist
+/Users/jack/Library/Developer/Xcode/DerivedData/illama-awmdfasbxliudhfcqcjkysgxwrpo/Build/Products/Release-iphoneos/iLlama.app/AppIcon60x60@2x.png
+/Users/jack/Library/Developer/Xcode/DerivedData/illama-awmdfasbxliudhfcqcjkysgxwrpo/Build/Products/Release-iphoneos/iLlama.app/AppIcon76x76@2x~ipad.png
+/Users/jack/Library/Developer/Xcode/DerivedData/illama-awmdfasbxliudhfcqcjkysgxwrpo/Build/Products/Release-iphoneos/iLlama.app/Assets.car
+```
+
+Hmm, that's a little strange, that `BOMStreamFlush` error. I wonder if it's related to the issue. Building it with the 1.9G file
+removes it
+```
+/* com.apple.actool.document.notices */
+/Users/jack/Documents/programs/illama/illama/Assets.xcassets:./AppIcon.appiconset/[][ipad][76x76][][][1x][][][]: notice: 76x76@1x app icons only apply to iPad apps targeting releases of iOS prior to 10.0.
+/* com.apple.actool.compilation-results */
+/Users/jack/Library/Developer/Xcode/DerivedData/illama-awmdfasbxliudhfcqcjkysgxwrpo/Build/Intermediates.noindex/illama.build/Release-iphoneos/iLlama.build/assetcatalog_generated_info.plist
+/Users/jack/Library/Developer/Xcode/DerivedData/illama-awmdfasbxliudhfcqcjkysgxwrpo/Build/Products/Release-iphoneos/iLlama.app/AppIcon60x60@2x.png
+/Users/jack/Library/Developer/Xcode/DerivedData/illama-awmdfasbxliudhfcqcjkysgxwrpo/Build/Products/Release-iphoneos/iLlama.app/AppIcon76x76@2x~ipad.png
+/Users/jack/Library/Developer/Xcode/DerivedData/illama-awmdfasbxliudhfcqcjkysgxwrpo/Build/Products/Release-iphoneos/iLlama.app/Assets.car
+```
+
+That's probably the issue! I'm guessing the write syscalls are all 32 bit ints, and it's trying to write the data asset in one go.
+To verify this, we should probably trace `actool`. Usually, I'd reach for dtrace[^1], but [SIP prevents that](https://stackoverflow.com/questions/31045575/how-to-trace-system-calls-of-a-program-in-mac-os-x).
+Fortunately, [unlike xcode](/blog/laggy-spm-refresh), we don't need to have any fancy entitlements to run `actool`, but trying to run it with a self-signed cert led to a strange exec error.
+Running the original copy in instruments worked, surprisingly, so that's all the data we need.
+
+[^1]: For a quick overview on tracing tools beyond xcode instruments, see [this post](https://dev.to/captainsafia/say-this-five-times-fast-strace-ptrace-dtrace-dtruss-3e1b).
+
+We can probably fix this by just writing the data asset in chunks. Unfortunately, we don't have the source code for `actool`,
+and running it manually and using more flags doesn't help anything but repeat the error message.
+As I see it, we have a few options:
+ - patch `BOMStreamFlush` to not error out on large files
+ - write our own asset catalog compiler
+ - find some way to get `actool` to compile the asset catalog without erroring out
+ - run `actool` in a container and patch up the syscall to write the data asset in chunks (ironically, similar to what we do in illama, although with vastly better ergonomics).
+
+When instrumenting `actool`, we can't actually see the offending syscall. Grepping the entire tools directory doesn't reveal `BOMStreamFlush`, so it's probably in some untraced library.
+Grepping the Developer directory reveals a `BOMStreamFlush` in the... lmao, the private `Bom.framework`. Two separate private frameworks issues in completely unrelated parts of the same project!
+Maybe they should open source these tools at some point? Just a thought.
+
+Anyway, writing a quick little program reveals that DYLD_INTERPOSE works (see our earlier blog on fishhooking for the first reference to it).
+
+I'm having a tough time working on this, when I realize that maybe I can just slot in the data myself? If they just have a format like (name, length) that could work.
+The tool also shows a checksum, but it's just sha1 so we can probably fix that up too no sweat.
+
+After a night of sleep, I realized there's a really easy way to find out. Take the 1.9G file, add a few bytes, and diff to see what's different.
+A quick verification shows that the tool is a pure function over its public CLI / file environment (thank god).
+We get five diff points. One is the added data (obviously), and four are identical mutations adding "6" to a value (that's the number of bytes we added, so it's probably a length tracker).
+Yippee! We don't even have to change a checksum, it should be good to go if we just patch the lengths and add the data.
+
+But before we do that, we should probably check whether that `length` field can even be 64 bits. Looking at a [writeup on writing the format](https://www.appdome.com/dev-sec-blog/editing-assets-car-file-with-no-apple-tools/),
+it looks like the length field is signed 32 bits, which means it's not even a syscall issue, the fundamental file format won't accomodate files over 2G!
+
+<div className="w-full">
+    ![The CAR file format](https://www.appdome.com/wp-content/uploads/2020/01/assetcar-image-1.jpg)
+</div>
+
+### 🫥
+
+This is a certified apple moment. In desperation, I looked for the WWDC video on app thinning, but alas,
+it's been taken down for... [reasons apple can't explain](https://developer.apple.com/forums/thread/675061).
+Any attempt to make this value 64 bits will probably lead to a crash - that's really not an ABI compatible change.
+It doesn't seem like there's any way to get this to work with ODRs either - the maximum size of an ODR is like a half gigabyte,
+so I guess we have to give up on our dream of having one asset per phone, with that one asset being able to be transparently mmapped.
+
+### One last shot?
+
+There is one more thing we can try. If you remember, one idea we had before was to mmap only the section of the assets.car file corresponding
+to the data asset. We didn't do that in favor of an address fixup because it was less work (we didn't have to worry about aligning the offset to a page boundry),
+but this solution could work. Essentially, we have to do the following:
+ - chunk the neural network into different data assets (each less than 2G in size)
+ - ensure that every asset in every thinned CAR file target lies on a page boundry
+ - find a contiguous address space that will fit the data asset
+ - mmap each data asset into the address space contiguously, relying on the `offset` argument to mmap being on a page boundry
+ - passing back the address of the first data asset and the size of the entire address space to llama.cpp
+ - 💸profit🤑
+
+Actually, we can do better. We can remove the need for a page boundry (and, thus, the need to pad / manipulate the thinned CAR file contents on every target)
+by making the first page anonymous mapped and manually read, while mmapping the rest transparently on a page boundry. This is a little more work (no longer a 1:1 mapping of
+sent syscall to injected syscall), but it removes the need for manual padding for every thinned variant of the app.
+
+#### One other, really cursed, "last shot"
+
+There is actually one more alternative. We could go hunting for gadgets, where we write a small program that creates an asset catalog from slices of
+the weights which, when compiled to a CAR file and mmaped, look like the original weights. We'd have to count on a coincidence
+that the metadata would look like a run of the weights, and we'd need this to be true for every thinned platform we target, but hey, could work?
+I don't find it particularly likely that there's the exact run that we need in the weights (finding instruction gadgets are hard enough, and we're doing a
+whole file scheme here!) but if we really really cared and were getting paid for this, we could write a slight modification to the llama.cpp weight
+quantizer to find the smallest change needed to make the run appear. I'm sure it's possible, but I'd rather try the other solution first.
+
+#### The most cursed, so-called shot
+We've been saying this whole time that the CAR file specification is inviolable, but... that isn't really empirically tested.
+I wonder if we swizzled the relevant CUI calls to a 64 bit compatible version, and then just made the length field 64 bits,
+if Apple's server would duly thin it. I'm guessing not! Just a thought.
+
+### Trying the last shot
+
+#### Verifying asset catalog size limits
+
+But first, we really should verify if the 2G limit is per-file or total. If it's total, we're screwed. If it's per-file, we can just chunk the data asset into
+smaller files and use the above technique.
+
+```bash
+  {
+    "AssetType" : "Data",
+    "Compression" : "uncompressed",
+    "Data Length" : 2055208960,
+    "Idiom" : "universal",
+    "Memory" : "8GB",
+    "Name" : "llama-model",
+    "NameIdentifier" : 7741,
+    "Scale" : 1,
+    "SHA1Digest" : "BE76217F6FEE01846D9807913C4B0AA52D48B8E59653C58F964E95A3B64A2179",
+    "SizeOnDisk" : 2055209212,
+    "UTI" : "public.data"
+  },
+  {
+    "AssetType" : "Data",
+    "Compression" : "uncompressed",
+    "Data Length" : 2055208960,
+    "Idiom" : "universal",
+    "Memory" : "8GB",
+    "Name" : "llama-model-2",
+    "NameIdentifier" : 21160,
+    "Scale" : 1,
+    "SHA1Digest" : "BE76217F6FEE01846D9807913C4B0AA52D48B8E59653C58F964E95A3B64A2179",
+    "SizeOnDisk" : 2055209212,
+    "UTI" : "public.data"
+  },
+```
+
+And it works over 2G! Just want to make sure before we try, what about 4G? Like, come on, there's no way you made
+size an Int32 in one spot and a UInt32 in another spot, right? Like if you're committing to making sizes signed, it's not like
+you'd just switch it around when you really, really should be making everything 64 bit anyway, right?
+Lets check, just in case.
+
+Good thing we checked! We get `CoreUI: Error: unable to add asset to store` with an Objective-C crash trace in developer tools.
+
+#### A quick end
+At this point, I'm wondering about max app sizes. I find an [apple reference](https://developer.apple.com/help/app-store-connect/reference/maximum-build-file-sizes/#:~:text=Your%20app's%20total%20uncompressed%20size,exceed%20these%20maximum%20file%20sizes.)
+which says that the max size of any thinned app is 4G, so it makes sense that it would fail with a CAR greater than 4G, although it would be nice if it failed with an 
+error message.
+
+# The way forward - ODRs
+
+So this is the end of the possibility of having one app with different weights for different devices from first launch, at least with 
+any weights of any serious size (although if you're weights are less than 4G for any given deployment, go for it!).
+We can still forego the use of a CDN for aggregate weight sizes less than 20G via ODRs,
+with the added benefit of being able to have a file with the weights in them and remove all of the system call interposition code.
+This is likely what iLlama will do, where you'll be able to choose which model(s) are downloaded via ODRs.
+
+# Conclusion
+ - Validate your most obvious assumptions first! I really should've looked for maximum thinned download sizes first and not wasted all this time on thinned stuff.
+ - `actool` is pretty good if you're using it correctly, although having size be an Int32, and having silent corruption and no human readable asserts is pretty bizarre.
+ - Apple probably should open source more of their tools, although in fairness it's not like too many people are sweating CAR tools (although Google has fixes for the emitted spurious warnings literally hardcoded in their tools, so maybe it'd be a good idea for those same developers to be able to submit PRs).
+ - syscall interposition is actually pretty easy! I'm surprised I haven't seen it used more often,
+ although I guess it isn't very good practice and rewriting llama.cpp is probably the right thing to do.
+ - CAR files are really not meant for large files.
