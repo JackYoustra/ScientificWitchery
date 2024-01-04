@@ -10377,9 +10377,9 @@ __metadata:
   languageName: node
   linkType: hard
 
-"rust-wasm@file:rust-wasm/pkg::locator=tailwind-nextjs-starter-blog%40workspace%3A.":
+"rust-wasm@file:rust-wasm/pkg::locator=scientific-witchery%40workspace%3A.":
   version: 0.1.0
-  resolution: "rust-wasm@file:rust-wasm/pkg#rust-wasm/pkg::hash=8305c8&locator=tailwind-nextjs-starter-blog%40workspace%3A."
+  resolution: "rust-wasm@file:rust-wasm/pkg#rust-wasm/pkg::hash=8305c8&locator=scientific-witchery%40workspace%3A."
   checksum: daafd0d7e2d9d407151393a38463783db64cfd8acf2a2efd02fe39f1bf954dbc1c13e8be2da88e672919d56e1d2b902a5b64844a354ab7affc65fdb51502b851
   languageName: node
   linkType: hard
@@ -10445,6 +10445,59 @@ __metadata:
   checksum: d79192eeaa12abef860c195ea45d37cbf2bbf5f66e3c4dcd16f54a7da53b17788a70d109ee3d3dde1a0fd50e6a8fc171f4300356c5aee4fc0171de526bf35f8a
   languageName: node
   linkType: hard
+
+"scientific-witchery@workspace:.":
+  version: 0.0.0-use.local
+  resolution: "scientific-witchery@workspace:."
+  dependencies:
+    "@kbox-labs/react-echarts": 1.0.3
+    "@next/bundle-analyzer": 14.0.3
+    "@svgr/webpack": ^8.0.1
+    "@tailwindcss/forms": ^0.5.4
+    "@tailwindcss/typography": ^0.5.9
+    "@types/mdx": ^2.0.5
+    "@types/react": ^18.2.14
+    "@typescript-eslint/eslint-plugin": ^6.1.0
+    "@typescript-eslint/parser": ^6.1.0
+    autoprefixer: ^10.4.13
+    contentlayer: 0.3.4
+    cross-env: ^7.0.3
+    echarts: 5.4.3
+    esbuild: 0.18.11
+    eslint: ^8.45.0
+    eslint-config-next: 14.0.3
+    eslint-config-prettier: ^8.8.0
+    eslint-plugin-prettier: ^5.0.0
+    github-slugger: ^1.4.0
+    gray-matter: ^4.0.2
+    husky: ^8.0.0
+    image-size: 1.0.0
+    lint-staged: ^13.0.0
+    next: 14.0.3
+    next-contentlayer: 0.3.4
+    next-themes: ^0.2.1
+    pliny: 0.1.6
+    postcss: ^8.4.24
+    prettier: ^3.0.0
+    prettier-plugin-tailwindcss: ^0.4.1
+    react: 18.2.0
+    react-dom: 18.2.0
+    reading-time: 1.5.0
+    rehype-autolink-headings: ^6.1.0
+    rehype-citation: ^1.0.2
+    rehype-katex: ^6.0.3
+    rehype-preset-minify: 6.0.0
+    rehype-prism-plus: ^1.6.0
+    rehype-slug: ^5.1.0
+    remark: ^14.0.2
+    remark-gfm: ^3.0.1
+    remark-math: ^5.1.1
+    rust-wasm: "file:rust-wasm/pkg"
+    tailwindcss: ^3.3.3
+    typescript: ^5.1.3
+    unist-util-visit: ^4.1.0
+  languageName: unknown
+  linkType: soft
 
 "section-matter@npm:^1.0.0":
   version: 1.0.0
@@ -10963,59 +11016,6 @@ __metadata:
   checksum: 8a9560e5d8f3d94dc3cf5f7b9c83490ffa30d320093560a37b88f59483040771fd1750e76b9939abfbb1b5a23fd6dfbae77f6b338abffe7cae7329cd9b9bb86b
   languageName: node
   linkType: hard
-
-"tailwind-nextjs-starter-blog@workspace:.":
-  version: 0.0.0-use.local
-  resolution: "tailwind-nextjs-starter-blog@workspace:."
-  dependencies:
-    "@kbox-labs/react-echarts": 1.0.3
-    "@next/bundle-analyzer": 14.0.3
-    "@svgr/webpack": ^8.0.1
-    "@tailwindcss/forms": ^0.5.4
-    "@tailwindcss/typography": ^0.5.9
-    "@types/mdx": ^2.0.5
-    "@types/react": ^18.2.14
-    "@typescript-eslint/eslint-plugin": ^6.1.0
-    "@typescript-eslint/parser": ^6.1.0
-    autoprefixer: ^10.4.13
-    contentlayer: 0.3.4
-    cross-env: ^7.0.3
-    echarts: 5.4.3
-    esbuild: 0.18.11
-    eslint: ^8.45.0
-    eslint-config-next: 14.0.3
-    eslint-config-prettier: ^8.8.0
-    eslint-plugin-prettier: ^5.0.0
-    github-slugger: ^1.4.0
-    gray-matter: ^4.0.2
-    husky: ^8.0.0
-    image-size: 1.0.0
-    lint-staged: ^13.0.0
-    next: 14.0.3
-    next-contentlayer: 0.3.4
-    next-themes: ^0.2.1
-    pliny: 0.1.6
-    postcss: ^8.4.24
-    prettier: ^3.0.0
-    prettier-plugin-tailwindcss: ^0.4.1
-    react: 18.2.0
-    react-dom: 18.2.0
-    reading-time: 1.5.0
-    rehype-autolink-headings: ^6.1.0
-    rehype-citation: ^1.0.2
-    rehype-katex: ^6.0.3
-    rehype-preset-minify: 6.0.0
-    rehype-prism-plus: ^1.6.0
-    rehype-slug: ^5.1.0
-    remark: ^14.0.2
-    remark-gfm: ^3.0.1
-    remark-math: ^5.1.1
-    rust-wasm: "file:rust-wasm/pkg"
-    tailwindcss: ^3.3.3
-    typescript: ^5.1.3
-    unist-util-visit: ^4.1.0
-  languageName: unknown
-  linkType: soft
 
 "tailwindcss@npm:^3.3.3":
   version: 3.3.5
