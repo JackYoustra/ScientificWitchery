@@ -1,3 +1,3 @@
 {
-    "ignoreCommand": "INIT_CWD=$PWD chmod u+x vercel_build.sh && ./vercel_build.sh && contentlayer build && next build"
+    "ignoreCommand": "INIT_CWD=$PWD YARN_ENABLE_IMMUTABLE_INSTALLS=false chmod u+x vercel_build.sh && ./vercel_build.sh && yarn install && contentlayer build && next build"
 }
