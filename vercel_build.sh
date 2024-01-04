@@ -14,5 +14,5 @@ curl https://rustwasm.github.io/wasm-pack/installer/init.sh -sSf | sh -s -- -y
 (
   cd rust-wasm
   echo "Building Rust..."
-  wasm-pack build -- --target ../.next/cache/vercel/rust-wasm
+  wasm-pack build -- --target-dir ../.next/cache/vercel/rust-wasm
 )
