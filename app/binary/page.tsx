@@ -1,7 +1,6 @@
 'use client'
 
 import { DragEvent, useRef, useState } from 'react'
-import { parse_wasm_binary } from 'rust-wasm'
 import dynamic from 'next/dynamic'
 import Link from 'next/link'
 const EChart = dynamic(() => import('@kbox-labs/react-echarts').then((mod) => mod.EChart), {
@@ -132,115 +131,124 @@ function firstValue<T>(arr: T[] | T): T {
   }
 }
 
-export default function Binary(): JSX.Element {
-  const [isOver, setIsOver] = useState(false)
-  const [tableData, setTableData] = useState<TableDataProps>({})
-  const fileInput = useRef<HTMLInputElement>(null)
+export default dynamic(
+  async function Binary(): Promise<JSX.Element> {
+    const { parse_wasm_binary } = await import('rust-wasm')
+    return function BinaryLoaded(): JSX.Element {
+      const [isOver, setIsOver] = useState(false)
+      const [tableData, setTableData] = useState<TableDataProps>({})
+      const fileInput = useRef<HTMLInputElement>(null)
 
-  const handleUpload = (droppedFiles: File[]) => {
-    setIsOver(false)
+      const handleUpload = (droppedFiles: File[]) => {
+        setIsOver(false)
 
-    if (droppedFiles.length === 0) {
-      return
+        if (droppedFiles.length === 0) {
+          return
+        }
+
+        // Fetch the files
+        setTableData({
+          state: {
+            files: droppedFiles,
+          },
+        })
+
+        // Use FileReader to read file content
+        const promises = droppedFiles.map((file) => {
+          return file.arrayBuffer().then((buffer) => {
+            const result: string = parse_wasm_binary(buffer)
+            // parse
+            const parsed: ParseWasmBinary = JSON.parse(result)
+            // convert to chart data
+            function convertToChartData(item: Item): ChartNestedDataShape {
+              const children = item.children?.map((child) => convertToChartData(child))
+              const childrenSize =
+                children?.reduce((acc, child) => acc + firstValue(child.value), 0) ?? 0
+              const entry: ChartNestedDataShape = {
+                name: item.name,
+                value: item.shallow_size + childrenSize,
+                children,
+              }
+              return entry
+            }
+            const chartData = parsed.items.map((item) => convertToChartData(item))
+            const sizeOfTopLevel = parsed.items.reduce((acc, item) => acc + item.retained_size, 0)
+            const entry: ChartDataEntry = {
+              name: file.name,
+              value: sizeOfTopLevel,
+              children: chartData,
+            }
+            return entry
+          })
+        })
+
+        // await all promises
+        Promise.all(promises)
+          .then((entries) => {
+            setTableData({
+              state: {
+                data: entries,
+              },
+            })
+          })
+          .catch((err) => {
+            setTableData({
+              state: {
+                error: err.toString(),
+              },
+            })
+          })
+      }
+
+      const handleUploadButton = (event: React.ChangeEvent<HTMLInputElement>) => {
+        event.preventDefault()
+        handleUpload(Array.from(event.target.files))
+      }
+
+      // Define the event handlers
+      const handleDragOver = (event: DragEvent<HTMLButtonElement>) => {
+        event.preventDefault()
+        setIsOver(true)
+      }
+
+      const handleDragLeave = (event: DragEvent<HTMLButtonElement>) => {
+        event.preventDefault()
+        setIsOver(false)
+      }
+
+      const handleDrop = (event: DragEvent<HTMLButtonElement>) => {
+        event.preventDefault()
+        handleUpload(Array.from(event.dataTransfer.files))
+      }
+
+      return (
+        <>
+          <input
+            type="file"
+            ref={fileInput}
+            className="hidden"
+            accept=".wasm, .wat"
+            onChange={handleUploadButton}
+          />
+          <button
+            onDragOver={handleDragOver}
+            onDragLeave={handleDragLeave}
+            onDrop={handleDrop}
+            onClick={() => fileInput.current.click()}
+            disabled={tableData.state && 'data' in tableData.state}
+            className={
+              'flex w-full grow items-center justify-center border-2 border-dashed' +
+              (isOver ? ' bg-gray-200 dark:bg-gray-700' : ' bg-white dark:bg-gray-800')
+            }
+          >
+            <TableData state={tableData.state} />
+          </button>
+        </>
+      )
     }
-
-    // Fetch the files
-    setTableData({
-      state: {
-        files: droppedFiles,
-      },
-    })
-
-    // Use FileReader to read file content
-    const promises = droppedFiles.map((file) => {
-      return file.arrayBuffer().then((buffer) => {
-        const result: string = parse_wasm_binary(buffer)
-        // parse
-        const parsed: ParseWasmBinary = JSON.parse(result)
-        // convert to chart data
-        function convertToChartData(item: Item): ChartNestedDataShape {
-          const children = item.children?.map((child) => convertToChartData(child))
-          const childrenSize =
-            children?.reduce((acc, child) => acc + firstValue(child.value), 0) ?? 0
-          const entry: ChartNestedDataShape = {
-            name: item.name,
-            value: item.shallow_size + childrenSize,
-            children,
-          }
-          return entry
-        }
-        const chartData = parsed.items.map((item) => convertToChartData(item))
-        const sizeOfTopLevel = parsed.items.reduce((acc, item) => acc + item.retained_size, 0)
-        const entry: ChartDataEntry = {
-          name: file.name,
-          value: sizeOfTopLevel,
-          children: chartData,
-        }
-        return entry
-      })
-    })
-
-    // await all promises
-    Promise.all(promises)
-      .then((entries) => {
-        setTableData({
-          state: {
-            data: entries,
-          },
-        })
-      })
-      .catch((err) => {
-        setTableData({
-          state: {
-            error: err.toString(),
-          },
-        })
-      })
-  }
-
-  const handleUploadButton = (event: React.ChangeEvent<HTMLInputElement>) => {
-    event.preventDefault()
-    handleUpload(Array.from(event.target.files))
-  }
-
-  // Define the event handlers
-  const handleDragOver = (event: DragEvent<HTMLButtonElement>) => {
-    event.preventDefault()
-    setIsOver(true)
-  }
-
-  const handleDragLeave = (event: DragEvent<HTMLButtonElement>) => {
-    event.preventDefault()
-    setIsOver(false)
-  }
-
-  const handleDrop = (event: DragEvent<HTMLButtonElement>) => {
-    event.preventDefault()
-    handleUpload(Array.from(event.dataTransfer.files))
-  }
-
-  return (
-    <>
-      <input
-        type="file"
-        ref={fileInput}
-        className="hidden"
-        accept=".wasm, .wat"
-        onChange={handleUploadButton}
-      />
-      <button
-        onDragOver={handleDragOver}
-        onDragLeave={handleDragLeave}
-        onDrop={handleDrop}
-        onClick={() => fileInput.current.click()}
-        disabled={tableData.state && 'data' in tableData.state}
-        className={
-          'flex w-full grow items-center justify-center border-2 border-dashed' +
-          (isOver ? ' bg-gray-200 dark:bg-gray-700' : ' bg-white dark:bg-gray-800')
-        }
-      >
-        <TableData state={tableData.state} />
-      </button>
-    </>
-  )
-}
+  },
+  { 
+    ssr: false,
+    loading: () => <div>Loading...</div>,
+  },
+);
