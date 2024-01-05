@@ -85,7 +85,7 @@ function TableData(props: TableDataProps): JSX.Element {
     return (
       <>
         <EChart
-          className="h-full w-full"
+          className="h-full w-full grow"
           // do tree shaking later
           // use={[SVGRenderer, TreemapChart]}
           series={[
@@ -237,9 +237,9 @@ export default dynamic(
             onDragLeave={handleDragLeave}
             onDrop={handleDrop}
             onClick={() => fileInput.current?.click()}
-            disabled={!fileInput.current || (tableData.state && 'data' in tableData.state)}
+            disabled={(tableData.state && 'data' in tableData.state)}
             className={
-              'flex w-full grow items-center justify-center border-2 border-dashed' +
+              'flex flex-col w-full grow items-center justify-center border-2 border-dashed' +
               (isOver ? ' bg-gray-200 dark:bg-gray-700' : ' bg-white dark:bg-gray-800')
             }
           >
