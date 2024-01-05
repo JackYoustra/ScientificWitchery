@@ -18,6 +18,7 @@ import {
   useState,
 } from 'react'
 import dynamic from 'next/dynamic'
+import type { DuplicateKeys, TypeNarrowing } from 'rust-wasm/pkg/rust_wasm.d.ts'
 
 const abeLincoln = `dna_abraham_lincoln = {
   portrait_info = {
@@ -145,14 +146,25 @@ const abeLincoln = `dna_abraham_lincoln = {
 export default dynamic(
   async function Converter() {
     const { parse_jomini } = await import('rust-wasm')
+    const { DuplicateKeys, TypeNarrowing } = await import('rust-wasm/pkg/rust_wasm.js')
     return function ConverterLoaded() {
       const [output, setOutput] = useState('')
       const [checked, setChecked] = useState(true)
+      const [prettyprint, setPrettyprint] = useState(true)
+      // segmented control for keys
+      const [duplicateKeysMode, setDuplicateKeysMode] = useState<DuplicateKeys>(
+        DuplicateKeys.Preserve
+      )
+      const [typeNarrowing, setTypeNarrowing] = useState<TypeNarrowing>(TypeNarrowing.All)
       const inputRef = useRef<HTMLTextAreaElement | null>(null)
 
       const handleChange: ChangeEventHandler<HTMLInputElement> = useCallback(() => {
         setChecked(!checked)
       }, [checked])
+
+      const handlePrettyprint: ChangeEventHandler<HTMLInputElement> = useCallback(() => {
+        setPrettyprint(!prettyprint)
+      }, [prettyprint])
 
       const handleButtonClick: ChangeEventHandler<HTMLTextAreaElement> &
         MouseEventHandler<HTMLButtonElement> &
@@ -162,17 +174,20 @@ export default dynamic(
         }
         const input = inputRef.current.value
         try {
-          const result = parse_jomini(input)
+          const result = parse_jomini(input, duplicateKeysMode, prettyprint, typeNarrowing)
           setOutput(result)
         } catch (e) {
           setOutput(e)
         }
-      }, [])
+      }, [inputRef, duplicateKeysMode, prettyprint, typeNarrowing])
 
-      // load abe first time, only once
+      // load next tick every settings change
       useEffect(() => {
         handleButtonClick()
-      }, [])
+      }, [prettyprint, duplicateKeysMode, typeNarrowing, handleButtonClick])
+
+      const childClassName = ''
+      const spanClassName = 'whitespace-pre'
 
       return (
         <>
@@ -180,11 +195,12 @@ export default dynamic(
             Pdx Converter
           </h1>
           <h2>
-            To translate all of your Clausewitz engine game files to a more convenient format. Let
-            me know if you'd like other options (such as duplicate value handling).
+            To translate all of your Clausewitz engine (Crusader Kings, Europa Universalis,
+            Victoria, Hearts of Iron, and Stellaris) game files to a more convenient format. Let me
+            know if you'd like other enhancements.
           </h2>
           <h2>
-            Thanks
+            Powered by
             <a
               className="m-1 font-medium text-blue-600 hover:underline dark:text-blue-500"
               href="https://docs.rs/jomini/latest/jomini/"
@@ -198,10 +214,57 @@ export default dynamic(
             >
               Nick Babcock
             </a>
-            . ⚡️ Fast Refresh ⚡️
-            <input type="checkbox" checked={checked} onChange={handleChange} />
+            .
+            <div className="flex place-content-around items-center rounded-full bg-slate-200 p-2 dark:bg-slate-800">
+              <div className={childClassName}>
+                <input type="checkbox" checked={checked} onChange={handleChange} />
+                <span className={spanClassName}>⚡️ Fast Refresh ⚡️</span>
+              </div>
+              <div className={childClassName}>
+                <input type="checkbox" checked={prettyprint} onChange={handlePrettyprint} />
+                <span className={spanClassName}>🌈 Pretty Print 🌈</span>
+              </div>
+              <div className={childClassName}>
+                <select
+                  defaultValue={duplicateKeysMode.toString()}
+                  className="focus:shadow-outline-blue items-center rounded-md border border-transparent bg-blue-600 px-4 text-sm font-medium leading-5 text-white transition duration-150 ease-in-out hover:bg-blue-500 focus:border-blue-700 focus:outline-none"
+                  onChange={(e) =>
+                    setDuplicateKeysMode(
+                      DuplicateKeys[e.target.value as keyof typeof DuplicateKeys]
+                    )
+                  }
+                >
+                  {Object.values(DuplicateKeys)
+                    .filter((key) => typeof key !== 'number')
+                    .map((key) => (
+                      <option key={key} value={key.toString()}>
+                        {key.toString()}
+                      </option>
+                    ))}
+                </select>
+                <span className={spanClassName}>⛙ Duplicate Merge ⛙</span>
+              </div>
+              <div className={childClassName}>
+                <select
+                  defaultValue={typeNarrowing.toString()}
+                  className="focus:shadow-outline-blue items-center rounded-md border border-transparent bg-blue-600 px-4 text-sm font-medium leading-5 text-white transition duration-150 ease-in-out hover:bg-blue-500 focus:border-blue-700 focus:outline-none"
+                  onChange={(e) =>
+                    setTypeNarrowing(TypeNarrowing[e.target.value as keyof typeof TypeNarrowing])
+                  }
+                >
+                  {Object.values(TypeNarrowing)
+                    .filter((key) => typeof key !== 'number')
+                    .map((key) => (
+                      <option key={key} value={key.toString()}>
+                        {key.toString()}
+                      </option>
+                    ))}
+                </select>
+                <span className={spanClassName}>Type Narrowing</span>
+              </div>
+            </div>
           </h2>
-          <div className="grid h-full grow grid-cols-2 grid-rows-[minmax(0px,_1fr)_3rem] gap-4">
+          <div className="grid h-full grow grid-cols-2 grid-rows-[minmax(0px,_1fr)_3rem] gap-4 pt-2">
             <textarea
               defaultValue={abeLincoln}
               className="focus:shadow-outline-blue h-full w-full flex-grow grow resize-none appearance-none rounded-md border border-gray-300 bg-white px-4 py-3 pr-12 text-base leading-6 text-gray-900 placeholder-gray-500 transition duration-150 ease-in-out focus:border-blue-300 focus:outline-none sm:text-sm sm:leading-5"

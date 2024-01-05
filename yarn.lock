@@ -10379,8 +10379,8 @@ __metadata:
 
 "rust-wasm@file:./rust-wasm/pkg::locator=scientific-witchery%40workspace%3A.":
   version: 0.1.0
-  resolution: "rust-wasm@file:./rust-wasm/pkg#./rust-wasm/pkg::hash=8305c8&locator=scientific-witchery%40workspace%3A."
-  checksum: daafd0d7e2d9d407151393a38463783db64cfd8acf2a2efd02fe39f1bf954dbc1c13e8be2da88e672919d56e1d2b902a5b64844a354ab7affc65fdb51502b851
+  resolution: "rust-wasm@file:./rust-wasm/pkg#./rust-wasm/pkg::hash=90012f&locator=scientific-witchery%40workspace%3A."
+  checksum: ba11fb87cff6ef005ff8de2067ed0614808b80eb41916ee928225f7e17136b17410136fea6b22b42925f208cf9de6d022232318a65dc515f9855f898277b4d84
   languageName: node
   linkType: hard
 

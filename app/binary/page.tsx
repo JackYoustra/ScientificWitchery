@@ -237,9 +237,9 @@ export default dynamic(
             onDragLeave={handleDragLeave}
             onDrop={handleDrop}
             onClick={() => fileInput.current?.click()}
-            disabled={(tableData.state && 'data' in tableData.state)}
+            disabled={tableData.state && 'data' in tableData.state}
             className={
-              'flex flex-col w-full grow items-center justify-center border-2 border-dashed' +
+              'flex w-full grow flex-col items-center justify-center border-2 border-dashed' +
               (isOver ? ' bg-gray-200 dark:bg-gray-700' : ' bg-white dark:bg-gray-800')
             }
           >

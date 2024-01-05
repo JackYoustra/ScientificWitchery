@@ -4,9 +4,9 @@
 
 extern crate wasm_bindgen_test;
 
+use rust_wasm::parse_wasm_binary;
 use wasm_bindgen::JsValue;
 use wasm_bindgen_test::*;
-use rust_wasm::parse_wasm_binary;
 
 wasm_bindgen_test_configure!(run_in_browser);
 
