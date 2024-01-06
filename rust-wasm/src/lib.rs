@@ -96,7 +96,9 @@ pub fn parse_wasm_binary(s: &ArrayBuffer) -> Result<WasmBinaryResult, JsError> {
     let mut json = Vec::new();
     dominators.emit_json(&items, &mut json)
         .map_err(|e| JsError::new(&format!("Error emitting dominators: {}", e)))?;
-    let options = twiggy_opt::Garbage::default();
+    let mut options = twiggy_opt::Garbage::default();
+    options.set_max_items(u32::MAX);
+    options.set_show_data_segments(true);
     let garbage = garbage(&mut items, &options)
         .map_err(|e| JsError::new(&format!("Error in garbage analysis: {}", e)))?;
     let mut json2 = Vec::new();
