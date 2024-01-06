@@ -88,9 +88,31 @@ function TableData(props: TableDataProps): JSX.Element {
           className="h-full w-full grow"
           // do tree shaking later
           // use={[SVGRenderer, TreemapChart]}
+          label={{
+            show: true,
+            formatter: '{b}'
+          }}
+          upperLabel={{
+            show: true,
+            height: 30
+          }}
           series={[
             {
+              name: 'Binary size breakdown',
               type: 'treemap',
+              visibleMin: 300,
+              label: {
+                show: true,
+                formatter: '{b}'
+              },
+              upperLabel: {
+                show: true,
+                height: 30
+              },
+              itemStyle: {
+                borderColor: '#fff'
+              },
+              levels: getLevelOption(),
               data: state.data,
             },
           ]}
@@ -131,12 +153,31 @@ function firstValue<T>(arr: T[] | T): T {
   }
 }
 
+// convert to chart data
+export function convertToChartData(item: Item, path: string): ChartNestedDataShape {
+  // TODO: Escape the slashes in item name
+  const children = item.children?.map((child) => convertToChartData(child, `${path}/${item.name}`))
+  const childrenSize =
+    children?.reduce((acc, child) => acc + firstValue(child.value), 0) ?? 0
+  const entry: ChartNestedDataShape = {
+    name: item.name,
+    value: item.shallow_size + childrenSize,
+    children,
+    path: `${path}/${item.name}`,
+  }
+  return entry
+}
+
 export default dynamic(
   async function Binary(): Promise<FC<Record<string, never>>> {
     const { parse_wasm_binary } = await import('rust-wasm')
     return function BinaryLoaded(): JSX.Element {
       const [isOver, setIsOver] = useState(false)
-      const [tableData, setTableData] = useState<TableDataProps>({})
+      const [tableData, setTableData] = useState<TableDataProps>({
+        state: {
+          data: sample,
+        }
+      })
       const fileInput = useRef<HTMLInputElement>(null)
 
       const handleUpload = (droppedFiles: File[]) => {
@@ -159,24 +200,14 @@ export default dynamic(
             const result: string = parse_wasm_binary(buffer)
             // parse
             const parsed: ParseWasmBinary = JSON.parse(result)
-            // convert to chart data
-            function convertToChartData(item: Item): ChartNestedDataShape {
-              const children = item.children?.map((child) => convertToChartData(child))
-              const childrenSize =
-                children?.reduce((acc, child) => acc + firstValue(child.value), 0) ?? 0
-              const entry: ChartNestedDataShape = {
-                name: item.name,
-                value: item.shallow_size + childrenSize,
-                children,
-              }
-              return entry
-            }
-            const chartData = parsed.items.map((item) => convertToChartData(item))
+            console.log(parsed)
+            const chartData = parsed.items.map((item) => convertToChartData(item, file.name))
             const sizeOfTopLevel = parsed.items.reduce((acc, item) => acc + item.retained_size, 0)
             const entry: ChartDataEntry = {
               name: file.name,
               value: sizeOfTopLevel,
               children: chartData,
+              path: file.name,
             }
             return entry
           })
