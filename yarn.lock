@@ -3631,6 +3631,13 @@ __metadata:
   languageName: node
   linkType: hard
 
+"@types/lodash@npm:^4.14.202":
+  version: 4.14.202
+  resolution: "@types/lodash@npm:4.14.202"
+  checksum: a91acf3564a568c6f199912f3eb2c76c99c5a0d7e219394294213b3f2d54f672619f0fde4da22b29dc5d4c31457cd799acc2e5cb6bd90f9af04a1578483b6ff7
+  languageName: node
+  linkType: hard
+
 "@types/mdast@npm:^3.0.0":
   version: 3.0.15
   resolution: "@types/mdast@npm:3.0.15"
@@ -7937,7 +7944,7 @@ __metadata:
   languageName: node
   linkType: hard
 
-"lodash@npm:^4.17.20":
+"lodash@npm:^4.17.20, lodash@npm:^4.17.21":
   version: 4.17.21
   resolution: "lodash@npm:4.17.21"
   checksum: eb835a2e51d381e561e508ce932ea50a8e5a68f4ebdd771ea240d3048244a8d13658acbd502cd4829768c56f2e16bdd4340b9ea141297d472517b83868e677f7
@@ -10882,8 +10889,8 @@ __metadata:
 
 "rust-wasm@file:./rust-wasm/pkg::locator=scientific-witchery%40workspace%3A.":
   version: 0.1.0
-  resolution: "rust-wasm@file:./rust-wasm/pkg#./rust-wasm/pkg::hash=512eaa&locator=scientific-witchery%40workspace%3A."
-  checksum: 38d5d33b868aab53c277f35fea1b21259aa2d89c776fdc995cf5628f2317528f352af1f6799042bca9695d664dbc41ea84318509378571064416532926df3e06
+  resolution: "rust-wasm@file:./rust-wasm/pkg#./rust-wasm/pkg::hash=8a9adc&locator=scientific-witchery%40workspace%3A."
+  checksum: 3d40f4a455ba905904263ef7a9dea532b8e3b48d18d06811eec35b86632634d79b639d75dfa251da47db3514babbcccd2f1ed0cb0183949df1ca04b9ce5ebddf
   languageName: node
   linkType: hard
 
@@ -10962,6 +10969,7 @@ __metadata:
     "@svgr/webpack": ^8.0.1
     "@tailwindcss/forms": ^0.5.4
     "@tailwindcss/typography": ^0.5.9
+    "@types/lodash": ^4.14.202
     "@types/mdx": ^2.0.5
     "@types/react": ^18.2.14
     "@typescript-eslint/eslint-plugin": ^6.1.0
@@ -10980,6 +10988,7 @@ __metadata:
     husky: ^8.0.0
     image-size: 1.0.0
     lint-staged: ^13.0.0
+    lodash: ^4.17.21
     next: 14.0.3
     next-contentlayer: 0.3.4
     next-themes: ^0.2.1

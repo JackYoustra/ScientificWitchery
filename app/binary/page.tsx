@@ -10,6 +10,7 @@ import { CallbackDataParams, TooltipFormatterCallback, TooltipOption, TopLevelFo
 import Fullscreen from '@mui/icons-material/Fullscreen';
 import FullscreenExit from '@mui/icons-material/FullscreenExit';
 import { WasmBinaryResult } from 'rust-wasm'
+import _ from 'lodash'
 
 const EChart = dynamic(() => import('@kbox-labs/react-echarts').then((mod) => mod.EChart), {
   ssr: false,
@@ -142,42 +143,19 @@ const getTooltipFormatter: TooltipFormatterCallback<TopLevelFormatterParams> = (
   `
 }
 
-const makeRepeated = (arr, repeats) =>
-  Array.from({ length: repeats }, () => arr).flat();
-
 function getLevelOption() {
-  return makeRepeated([
-    {
+  // map 0-10
+  return _.range(10).map ((i) => {
+    // alternate
+    let color = i % 2 === 0 ? i / 20.0 : (20 - i) / 20.0
+    return {
       itemStyle: {
-        borderColor: '#777',
-        borderWidth: 0,
-        gapWidth: 1
-      },
-      upperLabel: {
-        show: false
-      }
-    },
-    {
-      itemStyle: {
-        borderColor: '#555',
-        borderWidth: 5,
-        gapWidth: 1
-      },
-      emphasis: {
-        itemStyle: {
-          borderColor: '#ddd'
-        }
-      }
-    },
-    {
-      colorSaturation: [0.35, 0.5],
-      itemStyle: {
+        borderColorSaturation: color, //0.6
         borderWidth: 5,
         gapWidth: 1,
-        borderColorSaturation: 0.6
       }
-    },
-  ], 10);
+    }
+  })
 }
 
 function TableData(props: TableDataProps): JSX.Element {
@@ -226,9 +204,6 @@ function TableData(props: TableDataProps): JSX.Element {
               upperLabel: {
                 show: true,
                 height: 30
-              },
-              itemStyle: {
-                borderColor: '#fff'
               },
               levels: getLevelOption(),
               data: state.data,
