@@ -103,13 +103,18 @@ type FileChartDataShape = EchartDataShape & {
   sectionData?: DominatorItem
 }
 
+type LoadedTableDataProps = {
+  processedFiles: FileChartDataShape[],
+  maxDepth: number,
+}
+
 type TableDataProps = {
   state?:
     | {
         files: File[]
       }
     | {
-        data: FileChartDataShape[]
+        data: LoadedTableDataProps
       }
     | {
         error: string
@@ -143,11 +148,21 @@ const getTooltipFormatter: TooltipFormatterCallback<TopLevelFormatterParams> = (
   `
 }
 
-function getLevelOption() {
+function getDepth(item: ChartDataEntry): number {
+  if (item.children && item.children.length > 0) {
+    return 1 + Math.max(...item.children.map(getDepth))
+  } else {
+    return 0
+  }
+}
+
+function getLevelOption(maxDepth: number) {
   // map 0-10
-  return _.range(10).map ((i) => {
+  return _.range(Math.min(maxDepth + 5, 500)).map ((i) => {
     // alternate
-    let color = i % 2 === 0 ? i / 20.0 : (20 - i) / 20.0
+    // cycle every 20 layers
+    const cycleSpot = i % 16
+    const color = cycleSpot % 2 === 0 ? cycleSpot / 20.0 : (20 - cycleSpot) / 20.0
     return {
       itemStyle: {
         borderColorSaturation: color, //0.6
@@ -175,7 +190,7 @@ function TableData(props: TableDataProps): JSX.Element {
         </ul>
       </>
     )
-  } else if (state && 'data' in state && state.data.length > 0) {
+  } else if (state && 'data' in state && state.data.processedFiles.length > 0) {
     return (
       <>
         <EChart
@@ -194,7 +209,7 @@ function TableData(props: TableDataProps): JSX.Element {
           theme={resolvedTheme === 'dark' ? 'dark' : 'shine'}
           series={[
             {
-              name: state.data[0].name ?? 'Binary size breakdown',
+              name: state.data.processedFiles[0].name ?? 'Binary size breakdown',
               type: 'treemap',
               visibleMin: 300,
               label: {
@@ -205,8 +220,8 @@ function TableData(props: TableDataProps): JSX.Element {
                 show: true,
                 height: 30
               },
-              levels: getLevelOption(),
-              data: state.data,
+              levels: getLevelOption(state.data.maxDepth),
+              data: state.data.processedFiles,
             },
           ]}
         />
@@ -321,11 +336,14 @@ export default dynamic(
             const result = parse_wasm_binary(buffer)
             // parse
             const parsed: ParseWasmBinary = parseResultFromRust(result)
-            const topGarbage = topGarbage2Chart(parsed.garbage)
-            const chartData = parsed.dominators.items.map((item) => convertToChartData(item, file.name)).concat([
-              topGarbage,
-            ])
-            const sizeOfTopLevel = parsed.dominators.items.reduce((acc, item) => acc + item.retained_size, 0) + firstValue(topGarbage.value)
+            let chartData = parsed.dominators.items.map((item) => convertToChartData(item, file.name))
+            if (parsed.garbage) {
+              chartData.push(topGarbage2Chart(parsed.garbage))
+            }
+            let sizeOfTopLevel = parsed.dominators.items.reduce((acc, item) => acc + item.retained_size, 0)
+            if (parsed.garbage) {
+              sizeOfTopLevel += parsed.garbage.reduce((acc, item) => acc + item.bytes, 0)
+            }
             const entry: ChartDataEntry = {
               name: file.name,
               value: sizeOfTopLevel,
@@ -341,7 +359,10 @@ export default dynamic(
           .then((entries) => {
             setTableData({
               state: {
-                data: unboxUntilFirstProlific(entries),
+                data: {
+                  processedFiles: unboxUntilFirstProlific(entries),
+                  maxDepth: Math.max(...entries.map(getDepth)),
+                },
               },
             })
           })
