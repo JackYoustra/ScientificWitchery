@@ -262,11 +262,7 @@ export default dynamic(
     return function BinaryLoaded(): JSX.Element {
       const [isOver, setIsOver] = useState(false)
       const [isFullscreen, setIsFullscreen] = useState(false)
-      const [tableData, setTableData] = useState<TableDataProps>({
-        state: {
-          data: sample,
-        }
-      })
+      const [tableData, setTableData] = useState<TableDataProps>({})
       const fileInput = useRef<HTMLInputElement>(null)
 
       const handleUpload = (droppedFiles: File[]) => {
