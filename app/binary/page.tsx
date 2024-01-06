@@ -136,8 +136,7 @@ function TableData(props: TableDataProps): JSX.Element {
             // enabled: true,
             decal: { show: true } }
           }
-          theme={resolvedTheme === 'dark' ? 'dark' : 'light'}
-          color={['#5470c6', '#91cc75', '#fac858', '#ee6666', '#73c0de', '#3ba272', '#fc8452', '#9a60b4', '#ea7ccc']}
+          theme={resolvedTheme === 'dark' ? 'dark' : 'shine'}
           label={{
             show: true,
             formatter: '{b}'
@@ -163,7 +162,7 @@ function TableData(props: TableDataProps): JSX.Element {
                 borderColor: '#fff'
               },
               levels: getLevelOption(),
-              data: state.data,
+              data: (state.data[0]?.children && state.data[0]?.children[0]?.children) ? state.data[0]?.children[0]?.children : state.data,
             },
           ]}
         />
