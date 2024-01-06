@@ -79,8 +79,12 @@ const getTooltipFormatter: TooltipFormatterCallback<TopLevelFormatterParams> = (
   let cols: number
   // add our specifics
   if (info.data?.sectionData) {
-    stuff.push(`<div class="tooltip-subtitle">Retained Size:</div><div class="tooltip-subtitle">${prettyBytes(info.data.sectionData.retained_size)}</div><div class="tooltip-subtitle grow">(${info.data.sectionData.retained_size_percent.toFixed(2)}%)</div>`)
-    stuff.push(`<div class="tooltip-subtitle">Shallow Size:</div><div class="tooltip-subtitle">${prettyBytes(info.data.sectionData.shallow_size)}</div><div class="tooltip-subtitle grow">(${info.data.sectionData.shallow_size_percent.toFixed(2)}%)</div>`)
+    stuff.push(`<div class="tooltip-subtitle">Retained Size:</div>`)
+    stuff.push(`<div class="tooltip-subtitle">${prettyBytes(info.data.sectionData.retained_size)}</div>`)
+    stuff.push(`<div class="tooltip-subtitle grow">(${info.data.sectionData.retained_size_percent.toFixed(2)}%)</div>`)
+    stuff.push(`<div class="tooltip-subtitle">Shallow Size:</div>`)
+    stuff.push(`<div class="tooltip-subtitle">${prettyBytes(info.data.sectionData.shallow_size)}</div>`)
+    stuff.push(`<div class="tooltip-subtitle grow">(${info.data.sectionData.shallow_size_percent.toFixed(2)}%)</div>`)
     cols = 3
   } else {
     stuff.push(`<div class="tooltip-subtitle text-left">${prettyBytes(firstValue(info.value))}</div>`)
@@ -89,7 +93,7 @@ const getTooltipFormatter: TooltipFormatterCallback<TopLevelFormatterParams> = (
   return `
   <div class="text-left">
   ${info.name ? `<div class="tooltip-title text-left font-bold">${format.encodeHTML(info.name)}</div>` : ''}
-  ${cols > 1 ? `<div class="grid justify-start content-start text-left grid-cols-3">` : ''}
+  ${cols > 1 ? `<div class="grid gap-1" style="grid-template-columns: auto auto 1fr">` : ''}
   ${stuff.join('')}
   ${cols > 1 ? `</div>` : ''}
   </div>
