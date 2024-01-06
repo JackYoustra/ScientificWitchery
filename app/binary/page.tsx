@@ -1,8 +1,9 @@
 'use client'
 
-import { ComponentType, DragEvent, FC, FunctionComponent, useRef, useState } from 'react'
+import { ComponentType, DragEvent, FC, FunctionComponent, useEffect, useRef, useState } from 'react'
 import dynamic, { LoaderComponent } from 'next/dynamic'
 import Link from 'next/link'
+import { useTheme } from 'next-themes'
 const EChart = dynamic(() => import('@kbox-labs/react-echarts').then((mod) => mod.EChart), {
   ssr: false,
 })
@@ -37,7 +38,7 @@ export interface Summary {
   retained_size_percent: number
 }
 
-type ChartDataEntry = EchartDataShape
+export type ChartDataEntry = EchartDataShape
 type ChartNestedDataShape = EchartDataShape
 
 type EchartDataShape = {
@@ -50,6 +51,7 @@ type EchartDataShape = {
   // and the other with value 20, then the parent node should have value 30.
   value: number | number[]
   children?: EchartDataShape[]
+  path?: string
 }
 
 type TableDataProps = {
@@ -65,8 +67,50 @@ type TableDataProps = {
       }
 }
 
+const makeRepeated = (arr, repeats) =>
+  Array.from({ length: repeats }, () => arr).flat();
+
+function getLevelOption() {
+  return makeRepeated([
+    {
+      itemStyle: {
+        borderColor: '#777',
+        borderWidth: 0,
+        gapWidth: 1
+      },
+      upperLabel: {
+        show: false
+      }
+    },
+    {
+      itemStyle: {
+        borderColor: '#555',
+        borderWidth: 5,
+        gapWidth: 1
+      },
+      emphasis: {
+        itemStyle: {
+          borderColor: '#ddd'
+        }
+      }
+    },
+    {
+      colorSaturation: [0.35, 0.5],
+      itemStyle: {
+        borderWidth: 5,
+        gapWidth: 1,
+        borderColorSaturation: 0.6
+      }
+    },
+  ], 10);
+}
+
 function TableData(props: TableDataProps): JSX.Element {
+  const { theme, setTheme, resolvedTheme } = useTheme()
   const { state } = props
+  useEffect(() => {
+    console.log(state?.data)
+  }, [state?.data])
   if (state && 'files' in state && state.files.length > 0) {
     const { files } = state
     return (
@@ -88,6 +132,12 @@ function TableData(props: TableDataProps): JSX.Element {
           className="h-full w-full grow"
           // do tree shaking later
           // use={[SVGRenderer, TreemapChart]}
+          aria={{
+            // enabled: true,
+            decal: { show: true } }
+          }
+          theme={resolvedTheme === 'dark' ? 'dark' : 'light'}
+          color={['#5470c6', '#91cc75', '#fac858', '#ee6666', '#73c0de', '#3ba272', '#fc8452', '#9a60b4', '#ea7ccc']}
           label={{
             show: true,
             formatter: '{b}'
