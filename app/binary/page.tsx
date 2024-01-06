@@ -217,7 +217,11 @@ function TableData(props: TableDataProps): JSX.Element {
               Twiggy🌱
             </Link>
           </span>
-          <span>Drag and drop (or just click!) some files here to analyze them.</span>
+          <p>
+          Drag and drop (or just click!) some wasm or wat files here to analyze them.
+          <br/>
+          More useful information will be provided with debug symbols!
+          </p>
         </div>
       </>
     )
@@ -341,6 +345,19 @@ export default dynamic(
       const makeFullscreen = () => {
         setIsFullscreen(!isFullscreen)
       }
+
+      // handle escape to toggle fullscreen
+      useEffect(() => {
+        const handleEsc = (event: KeyboardEvent) => {
+          if (event.key === 'Escape') {
+            setIsFullscreen(!isFullscreen)
+          }
+        }
+        window.addEventListener('keydown', handleEsc)
+        return () => {
+          window.removeEventListener('keydown', handleEsc)
+        }
+      }, [isFullscreen])
 
       return (
         <>
