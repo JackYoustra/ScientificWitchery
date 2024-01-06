@@ -4,6 +4,8 @@ import { ComponentType, DragEvent, FC, FunctionComponent, useEffect, useRef, use
 import dynamic, { LoaderComponent } from 'next/dynamic'
 import Link from 'next/link'
 import { useTheme } from 'next-themes'
+import { format } from 'echarts/core'
+import prettyBytes from 'pretty-bytes'
 const EChart = dynamic(() => import('@kbox-labs/react-echarts').then((mod) => mod.EChart), {
   ssr: false,
 })
@@ -67,6 +69,15 @@ type TableDataProps = {
       }
 }
 
+function getTooltipFormatter(info: ChartDataEntry): string {
+  let stuff: string[] = []
+  if (info.name) {
+    stuff.push(`<div class="tooltip-title">'${format.encodeHTML(info.name)}'</div>'`)
+  }
+  stuff.push(prettyBytes(firstValue(info.value)))
+  return stuff.join('')
+}
+
 const makeRepeated = (arr, repeats) =>
   Array.from({ length: repeats }, () => arr).flat();
 
@@ -108,9 +119,6 @@ function getLevelOption() {
 function TableData(props: TableDataProps): JSX.Element {
   const { theme, setTheme, resolvedTheme } = useTheme()
   const { state } = props
-  useEffect(() => {
-    console.log(state?.data)
-  }, [state?.data])
   if (state && 'files' in state && state.files.length > 0) {
     const { files } = state
     return (
@@ -136,18 +144,15 @@ function TableData(props: TableDataProps): JSX.Element {
             // enabled: true,
             decal: { show: true } }
           }
+          tooltip={{
+            show: true,
+            trigger: 'item',
+            formatter: getTooltipFormatter,
+          }}
           theme={resolvedTheme === 'dark' ? 'dark' : 'shine'}
-          label={{
-            show: true,
-            formatter: '{b}'
-          }}
-          upperLabel={{
-            show: true,
-            height: 30
-          }}
           series={[
             {
-              name: 'Binary size breakdown',
+              name: state.data[0].name ?? 'Binary size breakdown',
               type: 'treemap',
               visibleMin: 300,
               label: {
@@ -162,7 +167,7 @@ function TableData(props: TableDataProps): JSX.Element {
                 borderColor: '#fff'
               },
               levels: getLevelOption(),
-              data: (state.data[0]?.children && state.data[0]?.children[0]?.children) ? state.data[0]?.children[0]?.children : state.data,
+              data: state.data,
             },
           ]}
         />
@@ -200,6 +205,14 @@ function firstValue<T>(arr: T[] | T): T {
   } else {
     return arr
   }
+}
+
+function unboxUntilFirstProlific(data: ChartDataEntry[]): ChartDataEntry[] {
+  let current = data
+  while (current.length === 1 && current[0].children && current[0].children !== current) {
+    current = current[0].children
+  }
+  return current
 }
 
 // convert to chart data
@@ -249,7 +262,6 @@ export default dynamic(
             const result: string = parse_wasm_binary(buffer)
             // parse
             const parsed: ParseWasmBinary = JSON.parse(result)
-            console.log(parsed)
             const chartData = parsed.items.map((item) => convertToChartData(item, file.name))
             const sizeOfTopLevel = parsed.items.reduce((acc, item) => acc + item.retained_size, 0)
             const entry: ChartDataEntry = {
@@ -267,7 +279,7 @@ export default dynamic(
           .then((entries) => {
             setTableData({
               state: {
-                data: entries,
+                data: unboxUntilFirstProlific(entries),
               },
             })
           })
