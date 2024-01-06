@@ -8,6 +8,7 @@ import { format } from 'echarts/core'
 import prettyBytes from 'pretty-bytes'
 import { CallbackDataParams, TooltipFormatterCallback, TooltipOption, TopLevelFormatterParams } from 'echarts/types/dist/shared'
 import Fullscreen from '@mui/icons-material/Fullscreen';
+import FullscreenExit from '@mui/icons-material/FullscreenExit';
 
 const EChart = dynamic(() => import('@kbox-labs/react-echarts').then((mod) => mod.EChart), {
   ssr: false,
@@ -260,7 +261,7 @@ export default dynamic(
     const { parse_wasm_binary } = await import('rust-wasm')
     return function BinaryLoaded(): JSX.Element {
       const [isOver, setIsOver] = useState(false)
-      const [isFullscreen, setIsFullscreen] = useState(true)
+      const [isFullscreen, setIsFullscreen] = useState(false)
       const [tableData, setTableData] = useState<TableDataProps>({
         state: {
           data: sample,
@@ -342,42 +343,39 @@ export default dynamic(
       }
 
       const makeFullscreen = () => {
-        console.log("Did a thing", isFullscreen)
         setIsFullscreen(!isFullscreen)
       }
 
-      console.log(isFullscreen)
-
       return (
         <>
-          <input
-            type="file"
-            ref={fileInput}
-            className="hidden"
-            accept=".wasm, .wat"
-            onChange={handleUploadButton}
-          />
-          <div
-            className={
-              // make floating
-              (isFullscreen ? 'absolute top-0 left-0 w-screen h-screen ' : '') +
-              'flex w-full grow flex-col items-center justify-center border-2 border-dashed' +
-              (isOver ? ' bg-gray-200 dark:bg-gray-700' : ' bg-white dark:bg-gray-800')
-            }
-          >
+          <div className={`flex w-full grow ${isFullscreen ? "" : "sticky"}`}>
+            <input
+              type="file"
+              ref={fileInput}
+              className="hidden"
+              accept=".wasm, .wat"
+              onChange={handleUploadButton}
+            />
             <button
-              onClick={() => fileInput.current?.click()}
               onDragOver={handleDragOver}
               onDragLeave={handleDragLeave}
               onDrop={handleDrop}
+              onClick={() => fileInput.current?.click()}
               disabled={tableData.state && 'data' in tableData.state}
-            />
-            <TableData state={tableData.state} />
+              className={
+                // make floating
+                (isFullscreen ? 'absolute top-0 left-0 w-screen h-screen ' : '') +
+                'flex w-full grow flex-col items-center justify-center border-2 border-dashed' +
+                (isOver ? ' bg-gray-200 dark:bg-gray-700' : ' bg-white dark:bg-gray-800')
+              }
+            >
+              <TableData state={tableData.state} />
+            </button>
             <button
               className='absolute right-0 top-0'
               onClick={makeFullscreen}
             >
-              <Fullscreen/>
+              {isFullscreen ? <FullscreenExit/> : <Fullscreen/> }
             </button>
           </div>
         </>
