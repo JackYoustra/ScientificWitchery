@@ -6,6 +6,7 @@ import Link from 'next/link'
 import { useTheme } from 'next-themes'
 import { format } from 'echarts/core'
 import prettyBytes from 'pretty-bytes'
+import { CallbackDataParams, TooltipFormatterCallback, TooltipOption, TopLevelFormatterParams } from 'echarts/types/dist/shared'
 const EChart = dynamic(() => import('@kbox-labs/react-echarts').then((mod) => mod.EChart), {
   ssr: false,
 })
@@ -56,25 +57,36 @@ type EchartDataShape = {
   path?: string
 }
 
+type FileChartDataShape = EchartDataShape & {
+  sectionData?: Item
+}
+
 type TableDataProps = {
   state?:
     | {
         files: File[]
       }
     | {
-        data: ChartDataEntry[]
+        data: FileChartDataShape[]
       }
     | {
         error: string
       }
 }
 
-function getTooltipFormatter(info: ChartDataEntry): string {
+const getTooltipFormatter: TooltipFormatterCallback<TopLevelFormatterParams> = (info) => {
   let stuff: string[] = []
   if (info.name) {
     stuff.push(`<div class="tooltip-title">'${format.encodeHTML(info.name)}'</div>'`)
   }
-  stuff.push(prettyBytes(firstValue(info.value)))
+
+  // add our specifics
+  if (info.data?.sectionData) {
+    stuff.push(`<div class="tooltip-subtitle">Retained Size: ${prettyBytes(info.data.sectionData.retained_size)} (${info.data.sectionData.retained_size_percent.toFixed(2)}%)</div>`)
+    stuff.push(`<div class="tooltip-subtitle">Shallow Size: ${prettyBytes(info.data.sectionData.shallow_size)} (${info.data.sectionData.shallow_size_percent.toFixed(2)}%)</div>`)
+  } else {
+    stuff.push(prettyBytes(firstValue(info.value)))
+  }
   return stuff.join('')
 }
 
@@ -216,16 +228,17 @@ function unboxUntilFirstProlific(data: ChartDataEntry[]): ChartDataEntry[] {
 }
 
 // convert to chart data
-export function convertToChartData(item: Item, path: string): ChartNestedDataShape {
+export function convertToChartData(item: Item, path: string): FileChartDataShape {
   // TODO: Escape the slashes in item name
   const children = item.children?.map((child) => convertToChartData(child, `${path}/${item.name}`))
   const childrenSize =
     children?.reduce((acc, child) => acc + firstValue(child.value), 0) ?? 0
-  const entry: ChartNestedDataShape = {
+  const entry: FileChartDataShape = {
     name: item.name,
     value: item.shallow_size + childrenSize,
     children,
     path: `${path}/${item.name}`,
+    sectionData: item,
   }
   return entry
 }
