@@ -4,12 +4,13 @@ import { ComponentType, DragEvent, FC, FunctionComponent, useEffect, useRef, use
 import dynamic, { LoaderComponent } from 'next/dynamic'
 import Link from 'next/link'
 import { useTheme } from 'next-themes'
-import { format } from 'echarts/core'
+// async import
+let format: typeof format_d = ''
 import prettyBytes from 'pretty-bytes'
 import { CallbackDataParams, TooltipFormatterCallback, TooltipOption, TopLevelFormatterParams } from 'echarts/types/dist/shared'
 import Fullscreen from '@mui/icons-material/Fullscreen';
 import FullscreenExit from '@mui/icons-material/FullscreenExit';
-import { WasmBinaryResult } from 'rust-wasm'
+import type { WasmBinaryResult } from 'rust-wasm'
 import _ from 'lodash'
 
 const EChart = dynamic(() => import('@kbox-labs/react-echarts').then((mod) => mod.EChart), {
@@ -310,6 +311,8 @@ function garbage2Chart(garbage: GarbageItem): FileChartDataShape {
 export default dynamic(
   async function Binary(): Promise<FC<Record<string, never>>> {
     const { parse_wasm_binary } = await import('rust-wasm')
+    let coreStuff = await import('echarts/core')
+    format = coreStuff.format
     return function BinaryLoaded(): JSX.Element {
       const [isOver, setIsOver] = useState(false)
       const [isFullscreen, setIsFullscreen] = useState(false)
