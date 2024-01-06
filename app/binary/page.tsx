@@ -77,7 +77,7 @@ type TableDataProps = {
 const getTooltipFormatter: TooltipFormatterCallback<TopLevelFormatterParams> = (info) => {
   let stuff: string[] = []
   if (info.name) {
-    stuff.push(`<div class="tooltip-title">'${format.encodeHTML(info.name)}'</div>'`)
+    stuff.push(`<div class="tooltip-title text-left font-bold">${format.encodeHTML(info.name)}</div>`)
   }
 
   // add our specifics
@@ -85,9 +85,13 @@ const getTooltipFormatter: TooltipFormatterCallback<TopLevelFormatterParams> = (
     stuff.push(`<div class="tooltip-subtitle">Retained Size: ${prettyBytes(info.data.sectionData.retained_size)} (${info.data.sectionData.retained_size_percent.toFixed(2)}%)</div>`)
     stuff.push(`<div class="tooltip-subtitle">Shallow Size: ${prettyBytes(info.data.sectionData.shallow_size)} (${info.data.sectionData.shallow_size_percent.toFixed(2)}%)</div>`)
   } else {
-    stuff.push(prettyBytes(firstValue(info.value)))
+    stuff.push(`<div class="tooltip-subtitle text-left">${prettyBytes(firstValue(info.value))}</div>`)
   }
-  return stuff.join('')
+  return `
+  <div class="text-left">
+  ${stuff.join('')}
+  </div>
+  `
 }
 
 const makeRepeated = (arr, repeats) =>
