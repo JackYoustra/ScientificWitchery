@@ -9,6 +9,7 @@ import prettyBytes from 'pretty-bytes'
 import { CallbackDataParams, TooltipFormatterCallback, TooltipOption, TopLevelFormatterParams } from 'echarts/types/dist/shared'
 import Fullscreen from '@mui/icons-material/Fullscreen';
 import FullscreenExit from '@mui/icons-material/FullscreenExit';
+import { WasmBinaryResult } from 'rust-wasm'
 
 const EChart = dynamic(() => import('@kbox-labs/react-echarts').then((mod) => mod.EChart), {
   ssr: false,
@@ -23,17 +24,54 @@ const EChart = dynamic(() => import('@kbox-labs/react-echarts').then((mod) => mo
 // })
 
 export interface ParseWasmBinary {
-  items: Item[]
-  summary?: Summary[]
+  dominators: {
+    items: DominatorItem[]
+    summary?: Summary[]
+  }
+  garbage?: GarbageItem[]
 }
 
-export interface Item {
+function parseResultFromRust(result: WasmBinaryResult): ParseWasmBinary {
+  const retval = {
+    dominators: JSON.parse(result.dominators),
+    garbage: JSON.parse(result.garbage),
+  }
+  // strip out from garbage the last entry with a sigma at the start of the name
+  for (let i = retval.garbage.length - 1; i >= 0; i--) {
+    if (retval.garbage[i].name.startsWith('Σ')) {
+      retval.garbage.splice(i, 1)
+      break
+    }
+  }
+
+  // if the last entry talks about false positives, remove
+  if (retval.garbage[retval.garbage.length - 1].name.includes('potential false-positive')) {
+    retval.garbage.splice(retval.garbage.length - 1, 1)
+  }
+
+  if (retval.garbage.length === 0) {
+    delete retval.garbage
+  }
+
+  console.log("Retval is ", retval)
+  // free the memory
+  result.free()
+  return retval
+}
+
+export interface GarbageItem {
+  name: string,
+  bytes: number,
+  size_percent: number,
+}
+
+export interface DominatorItem {
   name: string
   shallow_size: number
   shallow_size_percent: ShallowSizePercent
   retained_size: number
   retained_size_percent: number
-  children?: Item[]
+  children?: DominatorItem[]
 }
 
 export type ShallowSizePercent = number | number
@@ -61,7 +99,7 @@ type EchartDataShape = {
 }
 
 type FileChartDataShape = EchartDataShape & {
-  sectionData?: Item
+  sectionData?: DominatorItem
 }
 
 type TableDataProps = {
@@ -82,12 +120,13 @@ const getTooltipFormatter: TooltipFormatterCallback<TopLevelFormatterParams> = (
   let cols: number
   // add our specifics
   if (info.data?.sectionData) {
+    const data: DominatorItem = info.data.sectionData
     stuff.push(`<div class="tooltip-subtitle">Retained Size:</div>`)
-    stuff.push(`<div class="tooltip-subtitle">${prettyBytes(info.data.sectionData.retained_size)}</div>`)
-    stuff.push(`<div class="tooltip-subtitle grow">(${info.data.sectionData.retained_size_percent.toFixed(2)}%)</div>`)
+    stuff.push(`<div class="tooltip-subtitle">${prettyBytes(data.retained_size)}</div>`)
+    stuff.push(`<div class="tooltip-subtitle grow">(${data.retained_size_percent.toFixed(2)}%)</div>`)
     stuff.push(`<div class="tooltip-subtitle">Shallow Size:</div>`)
-    stuff.push(`<div class="tooltip-subtitle">${prettyBytes(info.data.sectionData.shallow_size)}</div>`)
-    stuff.push(`<div class="tooltip-subtitle grow">(${info.data.sectionData.shallow_size_percent.toFixed(2)}%)</div>`)
+    stuff.push(`<div class="tooltip-subtitle">${prettyBytes(data.shallow_size)}</div>`)
+    stuff.push(`<div class="tooltip-subtitle grow">(${data.shallow_size_percent.toFixed(2)}%)</div>`)
     cols = 3
   } else {
     stuff.push(`<div class="tooltip-subtitle text-left">${prettyBytes(firstValue(info.value))}</div>`)
@@ -245,7 +284,7 @@ function unboxUntilFirstProlific(data: ChartDataEntry[]): ChartDataEntry[] {
 }
 
 // convert to chart data
-export function convertToChartData(item: Item, path: string): FileChartDataShape {
+export function convertToChartData(item: DominatorItem, path: string): FileChartDataShape {
   // TODO: Escape the slashes in item name
   const children = item.children?.map((child) => convertToChartData(child, `${path}/${item.name}`))
   const childrenSize =
@@ -256,6 +295,24 @@ export function convertToChartData(item: Item, path: string): FileChartDataShape
     children,
     path: `${path}/${item.name}`,
     sectionData: item,
+  }
+  return entry
+}
+
+function topGarbage2Chart(garbage: GarbageItem[]): FileChartDataShape {
+  const entry: FileChartDataShape = {
+    name: "Unreachable Code / Symbols",
+    value: garbage.reduce((acc, item) => acc + item.bytes, 0),
+    children: garbage.map(garbage2Chart),
+  }
+  return entry
+}
+
+
+function garbage2Chart(garbage: GarbageItem): FileChartDataShape {
+  const entry: FileChartDataShape = {
+    name: garbage.name,
+    value: garbage.bytes,
   }
   return entry
 }
@@ -286,11 +343,14 @@ export default dynamic(
         // Use FileReader to read file content
         const promises = droppedFiles.map((file) => {
           return file.arrayBuffer().then((buffer) => {
-            const result: string = parse_wasm_binary(buffer)
+            const result = parse_wasm_binary(buffer)
             // parse
-            const parsed: ParseWasmBinary = JSON.parse(result)
-            const chartData = parsed.items.map((item) => convertToChartData(item, file.name))
-            const sizeOfTopLevel = parsed.items.reduce((acc, item) => acc + item.retained_size, 0)
+            const parsed: ParseWasmBinary = parseResultFromRust(result)
+            const topGarbage = topGarbage2Chart(parsed.garbage)
+            const chartData = parsed.dominators.items.map((item) => convertToChartData(item, file.name)).concat([
+              topGarbage,
+            ])
+            const sizeOfTopLevel = parsed.dominators.items.reduce((acc, item) => acc + item.retained_size, 0) + firstValue(topGarbage.value)
             const entry: ChartDataEntry = {
               name: file.name,
               value: sizeOfTopLevel,
