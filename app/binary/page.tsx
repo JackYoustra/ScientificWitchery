@@ -5,7 +5,7 @@ import dynamic, { LoaderComponent } from 'next/dynamic'
 import Link from 'next/link'
 import { useTheme } from 'next-themes'
 // async import
-let format: typeof any = ''
+let format: any = ''
 import prettyBytes from 'pretty-bytes'
 import { CallbackDataParams, TooltipFormatterCallback, TooltipOption, TopLevelFormatterParams } from 'echarts/types/dist/shared'
 import Fullscreen from '@mui/icons-material/Fullscreen';
@@ -25,7 +25,7 @@ const EChart = dynamic(() => import('@kbox-labs/react-echarts').then((mod) => mo
 //   ssr: false,
 // })
 
-export interface ParseWasmBinary {
+interface ParseWasmBinary {
   dominators: {
     items: DominatorItem[]
     summary?: Summary[]
@@ -60,13 +60,13 @@ function parseResultFromRust(result: WasmBinaryResult): ParseWasmBinary {
   return retval
 }
 
-export interface GarbageItem {
+interface GarbageItem {
   name: string,
   bytes: number,
   size_percent: number,
 }
 
-export interface DominatorItem {
+interface DominatorItem {
   name: string
   shallow_size: number
   shallow_size_percent: ShallowSizePercent
@@ -75,15 +75,15 @@ export interface DominatorItem {
   children?: DominatorItem[]
 }
 
-export type ShallowSizePercent = number | number
+type ShallowSizePercent = number | number
 
-export interface Summary {
+interface Summary {
   name: string
   retained_size: number
   retained_size_percent: number
 }
 
-export type ChartDataEntry = EchartDataShape
+type ChartDataEntry = EchartDataShape
 type ChartNestedDataShape = EchartDataShape
 
 type EchartDataShape = {
@@ -293,7 +293,7 @@ function unboxUntilFirstProlific(data: ChartDataEntry[]): ChartDataEntry[] {
 }
 
 // convert to chart data
-export function convertToChartData(item: DominatorItem, path: string): FileChartDataShape {
+function convertToChartData(item: DominatorItem, path: string): FileChartDataShape {
   // TODO: Escape the slashes in item name
   const children = item.children?.map((child) => convertToChartData(child, `${path}/${item.name}`))
   const childrenSize =
@@ -461,6 +461,9 @@ export default dynamic(
               className='absolute right-0 top-0'
               onClick={makeFullscreen}
             >
+              <kbd className="inline-block whitespace-nowrap rounded border px-1.5 align-middle font-medium leading-4 tracking-wide text-xs text-gray-400 border-gray-400">
+                ESC
+              </kbd>
               {isFullscreen ? <FullscreenExit/> : <Fullscreen/> }
             </button>
           </div>
