@@ -112,53 +112,59 @@ type LoadedTableDataProps = {
   maxDepth: number,
 }
 
-type TableDataProps = {
-  state?:
-    | {
-        files: File[]
-      }
-    | {
-        data: LoadedTableDataProps
-      }
-    | {
-        error: string
-      }
+type TableData = | {
+  files: File[]
+}
+| {
+  data: LoadedTableDataProps
+}
+| {
+  error: string
 }
 
-const getTooltipFormatter: TooltipFormatterCallback<TopLevelFormatterParams> = (info) => {
-  let stuff: string[] = []
-  let cols: number
-  // add our specifics
-  const common = " overflow-wrap text-wrap break-all max-w-md "
-  if (info.data?.sectionData) {
-    const data: SectionData = info.data.sectionData
-    if(_.isNumber(data)) {
-      const overallSize = data
-      stuff.push(`<div class="tooltip-subtitle text-left ${common}">${prettyBytes(firstValue(info.value))}</div>`)
-      const percent = (firstValue(info.value) / overallSize) * 100
-      stuff.push(`<div class="tooltip-subtitle text-left ${common}">(${percent.toFixed(2)}%)</div>`)
-      cols = 2
+type TableDataProps = {
+  state?: TableData,
+  fullscreen: boolean
+}
+
+function getTooltipFormatter(): TooltipFormatterCallback<TopLevelFormatterParams>{
+  return (info) => {
+    let stuff: string[] = []
+    let cols: number
+    // add our specifics
+    // idk which are needed
+    // so I added all of them lol
+    const common = " overflow-hidden text-wrap break-all max-w-md "
+    if (info.data?.sectionData) {
+      const data: SectionData = info.data.sectionData
+      if(_.isNumber(data)) {
+        const overallSize = data
+        stuff.push(`<div class="${common} tooltip-subtitle text-left">${prettyBytes(firstValue(info.value))}</div>`)
+        const percent = (firstValue(info.value) / overallSize) * 100
+        stuff.push(`<div class="${common} tooltip-subtitle text-left">(${percent.toFixed(2)}%)</div>`)
+        cols = 2
+      } else {
+        stuff.push(`<div class="${common} tooltip-subtitle">Retained Size:</div>`)
+        stuff.push(`<div class="${common} tooltip-subtitle">${prettyBytes(data.retained_size)}</div>`)
+        stuff.push(`<div class="${common} tooltip-subtitle grow">(${data.retained_size_percent.toFixed(2)}%)</div>`)
+        stuff.push(`<div class="${common} tooltip-subtitle">Shallow Size:</div>`)
+        stuff.push(`<div class="${common} tooltip-subtitle">${prettyBytes(data.shallow_size)}</div>`)
+        stuff.push(`<div class="${common} tooltip-subtitle grow">(${data.shallow_size_percent.toFixed(2)}%)</div>`)
+        cols = 3
+      }
     } else {
-      stuff.push(`<div class="tooltip-subtitle ${common}">Retained Size:</div>`)
-      stuff.push(`<div class="tooltip-subtitle ${common}">${prettyBytes(data.retained_size)}</div>`)
-      stuff.push(`<div class="tooltip-subtitle grow ${common}">(${data.retained_size_percent.toFixed(2)}%)</div>`)
-      stuff.push(`<div class="tooltip-subtitle ${common}">Shallow Size:</div>`)
-      stuff.push(`<div class="tooltip-subtitle ${common}">${prettyBytes(data.shallow_size)}</div>`)
-      stuff.push(`<div class="tooltip-subtitle grow ${common}">(${data.shallow_size_percent.toFixed(2)}%)</div>`)
-      cols = 3
+      stuff.push(`<div class="${common} tooltip-subtitle text-left">${prettyBytes(firstValue(info.value))}</div>`)
+      cols = 1
     }
-  } else {
-    stuff.push(`<div class="tooltip-subtitle text-left ${common}">${prettyBytes(firstValue(info.value))}</div>`)
-    cols = 1
+    return `
+    <div class="${common} text-left">
+    ${info.name ? `<div class="${common} text-left font-bold" style="text-wrap: wrap;">${format.encodeHTML(info.name)}</div>` : ''}
+    ${cols > 1 ? `<div class="${common} grid gap-1" style="grid-template-columns: auto auto 1fr">` : ''}
+    ${stuff.join('')}
+    ${cols > 1 ? `</div>` : ''}
+    </div>
+    `
   }
-  return `
-  <div class="text-left ${common}">
-  ${info.name ? `<div class="text-left ${common} font-bold" style="text-wrap: wrap;">${format.encodeHTML(info.name)}</div>` : ''}
-  ${cols > 1 ? `<div class="grid gap-1 ${common}" style="grid-template-columns: auto auto 1fr">` : ''}
-  ${stuff.join('')}
-  ${cols > 1 ? `</div>` : ''}
-  </div>
-  `
 }
 
 function getDepth(item: ChartDataEntry): number {
@@ -188,7 +194,7 @@ function getLevelOption(maxDepth: number) {
 
 function TableData(props: TableDataProps): JSX.Element {
   const { theme, setTheme, resolvedTheme } = useTheme()
-  const { state } = props
+  const { state, fullscreen } = props
   if (state && 'files' in state && state.files.length > 0) {
     const { files } = state
     return (
@@ -207,7 +213,7 @@ function TableData(props: TableDataProps): JSX.Element {
     return (
       <>
         <EChart
-          className="h-full w-full grow"
+          className={`h-full w-full grow ${fullscreen ? " overflow-hidden " : ""}`}
           // do tree shaking later
           // use={[SVGRenderer, TreemapChart]}
           aria={{
@@ -217,7 +223,7 @@ function TableData(props: TableDataProps): JSX.Element {
           tooltip={{
             show: true,
             trigger: 'item',
-            formatter: getTooltipFormatter,
+            formatter: getTooltipFormatter(),
           }}
           theme={resolvedTheme === 'dark' ? 'dark' : 'shine'}
           series={[
@@ -330,7 +336,7 @@ export default dynamic(
     return function BinaryLoaded(): JSX.Element {
       const [isOver, setIsOver] = useState(false)
       const [isFullscreen, setIsFullscreen] = useState(false)
-      const [tableData, setTableData] = useState<TableDataProps>({})
+      const [tableData, setTableData] = useState<TableData | undefined>(undefined)
       const fileInput = useRef<HTMLInputElement>(null)
 
       const handleUpload = (droppedFiles: File[]) => {
@@ -342,9 +348,7 @@ export default dynamic(
 
         // Fetch the files
         setTableData({
-          state: {
-            files: droppedFiles,
-          },
+          files: droppedFiles,
         })
 
         // Use FileReader to read file content
@@ -375,19 +379,15 @@ export default dynamic(
         Promise.all(promises)
           .then((entries) => {
             setTableData({
-              state: {
-                data: {
-                  processedFiles: unboxUntilFirstProlific(entries),
-                  maxDepth: Math.max(...entries.map(getDepth)),
-                },
+              data: {
+                processedFiles: unboxUntilFirstProlific(entries),
+                maxDepth: Math.max(...entries.map(getDepth)),
               },
             })
           })
           .catch((err) => {
             setTableData({
-              state: {
-                error: err.toString(),
-              },
+              error: err.toString(),
             })
           })
       }
@@ -447,7 +447,7 @@ export default dynamic(
               onDragLeave={handleDragLeave}
               onDrop={handleDrop}
               onClick={() => fileInput.current?.click()}
-              disabled={tableData.state && 'data' in tableData.state}
+              disabled={tableData && 'data' in tableData}
               className={
                 // make floating
                 (isFullscreen ? 'absolute top-0 left-0 w-screen h-screen ' : '') +
@@ -455,7 +455,7 @@ export default dynamic(
                 (isOver ? ' bg-gray-200 dark:bg-gray-700' : ' bg-white dark:bg-gray-800')
               }
             >
-              <TableData state={tableData.state} />
+              <TableData state={tableData} fullscreen={isFullscreen} />
             </button>
             <button
               className='absolute right-0 top-0'
