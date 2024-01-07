@@ -32,9 +32,9 @@ const Header = () => {
             <Link
               key={link.title}
               href={link.href}
-              className="hidden font-medium text-gray-900 dark:text-gray-100 sm:block whitespace-nowrap"
+              className="hidden whitespace-nowrap font-medium text-gray-900 dark:text-gray-100 sm:block"
             >
-              {link.title + " • "}
+              {link.title + ' • '}
             </Link>
           ))}
         <SearchButton />

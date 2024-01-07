@@ -1,15 +1,16 @@
 'use client'
 
-import { ComponentType, DragEvent, FC, FunctionComponent, useEffect, useRef, useState } from 'react'
-import dynamic, { LoaderComponent } from 'next/dynamic'
+import { DragEvent, FC, useEffect, useRef, useState } from 'react'
+import dynamic from 'next/dynamic'
 import Link from 'next/link'
 import { useTheme } from 'next-themes'
 // async import
+// eslint-disable-next-line @typescript-eslint/no-explicit-any
 let format: any = ''
 import prettyBytes from 'pretty-bytes'
-import { CallbackDataParams, TooltipFormatterCallback, TooltipOption, TopLevelFormatterParams } from 'echarts/types/dist/shared'
-import Fullscreen from '@mui/icons-material/Fullscreen';
-import FullscreenExit from '@mui/icons-material/FullscreenExit';
+import type { TooltipFormatterCallback, TopLevelFormatterParams } from 'echarts/types/dist/shared'
+import Fullscreen from '@mui/icons-material/Fullscreen'
+import FullscreenExit from '@mui/icons-material/FullscreenExit'
 import type { WasmBinaryResult } from 'rust-wasm'
 import _ from 'lodash'
 
@@ -61,9 +62,9 @@ function parseResultFromRust(result: WasmBinaryResult): ParseWasmBinary {
 }
 
 interface GarbageItem {
-  name: string,
-  bytes: number,
-  size_percent: number,
+  name: string
+  bytes: number
+  size_percent: number
 }
 
 interface DominatorItem {
@@ -99,7 +100,6 @@ type EchartDataShape = {
   path?: string
 }
 
-
 type OverallSize = number
 
 type SectionData = DominatorItem | OverallSize
@@ -108,58 +108,91 @@ type FileChartDataShape = EchartDataShape & {
 }
 
 type LoadedTableDataProps = {
-  processedFiles: FileChartDataShape[],
-  maxDepth: number,
+  processedFiles: FileChartDataShape[]
+  maxDepth: number
 }
 
-type TableData = | {
-  files: File[]
-}
-| {
-  data: LoadedTableDataProps
-}
-| {
-  error: string
-}
+type TableData =
+  | {
+      files: File[]
+    }
+  | {
+      data: LoadedTableDataProps
+    }
+  | {
+      error: string
+    }
 
 type TableDataProps = {
-  state?: TableData,
+  state?: TableData
   fullscreen: boolean
 }
 
-function getTooltipFormatter(): TooltipFormatterCallback<TopLevelFormatterParams>{
+function getTooltipFormatter(): TooltipFormatterCallback<TopLevelFormatterParams> {
   return (info) => {
-    let stuff: string[] = []
+    const stuff: string[] = []
     let cols: number
     // add our specifics
     // idk which are needed
     // so I added all of them lol
-    const common = " overflow-hidden text-wrap break-all max-w-md "
+    const common = ' overflow-hidden text-wrap break-all max-w-md '
     if (info.data?.sectionData) {
       const data: SectionData = info.data.sectionData
-      if(_.isNumber(data)) {
+      if (_.isNumber(data)) {
         const overallSize = data
-        stuff.push(`<div class="${common} tooltip-subtitle text-left">${prettyBytes(firstValue(info.value))}</div>`)
+        stuff.push(
+          `<div class="${common} tooltip-subtitle text-left">${prettyBytes(
+            firstValue(info.value)
+          )}</div>`
+        )
         const percent = (firstValue(info.value) / overallSize) * 100
-        stuff.push(`<div class="${common} tooltip-subtitle text-left">(${percent.toFixed(2)}%)</div>`)
+        stuff.push(
+          `<div class="${common} tooltip-subtitle text-left">(${percent.toFixed(2)}%)</div>`
+        )
         cols = 2
       } else {
         stuff.push(`<div class="${common} tooltip-subtitle">Retained Size:</div>`)
-        stuff.push(`<div class="${common} tooltip-subtitle">${prettyBytes(data.retained_size)}</div>`)
-        stuff.push(`<div class="${common} tooltip-subtitle grow">(${data.retained_size_percent.toFixed(2)}%)</div>`)
+        stuff.push(
+          `<div class="${common} tooltip-subtitle">${prettyBytes(data.retained_size)}</div>`
+        )
+        stuff.push(
+          `<div class="${common} tooltip-subtitle grow">(${data.retained_size_percent.toFixed(
+            2
+          )}%)</div>`
+        )
         stuff.push(`<div class="${common} tooltip-subtitle">Shallow Size:</div>`)
-        stuff.push(`<div class="${common} tooltip-subtitle">${prettyBytes(data.shallow_size)}</div>`)
-        stuff.push(`<div class="${common} tooltip-subtitle grow">(${data.shallow_size_percent.toFixed(2)}%)</div>`)
+        stuff.push(
+          `<div class="${common} tooltip-subtitle">${prettyBytes(data.shallow_size)}</div>`
+        )
+        stuff.push(
+          `<div class="${common} tooltip-subtitle grow">(${data.shallow_size_percent.toFixed(
+            2
+          )}%)</div>`
+        )
         cols = 3
       }
     } else {
-      stuff.push(`<div class="${common} tooltip-subtitle text-left">${prettyBytes(firstValue(info.value))}</div>`)
+      stuff.push(
+        `<div class="${common} tooltip-subtitle text-left">${prettyBytes(
+          firstValue(info.value)
+        )}</div>`
+      )
       cols = 1
     }
     return `
     <div class="${common} text-left">
-    ${info.name ? `<div class="${common} text-left font-bold" style="text-wrap: wrap;">${format.encodeHTML(info.name)}</div>` : ''}
-    ${cols > 1 ? `<div class="${common} grid gap-1" style="grid-template-columns: auto auto 1fr">` : ''}
+    ${
+      info.name
+        ? `<div class="${common} text-left font-bold" style="text-wrap: wrap;">${format.encodeHTML(
+            info.name
+          )}</div>`
+        : ''
+    }
+    ${
+      cols > 1
+        ? `<div class="${common} grid gap-1" style="grid-template-columns: auto auto 1fr">`
+        : ''
+    }
     ${stuff.join('')}
     ${cols > 1 ? `</div>` : ''}
     </div>
@@ -177,7 +210,7 @@ function getDepth(item: ChartDataEntry): number {
 
 function getLevelOption(maxDepth: number) {
   // map 0-10
-  return _.range(Math.min(maxDepth + 5, 500)).map ((i) => {
+  return _.range(Math.min(maxDepth + 5, 500)).map((i) => {
     // alternate
     // cycle every 20 layers
     const cycleSpot = i % 16
@@ -187,7 +220,7 @@ function getLevelOption(maxDepth: number) {
         borderColorSaturation: color, //0.6
         borderWidth: 5,
         gapWidth: 1,
-      }
+      },
     }
   })
 }
@@ -213,13 +246,13 @@ function TableData(props: TableDataProps): JSX.Element {
     return (
       <>
         <EChart
-          className={`h-full w-full grow ${fullscreen ? " overflow-hidden " : ""}`}
+          className={`h-full w-full grow ${fullscreen ? ' overflow-hidden ' : ''}`}
           // do tree shaking later
           // use={[SVGRenderer, TreemapChart]}
           aria={{
             // enabled: true,
-            decal: { show: true } }
-          }
+            decal: { show: true },
+          }}
           tooltip={{
             show: true,
             trigger: 'item',
@@ -233,11 +266,11 @@ function TableData(props: TableDataProps): JSX.Element {
               visibleMin: 300,
               label: {
                 show: true,
-                formatter: '{b}'
+                formatter: '{b}',
               },
               upperLabel: {
                 show: true,
-                height: 30
+                height: 30,
               },
               levels: getLevelOption(state.data.maxDepth),
               data: state.data.processedFiles,
@@ -266,9 +299,9 @@ function TableData(props: TableDataProps): JSX.Element {
             </Link>
           </span>
           <p>
-          Drag and drop (or just click!) some wasm or wat files here to analyze them.
-          <br/>
-          More useful information will be provided with debug symbols!
+            Drag and drop (or just click!) some wasm or wat files here to analyze them.
+            <br />
+            More useful information will be provided with debug symbols!
           </p>
         </div>
       </>
@@ -296,8 +329,7 @@ function unboxUntilFirstProlific(data: ChartDataEntry[]): ChartDataEntry[] {
 function convertToChartData(item: DominatorItem, path: string): FileChartDataShape {
   // TODO: Escape the slashes in item name
   const children = item.children?.map((child) => convertToChartData(child, `${path}/${item.name}`))
-  const childrenSize =
-    children?.reduce((acc, child) => acc + firstValue(child.value), 0) ?? 0
+  const childrenSize = children?.reduce((acc, child) => acc + firstValue(child.value), 0) ?? 0
   const entry: FileChartDataShape = {
     name: item.name,
     value: item.shallow_size + childrenSize,
@@ -310,14 +342,13 @@ function convertToChartData(item: DominatorItem, path: string): FileChartDataSha
 
 function topGarbage2Chart(garbage: GarbageItem[], overallSize: OverallSize): FileChartDataShape {
   const entry: FileChartDataShape = {
-    name: "Unreachable Code / Symbols",
+    name: 'Unreachable Code / Symbols',
     value: garbage.reduce((acc, item) => acc + item.bytes, 0),
     children: garbage.map((item) => garbage2Chart(item, overallSize)),
     sectionData: overallSize,
   }
   return entry
 }
-
 
 function garbage2Chart(garbage: GarbageItem, overallSize: OverallSize): FileChartDataShape {
   const entry: FileChartDataShape = {
@@ -331,7 +362,7 @@ function garbage2Chart(garbage: GarbageItem, overallSize: OverallSize): FileChar
 export default dynamic(
   async function Binary(): Promise<FC<Record<string, never>>> {
     const { parse_wasm_binary } = await import('rust-wasm')
-    let coreStuff = await import('echarts/core')
+    const coreStuff = await import('echarts/core')
     format = coreStuff.format
     return function BinaryLoaded(): JSX.Element {
       const [isOver, setIsOver] = useState(false)
@@ -357,11 +388,16 @@ export default dynamic(
             const result = parse_wasm_binary(buffer)
             // parse
             const parsed: ParseWasmBinary = parseResultFromRust(result)
-            let chartData = parsed.dominators.items.map((item) => convertToChartData(item, file.name))
+            const chartData = parsed.dominators.items.map((item) =>
+              convertToChartData(item, file.name)
+            )
             if (parsed.garbage) {
               chartData.push(topGarbage2Chart(parsed.garbage, file.size))
             }
-            let sizeOfTopLevel = parsed.dominators.items.reduce((acc, item) => acc + item.retained_size, 0)
+            let sizeOfTopLevel = parsed.dominators.items.reduce(
+              (acc, item) => acc + item.retained_size,
+              0
+            )
             if (parsed.garbage) {
               sizeOfTopLevel += parsed.garbage.reduce((acc, item) => acc + item.bytes, 0)
             }
@@ -434,7 +470,7 @@ export default dynamic(
 
       return (
         <>
-          <div className={`flex w-full grow ${isFullscreen ? "" : "sticky"}`}>
+          <div className={`flex w-full grow ${isFullscreen ? '' : 'sticky'}`}>
             <input
               type="file"
               ref={fileInput}
@@ -450,21 +486,18 @@ export default dynamic(
               disabled={tableData && 'data' in tableData}
               className={
                 // make floating
-                (isFullscreen ? 'absolute top-0 left-0 w-screen h-screen ' : '') +
+                (isFullscreen ? 'absolute left-0 top-0 h-screen w-screen ' : '') +
                 'flex w-full grow flex-col items-center justify-center border-2 border-dashed' +
                 (isOver ? ' bg-gray-200 dark:bg-gray-700' : ' bg-white dark:bg-gray-800')
               }
             >
               <TableData state={tableData} fullscreen={isFullscreen} />
             </button>
-            <button
-              className='absolute right-0 top-0'
-              onClick={makeFullscreen}
-            >
-              <kbd className="inline-block whitespace-nowrap rounded border px-1.5 align-middle font-medium leading-4 tracking-wide text-xs text-gray-400 border-gray-400">
+            <button className="absolute right-0 top-0" onClick={makeFullscreen}>
+              <kbd className="inline-block whitespace-nowrap rounded border border-gray-400 px-1.5 align-middle text-xs font-medium leading-4 tracking-wide text-gray-400">
                 ESC
               </kbd>
-              {isFullscreen ? <FullscreenExit/> : <Fullscreen/> }
+              {isFullscreen ? <FullscreenExit /> : <Fullscreen />}
             </button>
           </div>
         </>
