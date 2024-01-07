@@ -5,7 +5,7 @@ import dynamic, { LoaderComponent } from 'next/dynamic'
 import Link from 'next/link'
 import { useTheme } from 'next-themes'
 // async import
-let format: typeof format_d = ''
+let format: typeof any = ''
 import prettyBytes from 'pretty-bytes'
 import { CallbackDataParams, TooltipFormatterCallback, TooltipOption, TopLevelFormatterParams } from 'echarts/types/dist/shared'
 import Fullscreen from '@mui/icons-material/Fullscreen';
@@ -55,7 +55,6 @@ function parseResultFromRust(result: WasmBinaryResult): ParseWasmBinary {
     delete retval.garbage
   }
 
-  console.log("Retval is ", retval)
   // free the memory
   result.free()
   return retval
@@ -100,8 +99,12 @@ type EchartDataShape = {
   path?: string
 }
 
+
+type OverallSize = number
+
+type SectionData = DominatorItem | OverallSize
 type FileChartDataShape = EchartDataShape & {
-  sectionData?: DominatorItem
+  sectionData?: SectionData
 }
 
 type LoadedTableDataProps = {
@@ -126,23 +129,32 @@ const getTooltipFormatter: TooltipFormatterCallback<TopLevelFormatterParams> = (
   let stuff: string[] = []
   let cols: number
   // add our specifics
+  const common = " overflow-wrap text-wrap break-all max-w-md "
   if (info.data?.sectionData) {
-    const data: DominatorItem = info.data.sectionData
-    stuff.push(`<div class="tooltip-subtitle">Retained Size:</div>`)
-    stuff.push(`<div class="tooltip-subtitle">${prettyBytes(data.retained_size)}</div>`)
-    stuff.push(`<div class="tooltip-subtitle grow">(${data.retained_size_percent.toFixed(2)}%)</div>`)
-    stuff.push(`<div class="tooltip-subtitle">Shallow Size:</div>`)
-    stuff.push(`<div class="tooltip-subtitle">${prettyBytes(data.shallow_size)}</div>`)
-    stuff.push(`<div class="tooltip-subtitle grow">(${data.shallow_size_percent.toFixed(2)}%)</div>`)
-    cols = 3
+    const data: SectionData = info.data.sectionData
+    if(_.isNumber(data)) {
+      const overallSize = data
+      stuff.push(`<div class="tooltip-subtitle text-left ${common}">${prettyBytes(firstValue(info.value))}</div>`)
+      const percent = (firstValue(info.value) / overallSize) * 100
+      stuff.push(`<div class="tooltip-subtitle text-left ${common}">(${percent.toFixed(2)}%)</div>`)
+      cols = 2
+    } else {
+      stuff.push(`<div class="tooltip-subtitle ${common}">Retained Size:</div>`)
+      stuff.push(`<div class="tooltip-subtitle ${common}">${prettyBytes(data.retained_size)}</div>`)
+      stuff.push(`<div class="tooltip-subtitle grow ${common}">(${data.retained_size_percent.toFixed(2)}%)</div>`)
+      stuff.push(`<div class="tooltip-subtitle ${common}">Shallow Size:</div>`)
+      stuff.push(`<div class="tooltip-subtitle ${common}">${prettyBytes(data.shallow_size)}</div>`)
+      stuff.push(`<div class="tooltip-subtitle grow ${common}">(${data.shallow_size_percent.toFixed(2)}%)</div>`)
+      cols = 3
+    }
   } else {
-    stuff.push(`<div class="tooltip-subtitle text-left">${prettyBytes(firstValue(info.value))}</div>`)
+    stuff.push(`<div class="tooltip-subtitle text-left ${common}">${prettyBytes(firstValue(info.value))}</div>`)
     cols = 1
   }
   return `
-  <div class="text-left">
-  ${info.name ? `<div class="tooltip-title text-left font-bold">${format.encodeHTML(info.name)}</div>` : ''}
-  ${cols > 1 ? `<div class="grid gap-1" style="grid-template-columns: auto auto 1fr">` : ''}
+  <div class="text-left ${common}">
+  ${info.name ? `<div class="text-left ${common} font-bold" style="text-wrap: wrap;">${format.encodeHTML(info.name)}</div>` : ''}
+  ${cols > 1 ? `<div class="grid gap-1 ${common}" style="grid-template-columns: auto auto 1fr">` : ''}
   ${stuff.join('')}
   ${cols > 1 ? `</div>` : ''}
   </div>
@@ -290,20 +302,22 @@ export function convertToChartData(item: DominatorItem, path: string): FileChart
   return entry
 }
 
-function topGarbage2Chart(garbage: GarbageItem[]): FileChartDataShape {
+function topGarbage2Chart(garbage: GarbageItem[], overallSize: OverallSize): FileChartDataShape {
   const entry: FileChartDataShape = {
     name: "Unreachable Code / Symbols",
     value: garbage.reduce((acc, item) => acc + item.bytes, 0),
-    children: garbage.map(garbage2Chart),
+    children: garbage.map((item) => garbage2Chart(item, overallSize)),
+    sectionData: overallSize,
   }
   return entry
 }
 
 
-function garbage2Chart(garbage: GarbageItem): FileChartDataShape {
+function garbage2Chart(garbage: GarbageItem, overallSize: OverallSize): FileChartDataShape {
   const entry: FileChartDataShape = {
     name: garbage.name,
     value: garbage.bytes,
+    sectionData: overallSize,
   }
   return entry
 }
@@ -341,7 +355,7 @@ export default dynamic(
             const parsed: ParseWasmBinary = parseResultFromRust(result)
             let chartData = parsed.dominators.items.map((item) => convertToChartData(item, file.name))
             if (parsed.garbage) {
-              chartData.push(topGarbage2Chart(parsed.garbage))
+              chartData.push(topGarbage2Chart(parsed.garbage, file.size))
             }
             let sizeOfTopLevel = parsed.dominators.items.reduce((acc, item) => acc + item.retained_size, 0)
             if (parsed.garbage) {
