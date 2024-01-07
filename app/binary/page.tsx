@@ -299,7 +299,11 @@ function TableData(props: TableDataProps): JSX.Element {
             </Link>
           </span>
           <p>
-            Drag and drop (or just click!) some wasm or wat files here to analyze them.
+            Drag and drop (or just click!) some 
+            <span className="font-mono border border-slate-500 mx-1"> wasm </span>
+            or
+            <span className="font-mono border border-slate-500 mx-1"> wat </span>
+            files here to analyze them.
             <br />
             More useful information will be provided with debug symbols!
           </p>
