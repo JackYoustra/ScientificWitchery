@@ -363,9 +363,37 @@ function garbage2Chart(garbage: GarbageItem, overallSize: OverallSize): FileChar
   return entry
 }
 
+function parseBuffer(file: File): Promise<ChartDataEntry> {
+  return file.arrayBuffer().then(async (buffer) => {
+    const { parse_wasm_binary } = await import('rust-wasm')
+    const result = await parse_wasm_binary(buffer)
+    // parse
+    const parsed: ParseWasmBinary = parseResultFromRust(result)
+    const chartData = parsed.dominators.items.map((item) =>
+      convertToChartData(item, file.name)
+    )
+    if (parsed.garbage) {
+      chartData.push(topGarbage2Chart(parsed.garbage, file.size))
+    }
+    let sizeOfTopLevel = parsed.dominators.items.reduce(
+      (acc, item) => acc + item.retained_size,
+      0
+    )
+    if (parsed.garbage) {
+      sizeOfTopLevel += parsed.garbage.reduce((acc, item) => acc + item.bytes, 0)
+    }
+    const entry: ChartDataEntry = {
+      name: file.name,
+      value: sizeOfTopLevel,
+      children: chartData,
+      path: file.name,
+    }
+    return entry
+  })
+}
+
 export default dynamic(
   async function Binary(): Promise<FC<Record<string, never>>> {
-    const { parse_wasm_binary } = await import('rust-wasm')
     const coreStuff = await import('echarts/core')
     format = coreStuff.format
     return function BinaryLoaded(): JSX.Element {
@@ -387,33 +415,7 @@ export default dynamic(
         })
 
         // Use FileReader to read file content
-        const promises = droppedFiles.map((file) => {
-          return file.arrayBuffer().then((buffer) => {
-            const result = parse_wasm_binary(buffer)
-            // parse
-            const parsed: ParseWasmBinary = parseResultFromRust(result)
-            const chartData = parsed.dominators.items.map((item) =>
-              convertToChartData(item, file.name)
-            )
-            if (parsed.garbage) {
-              chartData.push(topGarbage2Chart(parsed.garbage, file.size))
-            }
-            let sizeOfTopLevel = parsed.dominators.items.reduce(
-              (acc, item) => acc + item.retained_size,
-              0
-            )
-            if (parsed.garbage) {
-              sizeOfTopLevel += parsed.garbage.reduce((acc, item) => acc + item.bytes, 0)
-            }
-            const entry: ChartDataEntry = {
-              name: file.name,
-              value: sizeOfTopLevel,
-              children: chartData,
-              path: file.name,
-            }
-            return entry
-          })
-        })
+        const promises = droppedFiles.map(parseBuffer)
 
         // await all promises
         Promise.all(promises)
