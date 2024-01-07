@@ -10,7 +10,7 @@ const siteMetadata = {
   siteRepo: 'https://github.com/JackYoustra/ScientificWitchery',
   siteLogo: '/static/images/logo.png',
   image: '/static/images/avatar.webp',
-  socialBanner: '/static/images/twitter-card.png',
+  socialBanner: '/static/images/twitter-card.webp',
   // mastodon: 'https://mastodon.social/@mastodonuser',
   email: 'jack@youstra.com',
   github: 'https://github.com/jackyoustra',
