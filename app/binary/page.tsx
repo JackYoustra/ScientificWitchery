@@ -13,6 +13,7 @@ import Fullscreen from '@mui/icons-material/Fullscreen'
 import FullscreenExit from '@mui/icons-material/FullscreenExit'
 import type { WasmBinaryResult } from 'rust-wasm'
 import _ from 'lodash'
+import createBloatyModule from 'public/static/emscripten/bloaty'
 
 const EChart = dynamic(() => import('@kbox-labs/react-echarts').then((mod) => mod.EChart), {
   ssr: false,
@@ -363,10 +364,48 @@ function garbage2Chart(garbage: GarbageItem, overallSize: OverallSize): FileChar
   return entry
 }
 
+function convertProgramArgumentsToC(args: string[]): { argc: number, argv: Uint8Array } {
+  const encodedArgs = args.map(arg => new TextEncoder().encode(arg))
+  const encodedArgsLength = encodedArgs.reduce((acc, arg) => acc + arg.length, 0)
+  const argv = new Uint8Array(encodedArgsLength + encodedArgs.length)
+  let offset = 0
+  for (const arg of encodedArgs) {
+    argv.set(arg, offset)
+    offset += arg.length
+    argv[offset] = 0
+    offset += 1
+  }
+  // check that the text decoded is the same as the original
+  const decodedArgs = new TextDecoder().decode(argv).split('\0')
+  if (decodedArgs.length !== args.length + 1) {
+    throw new Error('Decoded args length does not match original (null terminator)')
+  }
+  for (let i = 0; i < args.length; i++) {
+    if (decodedArgs[i] !== args[i]) {
+      throw new Error('Decoded args does not match original (original: ' + args[i] + ', decoded: ' + decodedArgs[i] + ')')
+    }
+  }
+  return {
+    argc: args.length,
+    argv,
+  }
+}
+
 function parseBuffer(file: File): Promise<ChartDataEntry> {
   return file.arrayBuffer().then(async (buffer) => {
     const { parse_wasm_binary } = await import('rust-wasm')
-    const result = await parse_wasm_binary(buffer)
+    const bloatyModule = await createBloatyModule()
+    const bloatyMain = bloatyModule.cwrap('main', 'number', ['number', 'array'])
+    // create a uint8array buffer holding --help as argv
+    const pack = convertProgramArgumentsToC(['bloaty', '--help'])
+    // call the function
+    // check argv
+    console.log(pack.argc)
+    console.log(pack.argv)
+    const result = bloatyMain(pack.argc - 1, pack.argv)
+    console.log(result)
+
+    // const result = await parse_wasm_binary(buffer)
     // parse
     const parsed: ParseWasmBinary = parseResultFromRust(result)
     const chartData = parsed.dominators.items.map((item) =>
@@ -428,6 +467,7 @@ export default dynamic(
             })
           })
           .catch((err) => {
+            console.log(err)
             setTableData({
               error: err.toString(),
             })
