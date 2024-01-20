@@ -365,6 +365,42 @@ function garbage2Chart(garbage: GarbageItem, overallSize: OverallSize): FileChar
   return entry
 }
 
+function makeTreeFromCSV(csv: object[], fields: string[], path: string): ChartDataEntry[] {
+  // algorithm:
+  // fields are grouped by left to right, except for the last two arguments (vmsize and filesize)
+  // group by all rows and create a tree, with one node per group
+  // create a level of the tree for every level of grouping
+  // the leaf holds the filesize
+
+  // first, loop through the fields (except for the last two)
+  // and create a tree
+  // if there's only one field left, create the leaves
+  if (fields.length === 1) {
+    // implicitly grouped by the last field
+    return csv.map((row) => {
+      const entry: ChartDataEntry = {
+        name: row[fields[0]],
+        value: row['filesize'],
+        path: path + '/' + row[fields[0]],
+      }
+      return entry
+    })
+  } else {
+    // group by the first field
+    const grouped = _.groupBy(csv, fields[0])
+    // recurse
+    return Object.entries(grouped).map(([key, value]) => {
+      const children = makeTreeFromCSV(value, fields.slice(1), path + '/' + key)
+      const entry: ChartDataEntry = {
+        name: key,
+        value: children.reduce((acc, item) => acc + firstValue(item.value), 0),
+        children,
+        path: path + '/' + key,
+      }
+      return entry
+    })
+  }
+}
 function convertProgramArgumentsToC(args: string[], module: any): { argc: number, argv: Uint8Array } {
   const encodedArgsPointers = args.map(arg => module.stringToNewUTF8(arg))
   // take the pointers and put them into a buffer
@@ -378,6 +414,14 @@ function convertProgramArgumentsToC(args: string[], module: any): { argc: number
     argc: args.length,
     argv,
   }
+}
+
+function freeCArguments(argv: Uint8Array, module: any) {
+  // free the memory
+  const pointersBuffer = new Uint32Array(argv.buffer)
+  pointersBuffer.forEach(pointer => {
+    module._free(pointer)
+  })
 }
 
 async function parseWithBloaty(file: File, buffer: ArrayBuffer): Promise<ChartDataEntry> {
@@ -402,7 +446,7 @@ async function parseWithBloaty(file: File, buffer: ArrayBuffer): Promise<ChartDa
 
   const bloatyMain = bloatyModule.cwrap('main', 'number', ['number', 'array'])
   // create a uint8array buffer holding --help as argv
-  const pack = convertProgramArgumentsToC(['bloaty', '--csv', 'dummy'], bloatyModule)
+  const pack = convertProgramArgumentsToC(['bloaty', '--csv', 'dummy', '-d', 'symbols,sections', '-n', '100'], bloatyModule)
   // call the function
   // check argv
   console.log(pack.argc)
@@ -411,23 +455,17 @@ async function parseWithBloaty(file: File, buffer: ArrayBuffer): Promise<ChartDa
   console.log(result)
   console.log("output:")
   console.log(stdout)
+  freeCArguments(pack.argv, bloatyModule)
 
   // papaparse output
   const parsed = Papa.parse(stdout, {
     header: true,
     dynamicTyping: true,
   })
-  const children = parsed.data.map((item) => {
-    const entry: FileChartDataShape = {
-      name: item['sections'],
-      value: item['filesize'] ?? 0,
-      path: file.name + '/' + item['sections'],
-    }
-    return entry
-  })
-
+  const fields = parsed.meta.fields
+  const children = makeTreeFromCSV(parsed.data, fields.slice(0, -2), file.name) ?? []
   // sum up all the sizes and take the difference from the file size to find the unaccounted for size
-  const unaccountedSize = file.size - children.reduce((acc, item) => acc + item.value, 0)
+  const unaccountedSize = file.size - children.reduce((acc, item) => acc + firstValue(item.value), 0)
   if (unaccountedSize > 0) {
     children.push({
       name: 'Unaccounted for',
