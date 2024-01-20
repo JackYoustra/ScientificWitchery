@@ -431,7 +431,7 @@ function freeCArguments(argv: Uint8Array, module: any) {
   })
 }
 
-async function parseWithBloaty(file: File, buffer: ArrayBuffer): Promise<ChartDataEntry> {
+async function parseWithBloaty(file: File, buffer: ArrayBuffer, analysisTypes: string, strict: boolean): Promise<ChartDataEntry> {
   // string builder for stdout
   let stdout = ''
   const bloatyModule = await createBloatyModule({
@@ -453,13 +453,16 @@ async function parseWithBloaty(file: File, buffer: ArrayBuffer): Promise<ChartDa
 
   const bloatyMain = bloatyModule.cwrap('main', 'number', ['number', 'array'])
   // create a uint8array buffer holding --help as argv
-  const pack = convertProgramArgumentsToC(['bloaty', '--csv', 'dummy', '-d', 'symbols,sections', '-n', '100'], bloatyModule)
+  const pack = convertProgramArgumentsToC(['bloaty', '--csv', 'dummy', '-d', analysisTypes, '-n', '100'], bloatyModule)
   // call the function
   // check argv
   console.log(pack.argc)
   console.log(pack.argv)
   const result = bloatyMain(pack.argc, pack.argv)
   console.log(result)
+  if (strict && result !== 0) {
+    throw new Error(`Bloaty failed with error code ${result}`)
+  }
   console.log("output:")
   console.log(stdout)
   freeCArguments(pack.argv, bloatyModule)
@@ -525,10 +528,14 @@ function parseBuffer(file: File): Promise<ChartDataEntry> {
     try {
       return await parseWithTwiggy(file, buffer)
     } catch(error) {
-      console.warn('Twiggy failed, trying bloaty')
-      // console.warn('Error: ', error)
+      console.warn('Twiggy failed, trying bloaty with compileunits')
       // if it fails, try bloaty
-      return await parseWithBloaty(file, buffer)
+      try {
+        return await parseWithBloaty(file, buffer, 'compileunits,symbols,sections', true)
+      } catch(error) {
+        console.warn('Bloaty failed, trying bloaty without compileunits')
+        return await parseWithBloaty(file, buffer, 'symbols,sections', false)
+      }
     }
   })
 }
