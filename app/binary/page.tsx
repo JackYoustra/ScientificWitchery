@@ -375,9 +375,13 @@ function makeTreeFromCSV(csv: object[], fields: string[], path: string): ChartDa
   // first, loop through the fields (except for the last two)
   // and create a tree
   // if there's only one field left, create the leaves
+  
+  // Sometimes, there's no label for the current field
+  // In that case, skip it (return the children) or, if there are no children, return empty
   if (fields.length === 1) {
     // implicitly grouped by the last field
-    return csv.map((row) => {
+    return csv
+    .map((row) => { 
       const entry: ChartDataEntry = {
         name: row[fields[0]],
         value: row['filesize'],
@@ -391,10 +395,13 @@ function makeTreeFromCSV(csv: object[], fields: string[], path: string): ChartDa
     // recurse
     return Object.entries(grouped).map(([key, value]) => {
       const children = makeTreeFromCSV(value, fields.slice(1), path + '/' + key)
+      if (key === null || key === undefined) {
+        return children
+      }
       const entry: ChartDataEntry = {
         name: key,
         value: children.reduce((acc, item) => acc + firstValue(item.value), 0),
-        children,
+        children: children.filter((child) => child.name !== undefined && child.name !== null),
         path: path + '/' + key,
       }
       return entry
