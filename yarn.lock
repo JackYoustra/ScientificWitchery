@@ -9517,6 +9517,13 @@ __metadata:
   languageName: node
   linkType: hard
 
+"papaparse@npm:^5.4.1":
+  version: 5.4.1
+  resolution: "papaparse@npm:5.4.1"
+  checksum: fc9e52f7158dca3517c229e3309065b1ab5da6c7194572fba4f31ff138bc43e3c91182cc40365cc828f97fe10d0aca416068fd731661058bea0f69ddb84a411a
+  languageName: node
+  linkType: hard
+
 "parent-module@npm:^1.0.0":
   version: 1.0.1
   resolution: "parent-module@npm:1.0.1"
@@ -10992,6 +10999,7 @@ __metadata:
     next: 14.0.3
     next-contentlayer: 0.3.4
     next-themes: ^0.2.1
+    papaparse: ^5.4.1
     pliny: 0.1.6
     postcss: ^8.4.24
     prettier: ^3.0.0

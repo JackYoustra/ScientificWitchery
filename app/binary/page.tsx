@@ -14,6 +14,7 @@ import FullscreenExit from '@mui/icons-material/FullscreenExit'
 import type { WasmBinaryResult } from 'rust-wasm'
 import _ from 'lodash'
 import createBloatyModule from 'public/static/emscripten/bloaty'
+import Papa from 'papaparse'
 
 const EChart = dynamic(() => import('@kbox-labs/react-echarts').then((mod) => mod.EChart), {
   ssr: false,
@@ -379,53 +380,104 @@ function convertProgramArgumentsToC(args: string[], module: any): { argc: number
   }
 }
 
-function parseBuffer(file: File): Promise<ChartDataEntry> {
-  return file.arrayBuffer().then(async (buffer) => {
-    const { parse_wasm_binary } = await import('rust-wasm')
-    const bloatyModule = await createBloatyModule()
-    bloatyModule['print'] = function(text) {
-      // Do something with the text, e.g., log it to the console or append it to a buffer
-      console.log('stdout:', text);
-    };
-    
-    bloatyModule['printErr'] = function(text) {
-      // Do something with the text, e.g., log it to the console or append it to a buffer
-      console.error('stderr:', text);
-    };
-
-    const bloatyMain = bloatyModule.cwrap('main', 'number', ['number', 'array'])
-    // create a uint8array buffer holding --help as argv
-    const pack = convertProgramArgumentsToC(['bloaty', '--help'], bloatyModule)
-    // call the function
-    // check argv
-    console.log(pack.argc)
-    console.log(pack.argv)
-    const result = bloatyMain(pack.argc, pack.argv)
-    console.log(result)
-
-    // const result = await parse_wasm_binary(buffer)
-    // parse
-    const parsed: ParseWasmBinary = parseResultFromRust(result)
-    const chartData = parsed.dominators.items.map((item) =>
-      convertToChartData(item, file.name)
-    )
-    if (parsed.garbage) {
-      chartData.push(topGarbage2Chart(parsed.garbage, file.size))
+async function parseWithBloaty(file: File, buffer: ArrayBuffer): Promise<ChartDataEntry> {
+  // string builder for stdout
+  let stdout = ''
+  const bloatyModule = await createBloatyModule({
+    locateFile: (file) => {
+      // if (file.endsWith('.wasm')) {
+      //   return '/static/emscripten/bloaty.wasm'
+      // }
+      if (file === 'bloaty.worker.mjs') {
+        return '/static/emscripten/bloaty.worker.mjs'
+      }
+      return file
+    },
+    print: (text) => {
+      stdout += text + '\n'
     }
-    let sizeOfTopLevel = parsed.dominators.items.reduce(
-      (acc, item) => acc + item.retained_size,
-      0
-    )
-    if (parsed.garbage) {
-      sizeOfTopLevel += parsed.garbage.reduce((acc, item) => acc + item.bytes, 0)
-    }
-    const entry: ChartDataEntry = {
-      name: file.name,
-      value: sizeOfTopLevel,
-      children: chartData,
-      path: file.name,
+  })
+
+  console.log(bloatyModule)
+  bloatyModule.FS.writeFile("dummy", new Uint8Array(buffer))
+
+  const bloatyMain = bloatyModule.cwrap('main', 'number', ['number', 'array'])
+  // create a uint8array buffer holding --help as argv
+  const pack = convertProgramArgumentsToC(['bloaty', '--csv', 'dummy'], bloatyModule)
+  // call the function
+  // check argv
+  console.log(pack.argc)
+  console.log(pack.argv)
+  const result = bloatyMain(pack.argc, pack.argv)
+  console.log(result)
+  console.log("output:")
+  console.log(stdout)
+
+  // papaparse output
+  const parsed = Papa.parse(stdout, {
+    header: true,
+    dynamicTyping: true,
+  })
+  const children = parsed.data.map((item) => {
+    const entry: FileChartDataShape = {
+      name: item['sections'],
+      value: item['filesize'] ?? 0,
+      path: file.name + '/' + item['sections'],
     }
     return entry
+  })
+
+  // sum up all the sizes and take the difference from the file size to find the unaccounted for size
+  const unaccountedSize = file.size - children.reduce((acc, item) => acc + item.value, 0)
+  if (unaccountedSize > 0) {
+    children.push({
+      name: 'Unaccounted for',
+      value: unaccountedSize,
+      path: file.name + '/Unaccounted for',
+    })
+  }
+
+  const entry: ChartDataEntry = {
+    name: file.name,
+    value: file.size,
+    children,
+    path: file.name,
+  }
+  return entry
+}
+
+async function parseWithTwiggy(file: File, buffer: ArrayBuffer): Promise<ChartDataEntry> {
+  const { parse_wasm_binary } = await import('rust-wasm')
+
+  const result = await parse_wasm_binary(buffer)
+  // parse
+  const parsed: ParseWasmBinary = parseResultFromRust(result)
+  const chartData = parsed.dominators.items.map((item) =>
+    convertToChartData(item, file.name)
+  )
+  if (parsed.garbage) {
+    chartData.push(topGarbage2Chart(parsed.garbage, file.size))
+  }
+  let sizeOfTopLevel = parsed.dominators.items.reduce(
+    (acc, item) => acc + item.retained_size,
+    0
+  )
+  if (parsed.garbage) {
+    sizeOfTopLevel += parsed.garbage.reduce((acc, item) => acc + item.bytes, 0)
+  }
+  const entry: ChartDataEntry = {
+    name: file.name,
+    value: sizeOfTopLevel,
+    children: chartData,
+    path: file.name,
+  }
+  return entry
+}
+
+function parseBuffer(file: File): Promise<ChartDataEntry> {
+  return file.arrayBuffer().then(async (buffer) => {
+    // return await parseWithTwiggy(file, buffer)
+    return await parseWithBloaty(file, buffer)
   })
 }
 
