@@ -385,11 +385,10 @@ async function parseWithBloaty(file: File, buffer: ArrayBuffer): Promise<ChartDa
   let stdout = ''
   const bloatyModule = await createBloatyModule({
     locateFile: (file) => {
-      // if (file.endsWith('.wasm')) {
-      //   return '/static/emscripten/bloaty.wasm'
-      // }
       if (file === 'bloaty.worker.mjs') {
         return '/static/emscripten/bloaty.worker.mjs'
+      } else if (file === 'bloaty.wasm') {
+        return '/static/emscripten/bloaty.wasm'
       }
       return file
     },
@@ -476,8 +475,16 @@ async function parseWithTwiggy(file: File, buffer: ArrayBuffer): Promise<ChartDa
 
 function parseBuffer(file: File): Promise<ChartDataEntry> {
   return file.arrayBuffer().then(async (buffer) => {
-    // return await parseWithTwiggy(file, buffer)
-    return await parseWithBloaty(file, buffer)
+    // give twiggy first crack, it has dominator support
+    // which is rly cool to look at
+    try {
+      return await parseWithTwiggy(file, buffer)
+    } catch(error) {
+      console.warn('Twiggy failed, trying bloaty')
+      // console.warn('Error: ', error)
+      // if it fails, try bloaty
+      return await parseWithBloaty(file, buffer)
+    }
   })
 }
 
@@ -571,7 +578,7 @@ export default dynamic(
               type="file"
               ref={fileInput}
               className="hidden"
-              accept=".wasm, .wat"
+              // accept=".wasm, .wat"
               onChange={handleUploadButton}
             />
             <button

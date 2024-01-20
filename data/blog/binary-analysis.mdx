@@ -225,6 +225,8 @@ const bloatyModule = await createBloatyModule({
   locateFile: (file) => {
     if (file === 'bloaty.worker.mjs') {
       return '/static/emscripten/bloaty.worker.mjs'
+    } else if (file === 'bloaty.wasm') {
+      return '/static/emscripten/bloaty.wasm'
     }
     return file
   }
