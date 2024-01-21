@@ -4,7 +4,15 @@ import prettyBytes from 'pretty-bytes'
 import type { TooltipFormatterCallback, TopLevelFormatterParams } from 'echarts/types/dist/shared'
 import { FileChartDataShape, SectionData, firstValue } from './parser'
 import { useTheme } from 'next-themes'
-import { format } from "./page"
+import { useEffect } from "react"
+let format: any = ''
+
+async function load() {
+  const coreStuff = await import('echarts/core')
+  if (!format) {
+    format = coreStuff.format
+  }
+}
 
 const EChart = dynamic(() => import('@kbox-labs/react-echarts').then((mod) => mod.EChart), {
   ssr: false,
@@ -71,7 +79,7 @@ function getTooltipFormatter(): TooltipFormatterCallback<TopLevelFormatterParams
     }
     return `
       <div class="${common} text-left">
-      ${info.name
+      ${(info.name && format)
         ? `<div class="${common} text-left font-bold" style="text-wrap: wrap;">${format.encodeHTML(
           info.name
         )}</div>`
@@ -118,6 +126,9 @@ export default function Chart(props: {
   data: LoadedTableDataProps,
   fullscreen: boolean,
 }) {
+  useEffect(() => {
+    load()
+  }, [])
   const { theme, setTheme, resolvedTheme } = useTheme()
   const { data, fullscreen } = props
   return (<EChart

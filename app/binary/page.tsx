@@ -5,7 +5,6 @@ import dynamic from 'next/dynamic'
 import Link from 'next/link'
 // async import
 // eslint-disable-next-line @typescript-eslint/no-explicit-any
-export let format: any = ''
 import Fullscreen from '@mui/icons-material/Fullscreen'
 import FullscreenExit from '@mui/icons-material/FullscreenExit'
 import _ from 'lodash'
@@ -110,127 +109,117 @@ function TableData(props: TableDataProps): JSX.Element {
   }
 }
 
-export default dynamic(
-  async function Binary(): Promise<FC<Record<string, never>>> {
-    const coreStuff = await import('echarts/core')
-    format = coreStuff.format
-    return function BinaryLoaded(): JSX.Element {
-      const [isOver, setIsOver] = useState(false)
-      const [isFullscreen, setIsFullscreen] = useState(false)
-      const [tableData, setTableData] = useState<TableData | undefined>(undefined)
-      const fileInput = useRef<HTMLInputElement>(null)
+export default function Binary(): JSX.Element {
+  const [isOver, setIsOver] = useState(false)
+  const [isFullscreen, setIsFullscreen] = useState(false)
+  const [tableData, setTableData] = useState<TableData | undefined>(undefined)
+  const fileInput = useRef<HTMLInputElement>(null)
 
-      const handleUpload = (droppedFiles: File[]) => {
-        setIsOver(false)
+  const handleUpload = (droppedFiles: File[]) => {
+    setIsOver(false)
 
-        if (droppedFiles.length === 0) {
-          return
-        }
+    if (droppedFiles.length === 0) {
+      return
+    }
 
-        // Fetch the files
+    // Fetch the files
+    setTableData({
+      files: droppedFiles,
+    })
+
+    // Use FileReader to read file content
+    const promises = droppedFiles.map(parseBuffer)
+
+    // await all promises
+    Promise.all(promises)
+      .then((entries) => {
         setTableData({
-          files: droppedFiles,
+          data: {
+            processedFiles: unboxUntilFirstProlific(entries),
+            maxDepth: Math.max(...entries.map(getDepth)),
+          },
         })
+      })
+      .catch((err) => {
+        console.log(err)
+        setTableData({
+          error: err.toString(),
+        })
+      })
+  }
 
-        // Use FileReader to read file content
-        const promises = droppedFiles.map(parseBuffer)
+  const handleUploadButton = (event: React.ChangeEvent<HTMLInputElement>) => {
+    event.preventDefault()
+    if (event.target.files) {
+      handleUpload(Array.from(event.target.files))
+    }
+  }
 
-        // await all promises
-        Promise.all(promises)
-          .then((entries) => {
-            setTableData({
-              data: {
-                processedFiles: unboxUntilFirstProlific(entries),
-                maxDepth: Math.max(...entries.map(getDepth)),
-              },
-            })
-          })
-          .catch((err) => {
-            console.log(err)
-            setTableData({
-              error: err.toString(),
-            })
-          })
-      }
+  // Define the event handlers
+  const handleDragOver = (event: DragEvent<HTMLButtonElement>) => {
+    event.preventDefault()
+    setIsOver(true)
+  }
 
-      const handleUploadButton = (event: React.ChangeEvent<HTMLInputElement>) => {
-        event.preventDefault()
-        if (event.target.files) {
-          handleUpload(Array.from(event.target.files))
-        }
-      }
+  const handleDragLeave = (event: DragEvent<HTMLButtonElement>) => {
+    event.preventDefault()
+    setIsOver(false)
+  }
 
-      // Define the event handlers
-      const handleDragOver = (event: DragEvent<HTMLButtonElement>) => {
-        event.preventDefault()
-        setIsOver(true)
-      }
+  const handleDrop = (event: DragEvent<HTMLButtonElement>) => {
+    event.preventDefault()
+    handleUpload(Array.from(event.dataTransfer.files))
+  }
 
-      const handleDragLeave = (event: DragEvent<HTMLButtonElement>) => {
-        event.preventDefault()
-        setIsOver(false)
-      }
+  const makeFullscreen = () => {
+    setIsFullscreen(!isFullscreen)
+  }
 
-      const handleDrop = (event: DragEvent<HTMLButtonElement>) => {
-        event.preventDefault()
-        handleUpload(Array.from(event.dataTransfer.files))
-      }
-
-      const makeFullscreen = () => {
+  // handle escape to toggle fullscreen
+  useEffect(() => {
+    const handleEsc = (event: KeyboardEvent) => {
+      if (event.key === 'Escape') {
         setIsFullscreen(!isFullscreen)
       }
-
-      // handle escape to toggle fullscreen
-      useEffect(() => {
-        const handleEsc = (event: KeyboardEvent) => {
-          if (event.key === 'Escape') {
-            setIsFullscreen(!isFullscreen)
-          }
-        }
-        window.addEventListener('keydown', handleEsc)
-        return () => {
-          window.removeEventListener('keydown', handleEsc)
-        }
-      }, [isFullscreen])
-
-      return (
-        <>
-          <div className={`flex w-full grow ${isFullscreen ? '' : 'sticky'}`}>
-            <input
-              type="file"
-              ref={fileInput}
-              className="hidden"
-              // accept=".wasm, .wat"
-              onChange={handleUploadButton}
-            />
-            <button
-              onDragOver={handleDragOver}
-              onDragLeave={handleDragLeave}
-              onDrop={handleDrop}
-              onClick={() => fileInput.current?.click()}
-              disabled={tableData && 'data' in tableData}
-              className={
-                // make floating
-                (isFullscreen ? 'absolute left-0 top-0 h-screen w-screen ' : '') +
-                'flex w-full grow flex-col items-center justify-center border-2 border-dashed' +
-                (isOver ? ' bg-gray-200 dark:bg-gray-700' : ' bg-white dark:bg-gray-800')
-              }
-            >
-              <TableData state={tableData} fullscreen={isFullscreen} />
-            </button>
-            <button className="absolute right-0 top-0" onClick={makeFullscreen}>
-              <kbd className="inline-block whitespace-nowrap rounded border border-gray-400 px-1.5 align-middle text-xs font-medium leading-4 tracking-wide text-gray-400">
-                ESC
-              </kbd>
-              {isFullscreen ? <FullscreenExit /> : <Fullscreen />}
-            </button>
-          </div>
-        </>
-      )
     }
-  },
-  {
-    ssr: false,
-    loading: () => <div>Loading...</div>,
-  }
-)
+    window.addEventListener('keydown', handleEsc)
+    return () => {
+      window.removeEventListener('keydown', handleEsc)
+    }
+  }, [isFullscreen])
+
+  return (
+    <>
+      <div className={`flex w-full grow ${isFullscreen ? '' : 'sticky'}`}>
+        <input
+          type="file"
+          ref={fileInput}
+          className="hidden"
+          // accept=".wasm, .wat"
+          onChange={handleUploadButton}
+        />
+        <button
+          onDragOver={handleDragOver}
+          onDragLeave={handleDragLeave}
+          onDrop={handleDrop}
+          onClick={() => fileInput.current?.click()}
+          disabled={tableData && 'data' in tableData}
+          className={
+            // make floating
+            (isFullscreen ? 'absolute left-0 top-0 h-screen w-screen ' : '') +
+            'flex w-full grow flex-col items-center justify-center border-2 border-dashed' +
+            (isOver ? ' bg-gray-200 dark:bg-gray-700' : ' bg-white dark:bg-gray-800')
+          }
+        >
+          <TableData state={tableData} fullscreen={isFullscreen} />
+        </button>
+        <button className="absolute right-0 top-0" onClick={makeFullscreen}>
+          <kbd className="inline-block whitespace-nowrap rounded border border-gray-400 px-1.5 align-middle text-xs font-medium leading-4 tracking-wide text-gray-400">
+            ESC
+          </kbd>
+          {isFullscreen ? <FullscreenExit /> : <Fullscreen />}
+        </button>
+      </div>
+    </>
+  )
+}
