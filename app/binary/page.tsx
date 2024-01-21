@@ -103,7 +103,9 @@ function TableData(props: TableDataProps): JSX.Element {
             <span className="font-mono border border-slate-500 mx-1"> wat </span>
             files here to analyze them with Twiggy🌱
             <br />
-            Drag anything else to analyze with Bloaty🐋
+            Drag 
+            <span className="font-bold"> anything else </span>
+            to analyze with Bloaty🐋
             <br />
             More useful information will be provided with debug symbols!
           </p>
@@ -239,7 +241,7 @@ export default function Binary(): JSX.Element {
         >
           <TableData state={tableData} fullscreen={isFullscreen} />
         </button>
-        <div className="absolute flex w-full grow justify-between left-0 right-0 top-0">
+        <div className="absolute flex w-full grow justify-between left-0 right-0 top-0 items-start">
           <div>
             <button
               className={
@@ -268,8 +270,8 @@ export default function Binary(): JSX.Element {
               Bloaty🐋
             </button>
           </div>
-          <button className="" onClick={makeFullscreen}>
-            <kbd className="inline-block whitespace-nowrap rounded border border-gray-400 px-1.5 align-middle text-xs font-medium leading-4 tracking-wide text-gray-400">
+          <button className="m-2" onClick={makeFullscreen}>
+            <kbd className="inline-block whitespace-nowrap rounded border border-gray-400 p-1 align-middle font-medium leading-4 tracking-wide text-gray-400">
               ESC
             </kbd>
             {isFullscreen ? <FullscreenExit /> : <Fullscreen />}
