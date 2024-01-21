@@ -242,7 +242,12 @@ export default function Binary(): JSX.Element {
         <div className="absolute flex w-full grow justify-between left-0 right-0 top-0">
           <div>
             <button
-              className={"px-1 m-2 font-medium rounded-full border border-gray-400" + (_.some(tableData?.runInfo?.usedAnalysisEngines, (e) => e === AnalysisEngine.Twiggy) ? ' bg-gray-200 dark:bg-gray-700' : '')}
+              className={
+                "px-1 m-2 font-medium rounded-full border border-gray-400"
+                + (_.some(tableData?.runInfo?.usedAnalysisEngines, (e) => e === AnalysisEngine.Twiggy) ? ' bg-gray-200 dark:bg-gray-700' : '')
+                // disable if not available
+                + (_.some(tableData?.runInfo?.availableAnalysisEngines, (e) => e === AnalysisEngine.Twiggy) ? '' : ' opacity-50 cursor-not-allowed')
+              }
               onClick={() => {
                 changeAnalysisEngine(AnalysisEngine.Twiggy)
               }}
@@ -250,7 +255,12 @@ export default function Binary(): JSX.Element {
               Twiggy🌱
             </button>
             <button
-              className={"px-1 font-medium rounded-full border border-gray-400" + (_.some(tableData?.runInfo?.usedAnalysisEngines, (e) => e === AnalysisEngine.Bloaty) ? ' bg-gray-200 dark:bg-gray-700' : '')}
+              className={
+                "px-1 font-medium rounded-full border border-gray-400"
+                + (_.some(tableData?.runInfo?.usedAnalysisEngines, (e) => e === AnalysisEngine.Bloaty) ? ' bg-gray-200 dark:bg-gray-700' : '')
+                // disable if not available
+                + (_.some(tableData?.runInfo?.availableAnalysisEngines, (e) => e === AnalysisEngine.Bloaty) ? '' : ' opacity-50 cursor-not-allowed')
+              }
               onClick={() => {
                 changeAnalysisEngine(AnalysisEngine.Bloaty)
               }}
