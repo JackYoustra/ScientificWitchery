@@ -101,6 +101,10 @@ function getLevelOption(maxDepth: number) {
         borderWidth: 5,
         gapWidth: 1,
       },
+      // // Invert the color for the first level
+      upperLabel: {
+        backgroundColor: `rgba(0,0,0,${color / 2})`,
+      }
     }
   })
 }
@@ -144,8 +148,10 @@ export default function Chart(props: {
         },
         upperLabel: {
           show: true,
-          height: 30,
-          textShadowColor: 'goldenrod',
+          height: 20,
+          // backgroundColor: 'transparent',
+          // backgroundColor: 'rgba(0,0,0,0.0)',
+          // color: "rgba(0,0,0,1.0)",
         },
         levels: getLevelOption(data.maxDepth),
         data: data.processedFiles,
