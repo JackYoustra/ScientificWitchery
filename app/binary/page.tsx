@@ -82,15 +82,27 @@ function TableData(props: TableDataProps): JSX.Element {
             >
               Twiggy🌱
             </Link>
+            and{' '}
+            <Link
+              className="m-1 font-medium text-blue-600 hover:underline dark:text-blue-500"
+              href="https://github.com/google/bloaty"
+            >
+              Bloaty🐋
+            </Link>
           </span>
-          <p>
+          <p className="text-pretty">
             Drag and drop (or just click!) some 
             <span className="font-mono border border-slate-500 mx-1"> wasm </span>
             or
             <span className="font-mono border border-slate-500 mx-1"> wat </span>
-            files here to analyze them.
+            files here to analyze them with Twiggy🌱
+            <br />
+            Drag anything else to analyze with Bloaty🐋
             <br />
             More useful information will be provided with debug symbols!
+          </p>
+          <p>
+            Hit escape (or the button in the corner) to toggle fullscreen.
           </p>
         </div>
       </>
