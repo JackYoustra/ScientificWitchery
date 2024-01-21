@@ -103,7 +103,7 @@ function getLevelOption(maxDepth: number) {
       },
       // // Invert the color for the first level
       upperLabel: {
-        backgroundColor: `rgba(0,0,0,${color / 2})`,
+        backgroundColor: `rgba(0,0,0,${color / 3})`,
       }
     }
   })
@@ -149,6 +149,7 @@ export default function Chart(props: {
         upperLabel: {
           show: true,
           height: 20,
+          color: 'white',
           // backgroundColor: 'transparent',
           // backgroundColor: 'rgba(0,0,0,0.0)',
           // color: "rgba(0,0,0,1.0)",
