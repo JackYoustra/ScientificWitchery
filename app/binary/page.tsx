@@ -122,7 +122,7 @@ export default function Binary(): JSX.Element {
   const [tableData, setTableData] = useState<TableData | undefined>(undefined)
   const fileInput = useRef<HTMLInputElement>(null)
 
-  const runWithAnalysisEngine = useCallback((droppedFiles: File[], engine?: AnalysisEngine) => {
+  const runWithAnalysisEngine = useCallback((droppedFiles: File[], engine?: AnalysisEngine, availableAnalysisEngines?: AnalysisEngine[]) => {
     // Use FileReader to read file content
     const promises = droppedFiles.map((file) => {
       return parseBuffer(file, engine)
@@ -138,7 +138,7 @@ export default function Binary(): JSX.Element {
           },
           runInfo: {
             // bloaty unconditionally, twiggy only if twiggy was used
-            availableAnalysisEngines: _.uniq(entries.map((e) => e.engine).concat([AnalysisEngine.Bloaty])),
+            availableAnalysisEngines: _.uniq((availableAnalysisEngines ?? []).concat(entries.map((e) => e.engine).concat([AnalysisEngine.Bloaty]))),
             files: droppedFiles,
             usedAnalysisEngines: _.uniq(entries.map((e) => e.engine)),
           }
@@ -155,7 +155,7 @@ export default function Binary(): JSX.Element {
   const changeAnalysisEngine = useCallback((engine: AnalysisEngine) => {
     if (tableData && 'runInfo' in tableData && _.some(tableData.runInfo.usedAnalysisEngines, (e) => e !== engine)) {
       // rerun with new engine
-      runWithAnalysisEngine(tableData.runInfo.files, engine)
+      runWithAnalysisEngine(tableData.runInfo.files, engine, tableData.runInfo.availableAnalysisEngines)
     }
   }, [tableData])
 
