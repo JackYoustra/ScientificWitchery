@@ -1,55 +1,79 @@
-* Author's note: I did this project a few weeks ago and my memory is a little bit hazy. It's ironic that I wrote a project for my website and didn't think to write a blogpost immediately. Oops! *
+---
+title: Making a binary size viewer
+date: '2024-1-20'
+tags: ['wasm', 'typescript']
+draft: false
+summary: I like Bloaty! I also like cool treemaps. What if I could combine the two?
+---
+
+*Author's note: I did this project a few weeks ago and my memory is a little bit hazy. It's ironic that I wrote a project for my website and didn't think to write a blogpost immediately. Oops!*
+
+# tl;dr [Go check it out!](/blog/binary)
+
+<TOCInline toc={props.toc} exclude="tl;dr Go check it out!" toHeading={2} indentDepth={2} />
 
 # Overview
 
 Compilers are some of the most complicated programs on earth.
 They take a high-level representation of a problem, in any form from 
-imperative to functional to declarative, and turn it into a low-level
+imperative (C, most commonly-known languages) to functional (Haskell) to declarative (React), and turn it into a lower-level
 representation that can be executed by a computer.
 There are very complicated and unintuitive transitions that can cause the output
 of a compiler to be very different than a first thought at
-what the output should be. To list a few surprising things that a compiler does:
- - Monomophization leads to a lot of code duplication from a single function, so changing the size of a function can change the size of the binary by a lot.
- - Inlining can cause a function to be duplicated into another function, so any 
+what the output should be. To list a few surprising things that some binary[^1] compilers do:
+[^1]: I'm using the term "binary" to refer to the output of a compiler, which is usually a binary file, but can also be a library or other format. Compilers can also output bytecode and even source code, but my tool just looks at traditional binaries that hold processor instructions.
+ - [Monomophization](https://rustc-dev-guide.rust-lang.org/backend/monomorph.html) leads to a lot of code duplication from a single function, so changing the size of a function can change the size of the binary by a lot.
+ - [Inlining](https://en.wikipedia.org/wiki/Inline_expansion) can cause a function to be duplicated into another function, so any 
  changes to an inlining decision can cause a large change of a binary size.
- - Versions of the toolchain and language, module visibility, and link-time optimization can cause a lot of unnecessary virtualization and copying to be elided across module and function boundaries.
+ - Versions of the [toolchain](https://releases.llvm.org/17.0.1/docs/ReleaseNotes.html) and [language](https://forums.swift.org/t/swift-5-7-regression-in-async-call-performance/58420), [module visibility / compatibility](https://github.com/apple/swift/blob/main/docs/LibraryEvolutionManifesto.md), and [link-time optimization](https://llvm.org/docs/LinkTimeOptimization.html) can cause a lot of unnecessary virtualization and copying to be elided across module and function boundaries.
+ - In the other direction, [deferring linking to runtime](https://en.wikipedia.org/wiki/Dynamic_linker) can bloat your binary with just symbols needed to perform the linking - not even counting unnecessary protocol, such as calling convention.
 
-Looking at a binary and saying "it's too big / too small / should be bigger / smaller" is usually possible, but acutally *attributing* the size
-to a specific part of the code is very difficult. This is where binary size viewers come in. There are a couple we are concerned with:
+Looking at a binary and saying "it's too big / too small / should be bigger / smaller" is usually possible.
+For example, NanoFlick's debug binary size is 153MB, while its release binary size is 112MB.
+However, the basically identically functional rewrite has a larger debug binary size of 177MB, but a smaller release binary size of **53MB**.
+Actually trying to figure out why, though, is a lot harder.
+In [my post on TCA binary sizes](/blog/tca-binary-size) I did it by hand, but I want it to be easier.
+This is where binary size viewers come in. There are a couple we are concerned with:
  - [Bloaty McBloatface](https://github.com/google/bloaty) - A binary size viewer from Google. It's written in C++ and uses the LLVM toolchain, and is very good.
  - [Twiggy](https://github.com/rust-wasm/twiggy) - A binary size viewer from the Rust WebAssembly Working Group. It's written in Rust and uses the Rust toolchain, but only supports wasm and partially DWARF binaries. It provides good support to wasm but can't be used for other binaries.
 
-You can run either of these tools on your binary and get a breakdown of the binary size by function, module, and other metrics - I do so in [my post on TCA binary sizes(/blog/tca-binary-size). However, I had to install a tool, read some CLI output, and some other stuff that, while not very hard, would really benefit from a pretty non-cli visualization and no download and everything nice.
+You can run either of these tools on your binary and get a breakdown of the binary size by function, module, and other metrics - I do so in [my post on TCA binary sizes](/blog/tca-binary-size). However, I had to install a tool, read some CLI output, and some other stuff that, while not very hard, would really benefit from a pretty non-cli visualization and no download and everything nice.
 
 So for this holiday season, my hack project was getting a binary size viewer to run in the browser.
 This required a biiig push on emscripten and the rest of the toolchain. Lets see how it did!
 
-# Getting bloaty to run on the web
-So the first thing we have to do is get bloaty to run on the web.
-This is a problem because bloaty is written in C++, and the web can run
-Javascript and WebAssembly. So we need to compile bloaty to WebAssembly.
+# Bloaty
+So the first thing we have to do is get Bloaty to run on the web.
+This is a problem because Bloaty is written in C++, and the web can run
+Javascript and WebAssembly. So I'm going to reimplement Bloaty in javahahahahaha. No.
+We need to compile Bloaty to WebAssembly.
 
-## Compiling bloaty to WebAssembly
-This is actually pretty easy. Bloaty is written in C++, and emscripten
-can compile C++ to WebAssembly. So we just need to compile bloaty with
+## Compiling to WebAssembly
+This is, on paper, actually pretty easy. Bloaty is written in C++, and emscripten
+can compile C++ to WebAssembly. So we should just need to compile Bloaty with
 emscripten. Because Bloaty is a complicated project, we need to use
 cmake to build it. Fortunately, emscripten has a cmake command
 called `emcmake` that sets up the environment for cmake to use emscripten.
 
 And... we get errors. Many, many errors. Going through them, it seems like
-bloaty's submodule version of zlib refuses to build. Fortunately, emscripten
+Bloaty's submodule version of zlib refuses to build. Fortunately, emscripten
 has a precompiled version of zlib. Hopefully the versions line up.
 
-We can fix this by adding a custom build step to our CMakeLists.txt file.
+We can fix this by adding a custom build step to our `CMakeLists.txt` file.
 At the main executable target, we add a custom command to copy the precompiled zlib binary from
 emscripten's sysroot into the build directory.
 
+We have another problem where cmake is looking at my bundled copy of protobuf that I installed on brew
+instead of the submodule copy. Not sure why! I try my hand at docker, get kinda far but it's pretty
+slow going to make it performant and good, so I just uninstall protobuf from brew.
+
 At this point it builds. Yay! Unfortunately, we can't seem to import it into our javascript project.
-At this point life becomes a blur, days pass, and eventually I end up with the following flags that I have to set in
+Life becomes a blur, days pass, [Moore's law continues not to die](https://www.youtube.com/watch?v=oIG9ztQw2Gc),
+and eventually I end up with the following flags that I have to set in
 order to get it to run on my nextjs site:
 ### Build Requirements
- - `-s USE_ZLIB=1` - Required to get zlib to work by using emscripten's precompiled zlib, as we discuss above.
- - `-s ALLOW_MEMORY_GROWTH=1` - Allow the wasm runtime to grow its memory. This is required because bloaty needs to load the binary and arbitrary intermediate analysis into memory, and we don't know how big it is until runtime.
+ - `-s USE_ZLIB=1` - Required to get zlib to work by using emscripten's precompiled zlib, as we discuss above. Note that for your own code, there should be other ports available for common libraries, such as SDL.
+ - `-s ALLOW_MEMORY_GROWTH=1` - Allow the wasm runtime to grow its memory. This is required because Bloaty needs to load the binary and arbitrary intermediate analysis into memory, and we don't know how big it is until runtime.
 ### Binary QoL flags
  - `-fwasm-exceptions` - Required to get exceptions to work. Bloaty uses exceptions, and emscripten has a few different ways to handle exceptions. This is the most modern way and is supported by all browsers, so we're using it.
  - `-g` - Debugging flag to include debug symbols in the binary. It is very helpful in the browser (meaningful stacktraces on wasm crashes!). When all is said and done, we'll remove it depending on the size overhead.
@@ -58,28 +82,30 @@ order to get it to run on my nextjs site:
  - `-flto=thin` - We're linking a lot of object files and libraries together, so we need to use link time optimization to get the binary size down and the performance up. Thin LTO is a variant of LTO that's a good deal faster to compile with basically no perf cost.
  - `-Os` - Performance optimization to optimize for binary size, with performance as a secondary objective.
 ### Bundling
- - `-s SINGLE_FILE=1` - Required to get bloaty to run in a single js file, bundling the wasm as JS data. This is required because I can't figure out how to get nextjs to load the wasm file. Hopefully at some point we can remove this!
+ - `-s SINGLE_FILE=1` - Required to get Bloaty to run in a single js file, bundling the wasm as JS data. This is required because I can't figure out how to get nextjs to load the wasm file. Hopefully at some point we can remove this!
  - `-s ENVIRONMENT='web'` - Compile for the web (as opposed to node or something else).
  - `-s MODULARIZE=1` - Export the wasm as a js module. This is required because we need to import the wasm into our javascript code using the `import` keyword so it can be used with nextjs.
  - `-s EXPORT_ES6=1` - Specifically, an ES6 module.
  - `-s USE_ES6_IMPORT_META=0` - Don't use the `import.meta` object. This is required because nextjs doesn't support it, or something. I'm really hazy with why we need this one, and I'm writing this up like a half month after I first tried it, but it doesn't work without it.
  - `-s EXPORT_NAME='createBloatyModule'` - The name of the JS function that will be exported from the module. We'll use this to create the module in JS-land.
- - `-s EXPORTED_FUNCTIONS=_main` - The C function useable from `createBloatyModule`. We'll call this function to run bloaty.
+ - `-s EXPORTED_FUNCTIONS=_main` - The C function useable from `createBloatyModule`. We'll call this function to run Bloaty.
  - `-s EXPORTED_RUNTIME_METHODS=cwrap,stringToNewUTF8` - Emscripten runtime methods JS uses to call C functions. We need to export these so we can use them in JS-land.
- - `-s INVOKE_RUN=0` - Don't run the wasm module (main method, specifically) on load. We'll run and invoke it manually.[^1]
+ - `-s INVOKE_RUN=0` - Don't run the wasm module (main method, specifically) on load. We'll run and invoke it manually.[^2]
  - `-s EXIT_RUNTIME=0` - Don't exit the runtime on load. We'll exit it manually, and hopefully we'll be able to reuse the runtime for multiple runs.
- - `-s STACK_OVERFLOW_CHECK=2` - Check for stack overflows. This is required because bloaty uses a lot of stack space, and it would be nice to get a diagnostic if we run out of stack space instead of just "memory out of bounds" or something.
+ - `-s STACK_OVERFLOW_CHECK=2` - Check for stack overflows. This is required because Bloaty uses a lot of stack space, and it would be nice to get a diagnostic if we run out of stack space instead of just "memory out of bounds" or something.
  - `-s EXTRA_EXPORTED_RUNTIME_METHODS=['FS']` - Export the filesystem runtime module to JS-land. We need this to be able to load the binary into the wasm module.
  - `-s FORCE_FILESYSTEM` - Force the filesystem module to be included in the binary. For some reason, not only does it not get included by default, as emscripten advertises, but you need this flag in conjunction with the above flag to get it to work.
-### Multithreading (discovered later in the narrative)
- - `-s USE_PTHREADS=1` Enable pthreads. This is required because bloaty uses threads.
+### Multithreading (discovered later in the story)
+ - `-s USE_PTHREADS=1` Enable pthreads. This is required because Bloaty uses threads.
  - `-s PTHREAD_POOL_SIZE=navigator.hardwareConcurrency` - Set the number of threads to the number of cores the user has.
  - `-s PROXY_TO_PTHREAD` - Any invocation of a emscripten function will run as a thread. This prevents hanging the main thread.
+ - `-sMALLOC=mimalloc` - Use mimalloc as the allocator. This is required because the default allocator uses a global lock, and Bloaty can be pretty thread efficient on large binaries if we let it.
+  This adds something like 100kb to the binary size, but that's on a few megabytes of wasm, so it's not too bad.
 
-[^1]: I'm not sure when global ctors run, but I'm pretty sure they run on load. Hopefully nothing strange happens by running the main method manually.
+[^2]: I'm not sure when global ctors run, but I'm pretty sure they run on load. Hopefully nothing strange happens by running the main method manually.
 
-So yeah, *just a couple* of flags. This still doesn't even build if you have protobuf installed via brew, so I had to uninstall that while building it.
-The final cmake command looks like this:
+So yeah, *just a couple* of flags. Like I said before, this still doesn't even build if you have protobuf installed via brew, so I had to uninstall that while building it.
+The final cmake command at this point looks like this:
 ```cmake
 add_executable(bloaty src/main.cc)
 if(EMSCRIPTEN)
@@ -131,14 +157,15 @@ In this case, we're going to pass a `char**` to the main function.
 We have to be careful with this, though! We can't just get some vague pointer in some random buffer,
 we need a pointer to a buffer that's in the wasm module's memory. This is where our second exported function comes in:
 `stringToNewUTF8`. This function takes a string and returns a pointer to a buffer in the wasm module's memory
-that contains the string in UTF8 format.[^2] We need to make an array of these `char*` to pass,
+that contains the string in UTF8 format.[^3] We need to make an array of these `char*` to pass,
 so we can just use a Uint8Array to hold the pointers and fill it with the pointers to the strings we want to pass.
 
-[^2]: Strangely enough, there's also `stringToUTF8OnStack`. I wonder if we can use that to avoid the memory allocation overhead?
+[^3]: Strangely enough, there's also `stringToUTF8OnStack`. I wonder if we can use that to avoid the memory allocation overhead?
 Probably! We call main, after all. But I'm not going to try it now - at the very least the presence of thread proxying makes this worrying.
 Best be safe.
 
-TODO: Remember to free the memory allocated by stringToNewUTF8!
+We also have to remember to free the memory allocated by `stringToNewUTF8`! It's not a lot of memory so nbd if you don't
+but it's a good idea to do so.
 
 ```javascript
 function convertProgramArgumentsToC(args: string[], module: any): { argc: number, argv: Uint8Array } {
@@ -158,7 +185,7 @@ function convertProgramArgumentsToC(args: string[], module: any): { argc: number
 ```
 
 ### Trying it out
-Running bloatyMain with `['bloaty', '--help']` gives us bloaty's help output!
+Running bloatyMain with `['bloaty', '--help']` gives us Bloaty's help output!
 Unfortunately, running it with `['bloaty', 'dummy']` gives us `bloaty: error calling munmap(): Bad file descriptor`.
 Googling this error gives us a few results, but they mostly just talk about
 [how munmapping after file closure is not implemented](https://github.com/emscripten-core/emscripten/issues/20459).
@@ -179,7 +206,7 @@ threads by default - you have to opt into them. And we didn't opt into them.
 Now we have!
 
 Adding these flags to our build command:
- - `-s USE_PTHREADS=1` Enable pthreads. This is required because bloaty uses threads.
+ - `-s USE_PTHREADS=1` Enable pthreads. This is required because Bloaty uses threads.
  - `-s PTHREAD_POOL_SIZE=navigator.hardwareConcurrency` - Set the number of threads to the number of cores the user has.
  - `-s PROXY_TO_PTHREAD` - Any invocation of a emscripten function will run as a thread. This prevents hanging the main thread.
 doesn't fix the problem - we have to add worker support to our environment.
@@ -190,22 +217,25 @@ to the cmake file.
 
 ## Adding worker support
 
-We have to add `worker` to our environment list, but we get another error:
+Because we're using pthreads proxied via webworkers, we have to add `worker` to our environment list,
+but we get another error:
 `wasm-ld: error: --shared-memory is disallowed by arena.cc.o because it was not compiled with 'atomics' or 'bulk-memory' features.`
 I try adding the pthreads flag to fix this, and I get a warning about memory growth with pthreads! It links to
 [this fascinating article](https://gist.github.com/kripken/949eab99b7bc34f67c12140814d2b595)
 about how having both pthreads and a growing memory can cause the need for a JS thunk every wasm memory load!
-Fortunately, we don't have too much interop, so this should be ok.
+Fortunately, we don't have too much interop (indeed, running it a few times shows the resize only being done a few times),
+so we should be ok.
 
 Finally, everything builds, birds are singing, and the sun is shining.
 A cloud appears. `ReferenceError: SharedArrayBuffer is not defined`.
 This is because SharedArrayBuffer is disabled by default in browsers due to
 [the spectre vulnerability](https://developer.mozilla.org/en-US/docs/Web/JavaScript/Reference/Global_Objects/SharedArrayBuffer#security_requirements).
-The tldr for this is that SharedArrayBuffer is a [shared memory primitive that allows for
+The tl;dr for this is that SharedArrayBuffer is a [shared memory primitive that allows for
 timing attacks](https://security.stackexchange.com/questions/177033/how-can-sharedarraybuffer-be-used-for-timing-attacks), so it's disabled by default.
-We can fix this by adding the Cross-Origin-Opener-Policy (COOP) and Cross-Origin-Embedder-Policy (COEP) headers to our document. 
+We can fix this by adding the Cross-Origin-Opener-Policy (COOP) and Cross-Origin-Embedder-Policy (COEP) headers to our document,
+isolating our document from other documents and allowing us to use SharedArrayBuffer.
 
-That created a TON of errors! `worker sent an error! undefined:undefined: undefined` * the number of workers we have.
+That created a TON of errors! `worker sent an error! undefined:undefined: undefined` shows up, once per each thread.
 It seems to be an error with our ES6 module loading.
 This is a catastrophe - it took me so long to get the ES6 module loading to work!
 Fortunately, a [PR landed in emscripten literally yesterday that fixes this](https://github.com/emscripten-core/emscripten/pull/21041).
@@ -213,10 +243,16 @@ Software is still so, so young!
 In order to install this, though, we're going to need a way to
 install emscripten from source. Running brew install `emscripten --HEAD`
 didn't work because it has other tooling dependencies,
-but running ./bootstrap in the local emscripten clone did work.
+but running `./bootstrap` in the local emscripten clone did work.
 This didn't fix the error, but it caused me to try to run it on firefox, which told me that
-the script had a text/html mime type, which was wrong. Looking at the network tab revealed
-that the script was being loaded from a completely wrong location. Argh!
+the script had a `text/html` mime type, which was wrong. Looking at the network tab revealed
+that the script was being loaded from a *completely wrong, webpack-ified location*.
+
+**OOPS**
+
+It looked like we didn't have to build emscripten from source after all - we were overriding module attributes
+incorrectly the whole time! Those print captures I was doing earlier? Useless too - you have to pass in your overrides
+at module creation time, not after the module is created.
 Fortunately, we can change our module creation code to use the `locateFile` option to
 tell emscripten where to load the worker file.
 
@@ -234,19 +270,20 @@ const bloatyModule = await createBloatyModule({
 ```
 
 It now runs great! We just have to add a print override to our createBloatyModule function
-to capture the output of bloaty, use papaparse to convert the csv to json, and we're done!
-
+to capture the output of Bloaty, use papaparse to convert the csv to json, and we're done!
+If you notice, I can also remove the `-s SINGLE_FILE=1` flag now because I'm loading the wasm
+with a manual path. Yippee!
 
 # Twiggy
 
-So halfway through the actual pain of trying to get bloaty to run, I gave up for a time because it's a seemingly endless slog
+So halfway through the actual pain of trying to get Bloaty to run, I gave up for a time because it's a seemingly endless slog
 against trying to get wonky c++ to work with wonky emscripten to work with wonky js to work with wonky chrome to work with wonky nextjs.
 
-So I decided to try twiggy, which is a rust binary size viewer. It's written in rust - lets see how its wasm bindgen facilities stack up!
+So I decided to try twiggy, which is a rust binary size viewer. Because it's not C++, we won't be using emscripten - lets see how its wasm bindgen facilities stack up!
 
-## Compiling twiggy to WebAssembly
-This is actually pretty easy. Twiggy is written in rust, and wasm-bindgen can compile rust to WebAssembly.
-We just need to create our rust wasm-bindgen crate like any other crate (except with the crate types as `cdylib` and `rlib`),
+## Compiling to WebAssembly
+This time, it's both easy on and off paper. Twiggy is written in rust, and wasm-bindgen can compile rust to WebAssembly.
+We just need to create our `cargo.toml` like any other crate (except with the crate types as `cdylib` and `rlib`),
 include the crates we want to use (twiggy-parser, twiggy-analyze, and twiggy-opt), and we're done!
 I mean, not quite, there were a few upstream errors I had to patch in those three crates, but they were easily taken care of.
 Compiling the code leads to an npm package that we can just locally import into our `package.json`: 
@@ -301,10 +338,52 @@ const { parse_wasm_binary } = await import('rust-wasm')
 const result = await parse_wasm_binary(buffer)
 ```
 
+You still have to free `result` because it's a rust object, but that's easy enough.
+If manual memory management is a pain, ~skill issue 😎~ just copy the data to another object and free the old object
+to transfer the data to a GC'ed object.
+
 So easy. What a breath of fresh air. The vercel build scripts were a little wonky,
-and I haven't figured out how to cache the CI builds, but it fully works!
+and I haven't figured out how to cache the CI builds (although it's not like I'm ever getting Bloaty to build in CI), but it fully works!
+
+# Making it pretty
+At this point, we have all of the components we need to make a binary size viewer.
+However, we need some way to turn the data that the binary size viewer collects into a pretty graph.
+Some searching around leads to [a cool treemap library](https://echarts.apache.org/examples/en/editor.html?c=treemap-obama)
+and [associated react bindings](https://github.com/hugocxl/react-echarts).[^4]
+The typing in this react binding is... not great. A lot of `any` and not-well-documented features.
+It's good enough, though. There's a large example corpus and a fairly active community,
+so working around esoteric issues took hours rather than the days I'm used to in iOS land
+([and](https://github.com/nextauthjs/next-auth/issues/7875)
+[now](https://devcommunity.x.com/t/tweet-with-media-media-ids-looks-does-not-work/176195)
+𝕩 api, thanks Elon (sorta)).
+
+There's a question, though, of what to treemap. I initially aspired to show something as referenced in my
+[post on TCA binary sizes](/blog/tca-binary-size), but upon further examination, it seems like
+they're solving *app bundle sizing*, not binary sizing. They can use prior file structure knowledge to
+determine what files are in the bundle before decomposing further. As a general binary size viewer,
+we don't have much in prior knowledge, so we have to find a better way. Ultimately, I decided to go with a
+couple options:
+ - Twiggy has a dominator analysis (apparently that's not too hard in wasm formats), so we can show the dominator tree.
+ This is great - you end up getting a recursive size chart, much like you'd expect with a file tree.
+ - Bloaty doesn't appear to have such a feature, but it does allow us to pick what to analyze.
+ After experimenting, I decided to go with grouping on three different attributes to form three levels:
+    - The compile unit (optional, only if the binary has debug info)
+    - The binary symbol (such as `_main`)
+    - The code section (such as `[__LINKEDIT]`)
+  This way, you can see the size of each file, attribute it to symbols, and attribute the symbols to code sections.
+  It's not as nice as the dominator tree, but it's still pretty good.
+
+I decided to allow you to toggle between different modes and a fullscreen icon. Also mountains of bugs.
+These tools don't like working with one another.
+But it all came together. Enjoy!
+
+[^4]: If you'll remember from my [post on TCA binary sizes](/blog/tca-binary-size), I'm
+jealous of the treemap that one company has. [One of the examples](https://echarts.apache.org/examples/en/editor.html?c=treemap-show-parent)
+looks quite similar to the one I'm jealous of. Can't say that didn't play a factor in my choice.
 
 # Optimizing
+Removing debug flags reduced the size by about half, so that's a pretty easy tweak.
+
 I'm loading two wasm binaries. Is there any way to do a single binary,
 or at least optimize the size of the binaries to take into account the
 common code between them, such as the allocator?
