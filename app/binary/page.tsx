@@ -12,9 +12,9 @@ import Chart, { LoadedTableDataProps } from './chart'
 import { AnalysisEngine, ChartDataEntry, parseBuffer } from './parser'
 
 type RunInformation = {
-  availableAnalysisEngines: AnalysisEngine[],
-  files: File[],
-  usedAnalysisEngines: AnalysisEngine[],
+  availableAnalysisEngines: AnalysisEngine[]
+  files: File[]
+  usedAnalysisEngines: AnalysisEngine[]
 }
 
 type TableData =
@@ -22,8 +22,8 @@ type TableData =
       files: File[]
     }
   | {
-      data: LoadedTableDataProps,
-      runInfo: RunInformation,
+      data: LoadedTableDataProps
+      runInfo: RunInformation
     }
   | {
       error: string
@@ -50,6 +50,23 @@ function getDepth(item: ChartDataEntry): number {
   }
 }
 
+function engineButtonClassName(tableData: TableData | undefined, target: AnalysisEngine): string {
+  return (
+    'm-2 rounded-full border border-gray-400 px-1 font-medium' +
+    (tableData &&
+    'runInfo' in tableData &&
+    _.some(tableData.runInfo.usedAnalysisEngines, (e) => e === target)
+      ? ' bg-gray-200 dark:bg-gray-700'
+      : '') +
+    // disable if not available
+    (tableData &&
+    'runInfo' in tableData &&
+    _.some(tableData.runInfo.availableAnalysisEngines, (e) => e === target)
+      ? ''
+      : ' cursor-not-allowed opacity-50')
+  )
+}
+
 function TableData(props: TableDataProps): JSX.Element {
   const { state, fullscreen } = props
   if (state && 'files' in state && state.files.length > 0) {
@@ -67,9 +84,7 @@ function TableData(props: TableDataProps): JSX.Element {
       </>
     )
   } else if (state && 'data' in state && state.data.processedFiles.length > 0) {
-    return (
-      <Chart data={state.data} fullscreen={fullscreen} />
-    )
+    return <Chart data={state.data} fullscreen={fullscreen} />
   } else if (state && 'error' in state) {
     return (
       <>
@@ -97,21 +112,19 @@ function TableData(props: TableDataProps): JSX.Element {
             </Link>
           </span>
           <p className="text-pretty">
-            Drag and drop (or just click!) some 
-            <span className="font-mono border border-slate-500 mx-1"> wasm </span>
+            Drag and drop (or just click!) some
+            <span className="mx-1 border border-slate-500 font-mono"> wasm </span>
             or
-            <span className="font-mono border border-slate-500 mx-1"> wat </span>
+            <span className="mx-1 border border-slate-500 font-mono"> wat </span>
             files here to analyze them with Twiggy🌱
             <br />
-            Drag 
+            Drag
             <span className="font-bold"> anything else </span>
             to analyze with Bloaty🐋
             <br />
             More useful information will be provided with debug symbols!
           </p>
-          <p>
-            Hit escape (or the button in the corner) to toggle fullscreen.
-          </p>
+          <p>Hit escape (or the button in the corner) to toggle fullscreen.</p>
         </div>
       </>
     )
@@ -124,42 +137,64 @@ export default function Binary(): JSX.Element {
   const [tableData, setTableData] = useState<TableData | undefined>(undefined)
   const fileInput = useRef<HTMLInputElement>(null)
 
-  const runWithAnalysisEngine = useCallback((droppedFiles: File[], engine?: AnalysisEngine, availableAnalysisEngines?: AnalysisEngine[]) => {
-    // Use FileReader to read file content
-    const promises = droppedFiles.map((file) => {
-      return parseBuffer(file, engine)
-    })
-
-    // await all promises
-    Promise.all(promises)
-      .then((entries) => {
-        setTableData({
-          data: {
-            processedFiles: unboxUntilFirstProlific(entries.map((e) => e.data)),
-            maxDepth: Math.max(...entries.map((e) => getDepth(e.data))),
-          },
-          runInfo: {
-            // bloaty unconditionally, twiggy only if twiggy was used
-            availableAnalysisEngines: _.uniq((availableAnalysisEngines ?? []).concat(entries.map((e) => e.engine).concat([AnalysisEngine.Bloaty]))),
-            files: droppedFiles,
-            usedAnalysisEngines: _.uniq(entries.map((e) => e.engine)),
-          }
-        })
+  const runWithAnalysisEngine = useCallback(
+    (
+      droppedFiles: File[],
+      engine?: AnalysisEngine,
+      availableAnalysisEngines?: AnalysisEngine[]
+    ) => {
+      // Use FileReader to read file content
+      const promises = droppedFiles.map((file) => {
+        return parseBuffer(file, engine)
       })
-      .catch((err) => {
-        console.log(err)
-        setTableData({
-          error: err.toString(),
-        })
-      })
-  }, [setTableData])
 
-  const changeAnalysisEngine = useCallback((engine: AnalysisEngine) => {
-    if (tableData && 'runInfo' in tableData && _.some(tableData.runInfo.usedAnalysisEngines, (e) => e !== engine)) {
-      // rerun with new engine
-      runWithAnalysisEngine(tableData.runInfo.files, engine, tableData.runInfo.availableAnalysisEngines)
-    }
-  }, [tableData])
+      // await all promises
+      Promise.all(promises)
+        .then((entries) => {
+          setTableData({
+            data: {
+              processedFiles: unboxUntilFirstProlific(entries.map((e) => e.data)),
+              maxDepth: Math.max(...entries.map((e) => getDepth(e.data))),
+            },
+            runInfo: {
+              // bloaty unconditionally, twiggy only if twiggy was used
+              availableAnalysisEngines: _.uniq(
+                (availableAnalysisEngines ?? []).concat(
+                  entries.map((e) => e.engine).concat([AnalysisEngine.Bloaty])
+                )
+              ),
+              files: droppedFiles,
+              usedAnalysisEngines: _.uniq(entries.map((e) => e.engine)),
+            },
+          })
+        })
+        .catch((err) => {
+          console.log(err)
+          setTableData({
+            error: err.toString(),
+          })
+        })
+    },
+    [setTableData]
+  )
+
+  const changeAnalysisEngine = useCallback(
+    (engine: AnalysisEngine) => {
+      if (
+        tableData &&
+        'runInfo' in tableData &&
+        _.some(tableData.runInfo.usedAnalysisEngines, (e) => e !== engine)
+      ) {
+        // rerun with new engine
+        runWithAnalysisEngine(
+          tableData.runInfo.files,
+          engine,
+          tableData.runInfo.availableAnalysisEngines
+        )
+      }
+    },
+    [tableData, runWithAnalysisEngine]
+  )
 
   const handleUpload = (droppedFiles: File[]) => {
     setIsOver(false)
@@ -173,7 +208,7 @@ export default function Binary(): JSX.Element {
       files: droppedFiles,
     })
 
-    runWithAnalysisEngine(droppedFiles)    
+    runWithAnalysisEngine(droppedFiles)
   }
 
   const handleUploadButton = (event: React.ChangeEvent<HTMLInputElement>) => {
@@ -241,15 +276,10 @@ export default function Binary(): JSX.Element {
         >
           <TableData state={tableData} fullscreen={isFullscreen} />
         </button>
-        <div className="absolute flex w-full grow justify-between left-0 right-0 top-0 items-start">
+        <div className="absolute left-0 right-0 top-0 flex w-full grow items-start justify-between">
           <div>
             <button
-              className={
-                "px-1 m-2 font-medium rounded-full border border-gray-400"
-                + (_.some(tableData?.runInfo?.usedAnalysisEngines, (e) => e === AnalysisEngine.Twiggy) ? ' bg-gray-200 dark:bg-gray-700' : '')
-                // disable if not available
-                + (_.some(tableData?.runInfo?.availableAnalysisEngines, (e) => e === AnalysisEngine.Twiggy) ? '' : ' opacity-50 cursor-not-allowed')
-              }
+              className={engineButtonClassName(tableData, AnalysisEngine.Twiggy)}
               onClick={() => {
                 changeAnalysisEngine(AnalysisEngine.Twiggy)
               }}
@@ -257,12 +287,7 @@ export default function Binary(): JSX.Element {
               Twiggy🌱
             </button>
             <button
-              className={
-                "px-1 font-medium rounded-full border border-gray-400"
-                + (_.some(tableData?.runInfo?.usedAnalysisEngines, (e) => e === AnalysisEngine.Bloaty) ? ' bg-gray-200 dark:bg-gray-700' : '')
-                // disable if not available
-                + (_.some(tableData?.runInfo?.availableAnalysisEngines, (e) => e === AnalysisEngine.Bloaty) ? '' : ' opacity-50 cursor-not-allowed')
-              }
+              className={engineButtonClassName(tableData, AnalysisEngine.Bloaty)}
               onClick={() => {
                 changeAnalysisEngine(AnalysisEngine.Bloaty)
               }}

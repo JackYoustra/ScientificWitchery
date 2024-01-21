@@ -1,10 +1,11 @@
-import _ from "lodash"
-import dynamic from "next/dynamic"
+import _ from 'lodash'
+import dynamic from 'next/dynamic'
 import prettyBytes from 'pretty-bytes'
 import type { TooltipFormatterCallback, TopLevelFormatterParams } from 'echarts/types/dist/shared'
 import { FileChartDataShape, SectionData, firstValue } from './parser'
 import { useTheme } from 'next-themes'
-import { useEffect } from "react"
+import { useEffect } from 'react'
+// eslint-disable-next-line @typescript-eslint/no-explicit-any
 let format: any = ''
 
 async function load() {
@@ -79,15 +80,17 @@ function getTooltipFormatter(): TooltipFormatterCallback<TopLevelFormatterParams
     }
     return `
       <div class="${common} text-left">
-      ${(info.name && format)
-        ? `<div class="${common} text-left font-bold" style="text-wrap: wrap;">${format.encodeHTML(
-          info.name
-        )}</div>`
-        : ''
+      ${
+        info.name && format
+          ? `<div class="${common} text-left font-bold" style="text-wrap: wrap;">${format.encodeHTML(
+              info.name
+            )}</div>`
+          : ''
       }
-      ${cols > 1
-        ? `<div class="${common} grid gap-1" style="grid-template-columns: auto auto 1fr">`
-        : ''
+      ${
+        cols > 1
+          ? `<div class="${common} grid gap-1" style="grid-template-columns: auto auto 1fr">`
+          : ''
       }
       ${stuff.join('')}
       ${cols > 1 ? `</div>` : ''}
@@ -112,7 +115,7 @@ function getLevelOption(maxDepth: number) {
       // // Invert the color for the first level
       upperLabel: {
         backgroundColor: `rgba(0,0,0,${color / 3})`,
-      }
+      },
     }
   })
 }
@@ -122,52 +125,51 @@ export type LoadedTableDataProps = {
   maxDepth: number
 }
 
-export default function Chart(props: {
-  data: LoadedTableDataProps,
-  fullscreen: boolean,
-}) {
+export default function Chart(props: { data: LoadedTableDataProps; fullscreen: boolean }) {
   useEffect(() => {
     load()
   }, [])
   const { theme, setTheme, resolvedTheme } = useTheme()
   const { data, fullscreen } = props
-  return (<EChart
-    className={`h-full w-full grow ${fullscreen ? ' overflow-hidden ' : ''}`}
-    // do tree shaking later
-    // use={[SVGRenderer, TreemapChart]}
-    aria={{
-      // enabled: true,
-      decal: { show: true },
-    }}
-    tooltip={{
-      show: true,
-      trigger: 'item',
-      formatter: getTooltipFormatter(),
-    }}
-    theme={resolvedTheme === 'dark' ? 'dark' : 'shine'}
-    textStyle={{
-      fontFamily: 'monospace',
-    }}
-    series={[
-      {
-        name: data.processedFiles[0].name ?? 'Binary size breakdown',
-        type: 'treemap',
-        visibleMin: 300,
-        label: {
-          show: true,
-          formatter: '{b}',
+  return (
+    <EChart
+      className={`h-full w-full grow ${fullscreen ? ' overflow-hidden ' : ''}`}
+      // do tree shaking later
+      // use={[SVGRenderer, TreemapChart]}
+      aria={{
+        // enabled: true,
+        decal: { show: true },
+      }}
+      tooltip={{
+        show: true,
+        trigger: 'item',
+        formatter: getTooltipFormatter(),
+      }}
+      theme={resolvedTheme === 'dark' ? 'dark' : 'shine'}
+      textStyle={{
+        fontFamily: 'monospace',
+      }}
+      series={[
+        {
+          name: data.processedFiles[0].name ?? 'Binary size breakdown',
+          type: 'treemap',
+          visibleMin: 300,
+          label: {
+            show: true,
+            formatter: '{b}',
+          },
+          upperLabel: {
+            show: true,
+            height: 20,
+            color: 'white',
+            // backgroundColor: 'transparent',
+            // backgroundColor: 'rgba(0,0,0,0.0)',
+            // color: "rgba(0,0,0,1.0)",
+          },
+          levels: getLevelOption(data.maxDepth),
+          data: data.processedFiles,
         },
-        upperLabel: {
-          show: true,
-          height: 20,
-          color: 'white',
-          // backgroundColor: 'transparent',
-          // backgroundColor: 'rgba(0,0,0,0.0)',
-          // color: "rgba(0,0,0,1.0)",
-        },
-        levels: getLevelOption(data.maxDepth),
-        data: data.processedFiles,
-      },
-    ]}
-  />)
+      ]}
+    />
+  )
 }

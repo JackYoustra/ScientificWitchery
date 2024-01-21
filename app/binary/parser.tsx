@@ -140,15 +140,14 @@ function makeTreeFromCSV(csv: object[], fields: string[], path: string): ChartDa
   // In that case, skip it (return the children) or, if there are no children, return empty
   if (fields.length === 1) {
     // implicitly grouped by the last field
-    return csv
-      .map((row) => {
-        const entry: ChartDataEntry = {
-          name: row[fields[0]],
-          value: row['filesize'],
-          path: path + '/' + row[fields[0]],
-        }
-        return entry
-      })
+    return csv.map((row) => {
+      const entry: ChartDataEntry = {
+        name: row[fields[0]],
+        value: row['filesize'],
+        path: path + '/' + row[fields[0]],
+      }
+      return entry
+    })
   } else {
     // group by the first field
     const grouped = _.groupBy(csv, fields[0])
@@ -168,8 +167,13 @@ function makeTreeFromCSV(csv: object[], fields: string[], path: string): ChartDa
     })
   }
 }
-function convertProgramArgumentsToC(args: string[], module: any): { argc: number, argv: Uint8Array } {
-  const encodedArgsPointers = args.map(arg => module.stringToNewUTF8(arg))
+function convertProgramArgumentsToC(
+  args: string[],
+  // emscripten doesn't have types that I know of
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  module: any
+): { argc: number; argv: Uint8Array } {
+  const encodedArgsPointers = args.map((arg) => module.stringToNewUTF8(arg))
   // take the pointers and put them into a buffer
   const pointersBuffer = new Uint32Array(encodedArgsPointers.length)
   encodedArgsPointers.forEach((pointer, i) => {
@@ -183,15 +187,22 @@ function convertProgramArgumentsToC(args: string[], module: any): { argc: number
   }
 }
 
+// emscripten doesn't have types that I know of
+// eslint-disable-next-line @typescript-eslint/no-explicit-any
 function freeCArguments(argv: Uint8Array, module: any) {
   // free the memory
   const pointersBuffer = new Uint32Array(argv.buffer)
-  pointersBuffer.forEach(pointer => {
+  pointersBuffer.forEach((pointer) => {
     module._free(pointer)
   })
 }
 
-async function parseWithBloaty(file: File, buffer: ArrayBuffer, analysisTypes: string, strict: boolean): Promise<ChartDataEntry> {
+async function parseWithBloaty(
+  file: File,
+  buffer: ArrayBuffer,
+  analysisTypes: string,
+  strict: boolean
+): Promise<ChartDataEntry> {
   // string builder for stdout
   let stdout = ''
   const bloatyModule = await createBloatyModule({
@@ -205,15 +216,18 @@ async function parseWithBloaty(file: File, buffer: ArrayBuffer, analysisTypes: s
     },
     print: (text) => {
       stdout += text + '\n'
-    }
+    },
   })
 
   console.log(bloatyModule)
-  bloatyModule.FS.writeFile("dummy", new Uint8Array(buffer))
+  bloatyModule.FS.writeFile('dummy', new Uint8Array(buffer))
 
   const bloatyMain = bloatyModule.cwrap('main', 'number', ['number', 'array'])
   // create a uint8array buffer holding --help as argv
-  const pack = convertProgramArgumentsToC(['bloaty', '--csv', 'dummy', '-d', analysisTypes, '-n', '100'], bloatyModule)
+  const pack = convertProgramArgumentsToC(
+    ['bloaty', '--csv', 'dummy', '-d', analysisTypes, '-n', '100'],
+    bloatyModule
+  )
   // call the function
   // check argv
   console.log(pack.argc)
@@ -223,7 +237,7 @@ async function parseWithBloaty(file: File, buffer: ArrayBuffer, analysisTypes: s
   if (strict && result !== 0) {
     throw new Error(`Bloaty failed with error code ${result}`)
   }
-  console.log("output:")
+  console.log('output:')
   console.log(stdout)
   freeCArguments(pack.argv, bloatyModule)
 
@@ -235,7 +249,8 @@ async function parseWithBloaty(file: File, buffer: ArrayBuffer, analysisTypes: s
   const fields = parsed.meta.fields
   const children = makeTreeFromCSV(parsed.data, fields.slice(0, -2), file.name) ?? []
   // sum up all the sizes and take the difference from the file size to find the unaccounted for size
-  const unaccountedSize = file.size - children.reduce((acc, item) => acc + firstValue(item.value), 0)
+  const unaccountedSize =
+    file.size - children.reduce((acc, item) => acc + firstValue(item.value), 0)
   if (unaccountedSize > 0) {
     children.push({
       name: 'Unaccounted for',
@@ -259,16 +274,11 @@ async function parseWithTwiggy(file: File, buffer: ArrayBuffer): Promise<ChartDa
   const result = await parse_wasm_binary(buffer)
   // parse
   const parsed: ParseWasmBinary = parseResultFromRust(result)
-  const chartData = parsed.dominators.items.map((item) =>
-    convertToChartData(item, file.name)
-  )
+  const chartData = parsed.dominators.items.map((item) => convertToChartData(item, file.name))
   if (parsed.garbage) {
     chartData.push(topGarbage2Chart(parsed.garbage, file.size))
   }
-  let sizeOfTopLevel = parsed.dominators.items.reduce(
-    (acc, item) => acc + item.retained_size,
-    0
-  )
+  let sizeOfTopLevel = parsed.dominators.items.reduce((acc, item) => acc + item.retained_size, 0)
   if (parsed.garbage) {
     sizeOfTopLevel += parsed.garbage.reduce((acc, item) => acc + item.bytes, 0)
   }
@@ -287,8 +297,8 @@ export enum AnalysisEngine {
 }
 
 export interface ParseResult {
-  data: ChartDataEntry,
-  engine: AnalysisEngine,
+  data: ChartDataEntry
+  engine: AnalysisEngine
 }
 
 export function parseBuffer(file: File, engine?: AnalysisEngine): Promise<ParseResult> {
