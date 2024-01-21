@@ -281,21 +281,54 @@ async function parseWithTwiggy(file: File, buffer: ArrayBuffer): Promise<ChartDa
   return entry
 }
 
-export function parseBuffer(file: File): Promise<ChartDataEntry> {
+export enum AnalysisEngine {
+  Twiggy,
+  Bloaty,
+}
+
+export interface ParseResult {
+  data: ChartDataEntry,
+  engine: AnalysisEngine,
+}
+
+export function parseBuffer(file: File, engine?: AnalysisEngine): Promise<ParseResult> {
   return file.arrayBuffer().then(async (buffer) => {
     // give twiggy first crack, it has dominator support
     // which is rly cool to look at
-    try {
-      return await parseWithTwiggy(file, buffer)
-    } catch (error) {
-      console.warn('Twiggy failed, trying bloaty with compileunits')
-      // if it fails, try bloaty
+    const engines = engine ? [engine] : [AnalysisEngine.Twiggy, AnalysisEngine.Bloaty]
+    // try every engine
+    // if it fails, try the next one
+    // if it's the last one, don't handle the error
+    for (let i = 0; i < engines.length; i++) {
+      const engine = engines[i]
       try {
-        return await parseWithBloaty(file, buffer, 'compileunits,symbols,sections', true)
+        switch (engine) {
+          case AnalysisEngine.Twiggy:
+            return {
+              data: await parseWithTwiggy(file, buffer),
+              engine: AnalysisEngine.Twiggy,
+            }
+          case AnalysisEngine.Bloaty:
+            try {
+              return {
+                data: await parseWithBloaty(file, buffer, 'compileunits,symbols,sections', true),
+                engine: AnalysisEngine.Bloaty,
+              }
+            } catch (error) {
+              console.warn('Bloaty failed, trying bloaty without compileunits')
+              return {
+                data: await parseWithBloaty(file, buffer, 'symbols,sections', false),
+                engine: AnalysisEngine.Bloaty,
+              }
+            }
+        }
       } catch (error) {
-        console.warn('Bloaty failed, trying bloaty without compileunits')
-        return await parseWithBloaty(file, buffer, 'symbols,sections', false)
+        if (i === engines.length - 1) {
+          throw error
+        }
       }
     }
+    // unreachable
+    throw new Error('Unreachable')
   })
 }

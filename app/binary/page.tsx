@@ -1,6 +1,6 @@
 'use client'
 
-import { DragEvent, FC, useEffect, useRef, useState } from 'react'
+import { DragEvent, FC, useCallback, useEffect, useRef, useState } from 'react'
 import dynamic from 'next/dynamic'
 import Link from 'next/link'
 // async import
@@ -9,14 +9,21 @@ import Fullscreen from '@mui/icons-material/Fullscreen'
 import FullscreenExit from '@mui/icons-material/FullscreenExit'
 import _ from 'lodash'
 import Chart, { LoadedTableDataProps } from './chart'
-import { ChartDataEntry, parseBuffer } from './parser'
+import { AnalysisEngine, ChartDataEntry, parseBuffer } from './parser'
+
+type RunInformation = {
+  availableAnalysisEngines: AnalysisEngine[],
+  files: File[],
+  usedAnalysisEngines: AnalysisEngine[],
+}
 
 type TableData =
   | {
       files: File[]
     }
   | {
-      data: LoadedTableDataProps
+      data: LoadedTableDataProps,
+      runInfo: RunInformation,
     }
   | {
       error: string
@@ -115,6 +122,43 @@ export default function Binary(): JSX.Element {
   const [tableData, setTableData] = useState<TableData | undefined>(undefined)
   const fileInput = useRef<HTMLInputElement>(null)
 
+  const runWithAnalysisEngine = useCallback((droppedFiles: File[], engine?: AnalysisEngine) => {
+    // Use FileReader to read file content
+    const promises = droppedFiles.map((file) => {
+      return parseBuffer(file, engine)
+    })
+
+    // await all promises
+    Promise.all(promises)
+      .then((entries) => {
+        setTableData({
+          data: {
+            processedFiles: unboxUntilFirstProlific(entries.map((e) => e.data)),
+            maxDepth: Math.max(...entries.map((e) => getDepth(e.data))),
+          },
+          runInfo: {
+            // bloaty unconditionally, twiggy only if twiggy was used
+            availableAnalysisEngines: _.uniq(entries.map((e) => e.engine).concat([AnalysisEngine.Bloaty])),
+            files: droppedFiles,
+            usedAnalysisEngines: _.uniq(entries.map((e) => e.engine)),
+          }
+        })
+      })
+      .catch((err) => {
+        console.log(err)
+        setTableData({
+          error: err.toString(),
+        })
+      })
+  }, [setTableData])
+
+  const changeAnalysisEngine = useCallback((engine: AnalysisEngine) => {
+    if (tableData && 'runInfo' in tableData && _.some(tableData.runInfo.usedAnalysisEngines, (e) => e !== engine)) {
+      // rerun with new engine
+      runWithAnalysisEngine(tableData.runInfo.files, engine)
+    }
+  }, [tableData])
+
   const handleUpload = (droppedFiles: File[]) => {
     setIsOver(false)
 
@@ -127,25 +171,7 @@ export default function Binary(): JSX.Element {
       files: droppedFiles,
     })
 
-    // Use FileReader to read file content
-    const promises = droppedFiles.map(parseBuffer)
-
-    // await all promises
-    Promise.all(promises)
-      .then((entries) => {
-        setTableData({
-          data: {
-            processedFiles: unboxUntilFirstProlific(entries),
-            maxDepth: Math.max(...entries.map(getDepth)),
-          },
-        })
-      })
-      .catch((err) => {
-        console.log(err)
-        setTableData({
-          error: err.toString(),
-        })
-      })
+    runWithAnalysisEngine(droppedFiles)    
   }
 
   const handleUploadButton = (event: React.ChangeEvent<HTMLInputElement>) => {
@@ -213,12 +239,32 @@ export default function Binary(): JSX.Element {
         >
           <TableData state={tableData} fullscreen={isFullscreen} />
         </button>
-        <button className="absolute right-0 top-0" onClick={makeFullscreen}>
-          <kbd className="inline-block whitespace-nowrap rounded border border-gray-400 px-1.5 align-middle text-xs font-medium leading-4 tracking-wide text-gray-400">
-            ESC
-          </kbd>
-          {isFullscreen ? <FullscreenExit /> : <Fullscreen />}
-        </button>
+        <div className="absolute flex w-full grow justify-between left-0 right-0 top-0">
+          <div>
+            <button
+              className={"px-1 m-2 font-medium rounded-full border border-gray-400" + (_.some(tableData?.runInfo?.usedAnalysisEngines, (e) => e === AnalysisEngine.Twiggy) ? ' bg-gray-200 dark:bg-gray-700' : '')}
+              onClick={() => {
+                changeAnalysisEngine(AnalysisEngine.Twiggy)
+              }}
+            >
+              Twiggy🌱
+            </button>
+            <button
+              className={"px-1 font-medium rounded-full border border-gray-400" + (_.some(tableData?.runInfo?.usedAnalysisEngines, (e) => e === AnalysisEngine.Bloaty) ? ' bg-gray-200 dark:bg-gray-700' : '')}
+              onClick={() => {
+                changeAnalysisEngine(AnalysisEngine.Bloaty)
+              }}
+            >
+              Bloaty🐋
+            </button>
+          </div>
+          <button className="" onClick={makeFullscreen}>
+            <kbd className="inline-block whitespace-nowrap rounded border border-gray-400 px-1.5 align-middle text-xs font-medium leading-4 tracking-wide text-gray-400">
+              ESC
+            </kbd>
+            {isFullscreen ? <FullscreenExit /> : <Fullscreen />}
+          </button>
+        </div>
       </div>
     </>
   )
