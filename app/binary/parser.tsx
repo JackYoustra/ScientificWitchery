@@ -153,7 +153,7 @@ function makeTreeFromCSV(csv: object[], fields: string[], path: string): ChartDa
     // group by the first field
     const grouped = _.groupBy(csv, fields[0])
     // recurse
-    return Object.entries(grouped).map(([key, value]) => {
+    return Object.entries(grouped).flatMap(([key, value]) => {
       const children = makeTreeFromCSV(value, fields.slice(1), path + '/' + key)
       if (key === null || key === undefined) {
         return children
@@ -164,7 +164,7 @@ function makeTreeFromCSV(csv: object[], fields: string[], path: string): ChartDa
         children: children.filter((child) => child.name !== undefined && child.name !== null),
         path: path + '/' + key,
       }
-      return entry
+      return [entry]
     })
   }
 }
