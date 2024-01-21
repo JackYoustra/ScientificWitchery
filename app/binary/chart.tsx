@@ -2,7 +2,7 @@ import _ from 'lodash'
 import dynamic from 'next/dynamic'
 import prettyBytes from 'pretty-bytes'
 import type { TooltipFormatterCallback, TopLevelFormatterParams } from 'echarts/types/dist/shared'
-import { FileChartDataShape, SectionData, firstValue } from './parser'
+import { FileChartDataShape, SectionData, firstValue, firstValueNaNHandled, firstValueOr } from './parser'
 import { useTheme } from 'next-themes'
 import { useEffect } from 'react'
 // eslint-disable-next-line @typescript-eslint/no-explicit-any
@@ -27,7 +27,7 @@ const EChart = dynamic(() => import('@kbox-labs/react-echarts').then((mod) => mo
 //   ssr: false,
 // })
 
-function getTooltipFormatter(): TooltipFormatterCallback<TopLevelFormatterParams> {
+function getTooltipFormatter(data: LoadedTableDataProps): TooltipFormatterCallback<TopLevelFormatterParams> {
   return (info) => {
     const stuff: string[] = []
     let cols: number
@@ -76,7 +76,19 @@ function getTooltipFormatter(): TooltipFormatterCallback<TopLevelFormatterParams
           firstValue(info.value)
         )}</div>`
       )
-      cols = 1
+      const totalSize = data.processedFiles.reduce((acc, cur) => acc + firstValueNaNHandled(cur.value), 0)
+      if (totalSize === 0) {
+        cols = 1
+      } else {
+        const size = firstValueNaNHandled(info.value)
+        const sizePct = (size / totalSize) * 100
+        stuff.push(
+          `<div class="${common} tooltip-subtitle grow">(${sizePct.toFixed(
+            2
+          )}%)</div>`
+        )
+        cols = 2
+      }
     }
     return `
       <div class="${common} text-left">
@@ -143,7 +155,7 @@ export default function Chart(props: { data: LoadedTableDataProps; fullscreen: b
       tooltip={{
         show: true,
         trigger: 'item',
-        formatter: getTooltipFormatter(),
+        formatter: getTooltipFormatter(data),
       }}
       theme={resolvedTheme === 'dark' ? 'dark' : 'shine'}
       textStyle={{

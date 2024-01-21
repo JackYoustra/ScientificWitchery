@@ -11,6 +11,26 @@ export function firstValue<T>(arr: T[] | T): T {
   }
 }
 
+export function firstValueOr<T>(arr: T[] | T | null | undefined, def: T): T {
+  if (Array.isArray(arr)) {
+    return arr[0] ?? def
+  } else if (arr === undefined || arr === null) {
+    return def
+  } else {
+    return arr
+  }
+}
+
+export function firstValueNaNHandled(arr: number[] | number): number {
+  if (Array.isArray(arr)) {
+    return arr[0]
+  } else if (_.isNaN(arr)) {
+    return 0
+  } else {
+    return arr
+  }
+}
+
 interface ParseWasmBinary {
   dominators: {
     items: DominatorItem[]
