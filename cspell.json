@@ -1,0 +1,15 @@
+{
+    "version": "0.2",
+    "ignorePaths": [],
+    "dictionaryDefinitions": [
+        {
+            "name": "myWords",
+            "path": "./cSpell_dict.txt",
+            "addWords": true
+        }
+    ],
+    "dictionaries": ["myWords"],
+    "words": [],
+    "ignoreWords": [],
+    "import": []
+}

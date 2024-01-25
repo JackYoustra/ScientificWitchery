@@ -13,7 +13,7 @@ My task for today was to make the trim operation more forgiving.
 Now, if you mistrim, you can just tap the trim button again to reset the trim.
 I decided to implement this by making the trim operation not modify the file, but mark
 the file as "trimmed" in the shot metadata.
-Whenever the movie is compiled (in our case, into an AVComposistion object, but you could imagine an ffmpeg call),
+Whenever the movie is compiled (in our case, into an AVComposition object, but you could imagine an ffmpeg call),
 we only use the trimmed portion of the file.
 
 Unfortunately, the system video editor, `UIVideoEditorController`, only provides a file export API, and
@@ -35,7 +35,7 @@ final class MyVideoEditor: UIVideoEditorController {
 
 The action was a selector called `_trimVideo:`. Pretty bog-standard underscored private API doing basically what we'd expect.
 
-The target, on the other hand, was _not_ `self` but a completely seperate instance of `PLUIEditVideoViewController`.
+The target, on the other hand, was _not_ `self` but a completely separate instance of `PLUIEditVideoViewController`.
 A few minutes of looking around locally before deciding to google led to a [header dump](https://developer.limneos.net/index.php?ios=16.3&framework=PhotoLibrary.framework&header=PLUIEditVideoViewController.h).
 
 At this point, my hypothesis is that photo pickers also allow for trimming, and that UI code is shared with the video editor.
