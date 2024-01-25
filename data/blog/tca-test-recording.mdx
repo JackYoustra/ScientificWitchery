@@ -30,7 +30,7 @@ There's a few possible models for recording. We have a few goals guiding us:
 
 First, the actions and states should conform to codable, so we can serialize them in the recorder.
 Slightly more tricky are the dependencies, but we'll get to that later.
-For now, let's consdier how to record.
+For now, let's consider how to record.
 
 ## Recording
 
@@ -294,7 +294,7 @@ A ReplayStore, or a PlaybackReducer which emits all of the recorded events at th
 
 ### Time-traveler
 I've seen these for redux and really like them. The idea is that if you're debugging an app and have a log and want to try out different behavior / diverge
-at different points, it would be nice to have a time-travelling debugger.
+at different points, it would be nice to have a time-traveling debugger.
 Here, you'd have a slider that you could move around to see the state of the app at different points in time and diverge.
 It could be tricky (long-running effects? Cancellations? etc) and may involve just restarting the app at each time travel, but perhaps some things can be done.
 There's probably some tricky effect / cancellation management that would have to go into it, but it may be possible. Perhaps another weekend?

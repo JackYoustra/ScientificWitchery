@@ -29,7 +29,7 @@ to false positives (generally a cr)
 
 ### The shortcomings
 These things are not "bugs" in the sense that they don't affect correctness, but they are really not desirable behavior.
-You'd hope that, in the presence of an overly-aggresive compiler, you'd at least get performance - surely a compiler which is too aggressive
+You'd hope that, in the presence of an overly-aggressive compiler, you'd at least get performance - surely a compiler which is too aggressive
 also isn't too conservative. Nope! While most REPL-like flows are fine, if you find yourself changing targets, you can
 end up recompiling an arbitrary number of files, and if, god forbid, you toggle between previews and not previews,
 you force essentially a whole-project recompilation, as every included package has to be marked stale and recompiled in a preview configuration.

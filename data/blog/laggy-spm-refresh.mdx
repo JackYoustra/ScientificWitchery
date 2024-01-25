@@ -54,7 +54,7 @@ instead of refreshing on every change, we could refresh on... something else? I'
 where the other calls are to the terminal method: `reloadPackage`. However, a search of Xcode's binaries
 revealed that there's one more framework which mentions `SPMWorkspace`: `IDEFoundation`.
 
-Not much luck here: these mehtods seem to just deal with setting up the workspace, not refreshing it.
+Not much luck here: these methods seem to just deal with setting up the workspace, not refreshing it.
 
 Anyway, the current idea is to just test our above hypothesis by removing the call to `reloadPackage`.
 The simplest place to do this is at the top level: `SPMPackageDirectoryStructureFileSystemWatcherDelegate.packageStructureFileSystemWatcherDeDidChange_at:`.

@@ -27,7 +27,7 @@ I decided to mock the keychain, which leads to another problem: I'm not the one 
  - Mock Firebase Auth entirely. This is a LOT to mock, has a ton of interaction effects, and besides, I actually want to test my system against it, so that's out.
  - Swizzle the keychain calls. This implicitly injects our keychain mocks into Firebase Auth automatically, so it's what I decided to do.
 
-Unfortunately (as you can proibably tell by the subject of this post) the keychain calls are in C.
+Unfortunately (as you can probably tell by the subject of this post) the keychain calls are in C.
 Specifically, our goals are to stub...
     - `SecItemAdd`
     - `SecItemCopyMatching`

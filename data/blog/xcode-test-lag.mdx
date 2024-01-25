@@ -16,7 +16,7 @@ between build and launch. What gives?
 The first tool to turn to is Instruments, run on xcode itself. Because we're seeing a hang,
 we'll use the Animation Hitches tool (we probably could have used the Time Profiler or System Trace tool,
 but I'll use the tool most suited to the job until proven otherwise).
-We wait about an hour for intruments to process the ten second (!!!) analysis stream and look at the results.
+We wait about an hour for instruments to process the ten second (!!!) analysis stream and look at the results.
 If we're blocking on a subprocess, we'll probably have to find some other way, but fortune smiles upon us.
 We see a big hang!
 
@@ -77,7 +77,7 @@ on [debugging vnode issues](https://faisalmemon.github.io/ios-crash-dump-analysi
 especially [related to handle exhaustion](https://perfectforwarding.tumblr.com/post/87297180917/debugging-xcode-app-terminations-from-nsfilehandle),
 there's not much on how to get the path from a `vnode`, assuming we even can.
 
-I'm starting to revise my assessment that vnodes -> files, though, because there's an absoluytely
+I'm starting to revise my assessment that vnodes -> files, though, because there's an absolutely
 gargantuan number of operations to this `vnode`: 34k *physical file operations* in this short period of time, each taking
 way longer than they should if the results were cached at all. However, each has a variable block number,
 whatever that is. Some more reading shows that the block number is a selector
@@ -89,7 +89,7 @@ It looks like that's called for all subdirections - the big blocking op is an un
 read of the directory structure, which requires calling `getattrlistbulk` ~34k times.
 
 Again, we don't know *where* this is happening,
-althogh my money is on `DerivedData`, because that's where the build artifacts are stored.
+although my money is on `DerivedData`, because that's where the build artifacts are stored.
 
 # 🛑NO VNODE 🛑 try something else
 Stepping away from vnodes and looking afresh, I notice again that most of the latency is in `open` calls.

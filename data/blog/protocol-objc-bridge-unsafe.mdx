@@ -91,7 +91,7 @@ class R: C {
 }
 ```
 
-This won't compile, and rightfully so: class C doesn't have any definiton for `doSomethingIfItMakesSense`.
+This won't compile, and rightfully so: class C doesn't have any definition for `doSomethingIfItMakesSense`.
 This will be true for any Swift same-module code.
 
 Unfortunately, not all scenarios are so straightforward.
@@ -142,7 +142,7 @@ The problem is the the concrete class definition (`SettingsTableViewController`)
 All Swift can see are the header declarations, and, as mentioned above, the intermodular part (`@interface`) of `IASKAppSettingsViewController`
 declared protocol conformances, not individual `@optional` function conformances - it's not required for Objective-C because it's treated as a runtime
 feature in Objective-C anyway, so why declare it!
-Swift can't introspect the module declarations to see if `textFieldDidChangeSelection` is defined, because, if its defined, it will only be defined at the Objective-C module's initialization time in the selctor table.[^1]
+Swift can't introspect the module declarations to see if `textFieldDidChangeSelection` is defined, because, if its defined, it will only be defined at the Objective-C module's initialization time in the selector table.[^1]
 
 [^1]: Why not just run the initialization function for Objective-C methods in the compiler / analyzer to check for this? Because the initializer can be any arbitrary function, so running it exposes the compiler to lag, UB, and not good nor much improved compile time guarantees, all together which make it an awful proposition.
 
@@ -212,7 +212,7 @@ But this is unsafe:
 
 ```super.perform(#selector(UITextViewDelegate.textViewDidEndEditing(_:)), with: textView)```
 
-I can't find any good solution to this problem, so I ended up just copying the trivial code from the supercalss into the subclass.
+I can't find any good solution to this problem, so I ended up just copying the trivial code from the superclass into the subclass.
 You're probably going to want to do the raw selector call or some other clever technique I haven't considered.
 
 

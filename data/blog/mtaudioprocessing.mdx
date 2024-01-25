@@ -11,7 +11,7 @@ summary: Trying to make realtime and offline cool audio effects without ffmpeg o
 # Introduction
 
 Trying to make cool audio effects without ffmpeg (native) on iOS, in both realtime and offline in sync with my movie.
-Usually, you can directly use `AVAudioEngine`, but in order to interface with `AVComposition`'s `AVAudioMix`, there's precisely one inpoint: `MTAudioProcessingTap` on `AVAudioMix`.
+Usually, you can directly use `AVAudioEngine`, but in order to interface with `AVComposition`'s `AVAudioMix`, there's precisely one entry point: `MTAudioProcessingTap` on `AVAudioMix`.
 
 Several problems with this...
 1) There's no real documentation anywhere? `MediaToolbox` seems to have been scrubbed a long
@@ -45,7 +45,7 @@ afterwards. In any event, I love me some unified, realtime solutions, so we'll d
 Our sources are that one sample project mentioned earlier, [this cool write up](https://chritto.wordpress.com/2013/01/07/processing-avplayers-audio-with-mtaudioprocessingtap/),
 and a smattering of aged like 🧀 SO posts.
 
-Anyway, I wanted to try and use a wrapper from AudioKit to amke things less painful.
+Anyway, I wanted to try and use a wrapper from AudioKit to make things less painful.
 I made a quick test project to test the AudioKit side with rendering to a file and found the semantics a bit surprising.
 The semantics needed to render a file is:
 ```swift
@@ -151,7 +151,7 @@ On 67 samples with passthrough, it takes average of 0.0022 seconds.
 
 However, when we add an effect, we get 0.0038, almost double, but probably not enough to explain the gap.
 
-We embarrasingly reused a buffer. Lets take that out.
+We embarrassingly reused a buffer. Lets take that out.
 And it's a lot better! But it still has the scratchy gaps that suggest we're not keeping up.
 
 Lets speed things up by actually using the preparation steps as they're meant to be used, and using the

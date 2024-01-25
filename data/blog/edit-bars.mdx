@@ -35,7 +35,7 @@ final class MyVideoEditor: UIVideoEditorController {
 
 The action was a selector called `_trimVideo:`. Pretty bog-standard underscored private API doing basically what we'd expect.
 
-The target, on the other hand, was _not_ `self` but a completely separte instance of `PLUIEditVideoViewController`.
+The target, on the other hand, was _not_ `self` but a completely seperate instance of `PLUIEditVideoViewController`.
 A few minutes of looking around locally before deciding to google led to a [header dump](https://developer.limneos.net/index.php?ios=16.3&framework=PhotoLibrary.framework&header=PLUIEditVideoViewController.h).
 
 At this point, my hypothesis is that photo pickers also allow for trimming, and that UI code is shared with the video editor.
@@ -58,7 +58,7 @@ Looking at the symbols for `PLVideoView` it appears to handle all the trimming -
 we can just call the methods to get the start and end times.
 
 Running `pviews` in lldb (from [Chisel](https://github.com/facebook/chisel)) shows us a list of all the views in the app.
-We can see that there's a `PLVideoView` in the view hiearchy
+We can see that there's a `PLVideoView` in the view hierarchy
 
 ```bash
 (lldb) pviews

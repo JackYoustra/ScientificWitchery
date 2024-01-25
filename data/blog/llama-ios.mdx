@@ -627,7 +627,7 @@ This piqued my curiousity, and I modified the llama.cpp library to spit out many
 The culprit is likely `all_sum = simd_sum(all_sum);` in `kernel_rms_norm` in the `ggml_metal.metal` file.
 How strange! That almost certainly means that it's tied to the exact chip. Maybe it has to do with an ISA extension? Please contact me if you know!
 In any event, a way around it is probably [just rewriting the function](https://betterprogramming.pub/optimizing-parallel-reduction-in-metal-for-apple-m1-8e8677b49b01),
-so perhaps I'll intergrate that at some point.
+so perhaps I'll integrate that at some point.
 
 # Conclusions
     - It would be really, really nice to have a different run scheme for previews. Having to remember to change back and forth between debug and release when running on previews (inference stubbed) vs on the phone (inference enabled) was frustrating and terrifying when I'd believed it was a performance regression.

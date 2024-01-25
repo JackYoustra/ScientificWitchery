@@ -173,11 +173,11 @@ A classic OS 101 race condition!
 
 One way to fix this would be to make everything async by making `Run` an actor, instead of a class.
 This would fix the race conditon at the cost of either having to make the returned of the function async, or
-having a detatched task run the increment and praying that it runs before the observer falls out of scope.
+having a detached task run the increment and praying that it runs before the observer falls out of scope.
 If the test observer deallocates before the task runs, then we'll get a false positive - `XCTFail` will run without it being recorded!
 
 ```swift
-// if we made it detatched.
+// if we made it detached.
 // problem: what if this runs too late?
 private static func amount<each T, U>(modality: Modality, file: StaticString = #file, line: UInt = #line, _ closure: @escaping (repeat each T) -> U) -> ((repeat each T) -> U) {
     let once = Run(modality, file: file, line: line)
@@ -205,7 +205,7 @@ private static func amount<each T, U>(modality: Modality, file: StaticString = #
     }
 }
 ```
-Unless you are already returning an async function, this is pretty undesireable, especially because there's no contention in the common case.
+Unless you are already returning an async function, this is pretty undesirable, especially because there's no contention in the common case.
 No reason to have all that async complication!
 
 The other way is to use [`LockIsolated`](https://pointfreeco.github.io/swift-dependencies/main/documentation/dependencies/lockisolated/) to meet the Sendable guarantee without actually having to async / await.

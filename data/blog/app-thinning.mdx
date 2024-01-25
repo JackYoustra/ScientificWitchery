@@ -18,7 +18,7 @@ The app store supports a few ways of what I'm trying to do, with various trade-o
 # Options
 ## CDN (content delivery network)
 This involves a server that serves the weights and download them on first launch, or sometime after.
-This is how pretty much every LLM service looks at this point: huggingface, civtai, etc. all use this.
+This is how pretty much every LLM service looks at this point: huggingface, civitai, etc. all use this.
 - pros
     - easy to implement
     - easy to update weights
@@ -37,7 +37,7 @@ Unveiled in iOS 9, this allows for dynamic loading of assets stored on apple's s
     - still requires first launch
     - some logic (streaming, slicing, copying) to stay within ODR tag limits.
 ## [Thinned asset catalogs](https://developer.apple.com/library/archive/documentation/Xcode/Reference/xcode_ref-Asset_Catalog_Format/index.html) (CAR files)
-This feature was initailly introduced for multiple image sizes on different screen
+This feature was initially introduced for multiple image sizes on different screen
 sizes, with the famous @2x and @3x suffixes. It was later expanded to include different assets for different devices.
 We could use this to have different weights for different devices.
 - pros
@@ -275,17 +275,17 @@ so I guess we have to give up on our dream of having one asset per phone, with t
 ### One last shot?
 
 There is one more thing we can try. If you remember, one idea we had before was to mmap only the section of the assets.car file corresponding
-to the data asset. We didn't do that in favor of an address fixup because it was less work (we didn't have to worry about aligning the offset to a page boundry),
+to the data asset. We didn't do that in favor of an address fixup because it was less work (we didn't have to worry about aligning the offset to a page boundary),
 but this solution could work. Essentially, we have to do the following:
  - chunk the neural network into different data assets (each less than 2G in size)
- - ensure that every asset in every thinned CAR file target lies on a page boundry
+ - ensure that every asset in every thinned CAR file target lies on a page boundary
  - find a contiguous address space that will fit the data asset
- - mmap each data asset into the address space contiguously, relying on the `offset` argument to mmap being on a page boundry
+ - mmap each data asset into the address space contiguously, relying on the `offset` argument to mmap being on a page boundary
  - passing back the address of the first data asset and the size of the entire address space to llama.cpp
  - 💸profit🤑
 
-Actually, we can do better. We can remove the need for a page boundry (and, thus, the need to pad / manipulate the thinned CAR file contents on every target)
-by making the first page anonymous mapped and manually read, while mmapping the rest transparently on a page boundry. This is a little more work (no longer a 1:1 mapping of
+Actually, we can do better. We can remove the need for a page boundary (and, thus, the need to pad / manipulate the thinned CAR file contents on every target)
+by making the first page anonymous mapped and manually read, while mmapping the rest transparently on a page boundary. This is a little more work (no longer a 1:1 mapping of
 sent syscall to injected syscall), but it removes the need for manual padding for every thinned variant of the app.
 
 #### One other, really cursed, "last shot"

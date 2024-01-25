@@ -8,7 +8,8 @@
     "build": "cross-env INIT_CWD=$PWD next build && cross-env NODE_OPTIONS='--experimental-json-modules' node ./scripts/postbuild.mjs",
     "serve": "next start",
     "analyze": "cross-env ANALYZE=true next build",
-    "lint": "next lint --fix --dir pages --dir app --dir components --dir lib --dir layouts --dir scripts"
+    "lint": "next lint --fix --dir pages --dir app --dir components --dir lib --dir layouts --dir scripts",
+    "spell": "cspell data/blog/**/*.mdx"
   },
   "dependencies": {
     "@emotion/react": "^11.11.3",
@@ -59,6 +60,7 @@
     "@typescript-eslint/eslint-plugin": "^6.1.0",
     "@typescript-eslint/parser": "^6.1.0",
     "cross-env": "^7.0.3",
+    "cspell": "^8.3.2",
     "eslint": "^8.45.0",
     "eslint-config-next": "14.0.3",
     "eslint-config-prettier": "^8.8.0",

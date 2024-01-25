@@ -31,7 +31,7 @@ For NanoFlick, we're going to just consider anything below the line so we can ge
 That leaves two options: Tuist and Bazel.
 
 Between bazel and tuist, the real difference lies in maturity and degree.
-You can think of tuist as "as much customizability as you could possibly get, just using Build with Xcode (BwX)", whereas bazel is "no compromising customizeability, even if it means potentially more maintenance". 
+You can think of tuist as "as much customizability as you could possibly get, just using Build with Xcode (BwX)", whereas bazel is "no compromising customizability, even if it means potentially more maintenance". 
 
 Right now, we're going with Tuist. Its lower maintenance overhead means we don't have to worry about using new features without waiting for more skilled community members to write patches, and it hopefully should be more resilient to esoteric things.
 
@@ -48,7 +48,7 @@ and million+ lines, something which is very far off for NanoFlick
 ## Result of Tuist port
 
 Sadly, the port didn't go as straightforward as I'd hoped!
-The documentation is [basically nonexistant](https://tuist.github.io/tuist/main/documentation/projectdescription/project) and, when it is existant, [not very clear](https://docs.tuist.io/commands/clean), especially for external dependencies. Getting metalpetal to work took a whole day, and, a couple months on, there's no ability to build the [leading crop component or database plugin](https://github.com/tuist/tuist/issues/5400). I tried to patch this, but there were a few problems:
+The documentation is [basically nonexisent](https://tuist.github.io/tuist/main/documentation/projectdescription/project) and, when it is existent, [not very clear](https://docs.tuist.io/commands/clean), especially for external dependencies. Getting metalpetal to work took a whole day, and, a couple months on, there's no ability to build the [leading crop component or database plugin](https://github.com/tuist/tuist/issues/5400). I tried to patch this, but there were a few problems:
  - I couldn't run it locally! It just said that it couldn't find `PackageDescription`
  - It's really, really dense code with enough documentation to see why decisions were made, but not
  enough to see potential caveats that might be relevant to my use case.
