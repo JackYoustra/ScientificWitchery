@@ -1,0 +1,76 @@
+---
+title: 'Not all apps are born with a tap'
+date: '2024-03-3'
+tags: ['Swift', 'iOS']
+draft: false
+summary: "No test facilities? Edge cases that are hard to reproduce but most apps run into? Just another day on Apple's wild ride."
+---
+
+# Introduction
+
+So we recently had a bug in NanoFlick!
+A user reported logging in and it treated them as... mostly a fresh user. All of their flicks were completely gone,
+and the intro page showed again a devastating bug.
+
+We got the app container to see how this could've happened and were met with a surprise: the user's documents directory
+was completely pristine, with the flicks and all the data still there in a very well-kept state.
+Additionally, fully crashing the app and restarting it didn't reproduce the issue. What gives?
+
+Attempts to reproduce this only yielded fruit when the user ran out of battery while using the app, charged it,
+and then opened the app again after rebooting the phone. Worse, connecting the phone to the debugger and running the app
+from Xcode didn't reproduce the issue either, regardless if it was done before or after the reboot.
+
+I had some guesses for why the flick loading was failing, as that was a very complicated issue, but the intro page
+presentation logic was very very simple and very very early:
+
+```swift
+ func application(_ application: UIApplication, willFinishLaunchingWithOptions launchOptions: [UIApplication.LaunchOptionsKey : Any]? = nil) -> Bool {
+    // unrelated initialization and settings
+
+    // Pick whether to go to onboarding based off of initial state
+    let hasStarted = UserDefaults.standard.bool(forKey: AppDelegate.INITIAL_RUN_DEFAULT)
+    if !hasStarted && !Device.isPreview {
+        let swiftUIController = InterfaceLockedHostingView(rootView: TutorialPageView(nfViewController: self.window!.rootViewController!, isSettingsPage: false))
+        self.window?.rootViewController = swiftUIController
+    }
+}
+```
+
+Hard to imagine what could go wrong here. Perhaps `UserDefaults` was getting corrupted? At the very least, it's definitely necessarily involved,
+and some googling [revealed similar problems](https://forums.developer.apple.com/forums/thread/688923).
+As most of these community mysteries go, our savior is [Quinn](https://www.reddit.com/r/iOSProgramming/comments/nue9k3/who_is_quinn_the_eskimo_in_developer_forums/) ["The](https://twitter.com/justkwin?lang=en) [Eskimo"](http://preserve.mactech.com/articles/mactech/Vol.16/16.06/Jun00FactoryFloor/index.html) from apple's forums,
+who [pointed us](https://developer.apple.com/forums/thread/667959?answerId=693810022#693810022) in the direction of
+[app prewarming](https://developer.apple.com/documentation/uikit/app_and_environment/responding_to_the_launch_of_your_app/about_the_app_launch_sequence#3894431).
+
+# App Prewarming
+
+Basically, iOS 15 introduced a feature where the system can launch your app in the background to speed up the launch time.
+This is documented as a partial initialization (static initializers, objective-c class initializers, and every non-main entrypoint is called).
+This is, at this time, [incorrect](https://stackoverflow.com/questions/71025205/ios-15-prewarming-causing-appwilllaunch-method-when-prewarm-is-done/71234821#71234821).
+The system will call `UIApplicationMain()` and will call `application(_:willFinishLaunchingWithOptions:)`.
+
+# The Bug
+
+This is by itself, fine. NanoFlick has no real dependency on any resource like the GPU being available, and the app is designed to be able to handle
+being backgrounded and foregrounded at any time. This is why in almost every prewarming scenario, NanoFlick's behavior is identical to a normal launch.
+
+Unfortunately, if the app is prewarmed after boot but before the user performs the initial unlock,
+NanoFlick's `UserDefaults`, along with the rest of the app's data, is completely inaccessible.
+
+I can't find a way to opt out of prewarming, and I can't find a way to detect if the app was prewarmed.
+Fortunately, the fix is simple: just don't do anything in `application(_:willFinishLaunchingWithOptions:)` if the app is prewarmed
+without the user having unlocked the phone.
+
+```swift
+func application(_ application: UIApplication, willFinishLaunchingWithOptions launchOptions: [UIApplication.LaunchOptionsKey : Any]? = nil) -> Bool {
+    precondition(application.isProtectedDataAvailable)
+    // rest of initialization
+}
+```
+
+# Conclusion
+The big point here is that `application(_:willFinishLaunchingWithOptions:)` runs kinda whenever it wants,
+and you can't really control or test for the conditions.
+
+You probably want to write better than this, but doing so will probably require some substantial overhauls of testing.
+Hopefully the TCA rewrite will have some graceful way to handle this, but until then, NanoFlick will take a second longer to launch after a reboot.
