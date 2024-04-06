@@ -37,6 +37,7 @@
     "postcss": "^8.4.24",
     "pretty-bytes": "^6.1.1",
     "react": "18.2.0",
+    "react-buzzfeed-quiz": "^2.0.7",
     "react-dom": "18.2.0",
     "reading-time": "1.5.0",
     "rehype-autolink-headings": "^6.1.0",

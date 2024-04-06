@@ -10,7 +10,7 @@ const ContentSecurityPolicy = `
   script-src 'self' 'unsafe-eval' 'unsafe-inline' giscus.app analytics.umami.is;
   style-src 'self' 'unsafe-inline' giscus.app;
   img-src * blob: data:;
-  media-src 'self' *.s3.amazonaws.com;
+  media-src 'self' *.s3.amazonaws.com https://img.buzzfeed.com/;
   connect-src *;
   font-src 'self';
   frame-src giscus.app gcc.godbolt.org gist.github.com;
@@ -55,7 +55,7 @@ const securityHeaders = [
   // COOP, COEP
   {
     key: 'Cross-Origin-Embedder-Policy',
-    value: 'require-corp',
+    value: 'credentialless',
   },
   {
     key: 'Cross-Origin-Opener-Policy',
@@ -80,6 +80,10 @@ module.exports = () => {
           protocol: 'https',
           hostname: 'picsum.photos',
         },
+        {
+          protocol: 'https',
+          hostname: 'pbs.twimg.com',
+        }
       ],
     },
     async headers() {
