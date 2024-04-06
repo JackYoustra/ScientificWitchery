@@ -4349,12 +4349,20 @@ __metadata:
   languageName: node
   linkType: hard
 
-"@vercel/analytics@npm:^1.1.2":
-  version: 1.1.2
-  resolution: "@vercel/analytics@npm:1.1.2"
+"@vercel/analytics@npm:^1.2.2":
+  version: 1.2.2
+  resolution: "@vercel/analytics@npm:1.2.2"
   dependencies:
     server-only: ^0.0.1
-  checksum: 7338f44b19dd2813e560019c4735308d76c273bfbbe4dbf909be8795f6cdcd2120591c27b026c0fdcae2d3148f7ed60b3f1b0417ce017eb5ee515535f2864f4b
+  peerDependencies:
+    next: ">= 13"
+    react: ^18 || ^19
+  peerDependenciesMeta:
+    next:
+      optional: true
+    react:
+      optional: true
+  checksum: 5913caeb2077d3d9c2eddabed90e40e29762e9e53941d3e1337daa0a60423ffef2a2c0b5a743ff37ea1aa9cfe7eb3159e4dff91cd4843a8503be5680c2faa98d
   languageName: node
   linkType: hard
 
@@ -11720,8 +11728,8 @@ __metadata:
 
 "rust-wasm@file:./rust-wasm/pkg::locator=scientific-witchery%40workspace%3A.":
   version: 0.1.0
-  resolution: "rust-wasm@file:./rust-wasm/pkg#./rust-wasm/pkg::hash=0f558c&locator=scientific-witchery%40workspace%3A."
-  checksum: deeec713370c8bb5fe5331eb2162806dde5ef81eb456c3e0a5bc1e77d0701004df4cde2b6218deba964217101b3df90637bd8f3ec438a4f67e5adfc28431a22c
+  resolution: "rust-wasm@file:./rust-wasm/pkg#./rust-wasm/pkg::hash=a4afd7&locator=scientific-witchery%40workspace%3A."
+  checksum: dd9772d214c2191e4cd50e8aea274016eb1bbca53e981fb72b03f95624782c1341edc99e3759259bb5d504443b519f3902a1ac1592f71dceff4c0fef94737516
   languageName: node
   linkType: hard
 
@@ -11805,7 +11813,7 @@ __metadata:
     "@types/react": ^18.2.14
     "@typescript-eslint/eslint-plugin": ^6.1.0
     "@typescript-eslint/parser": ^6.1.0
-    "@vercel/analytics": ^1.1.2
+    "@vercel/analytics": ^1.2.2
     autoprefixer: ^10.4.13
     contentlayer: 0.3.4
     cross-env: ^7.0.3
