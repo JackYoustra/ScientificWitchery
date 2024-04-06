@@ -1,7 +1,7 @@
 const projectsData = [
   {
     title: 'NanoFlick',
-    description: `My main pursuit for the last year or so. Check it out!`,
+    description: `My main pursuit for the last few years or so. Check it out!`,
     imgSrc: '/static/images/nanoflick.webp',
     href: 'https://www.nanoflick.com',
   },
