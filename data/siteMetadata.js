@@ -9,12 +9,15 @@ const siteMetadata = {
   siteUrl: 'https://jackyoustra.com',
   siteRepo: 'https://github.com/JackYoustra/ScientificWitchery',
   siteLogo: '/static/images/logo.png',
+  instagram: 'https://www.instagram.com',
+  threads: 'https://www.threads.net',
+  x: 'https://twitter.com/x',
+  twitter: 'https://twitter.com/master_thrawn',
   image: '/static/images/avatar.webp',
   socialBanner: '/static/images/twitter-card.webp',
   // mastodon: 'https://mastodon.social/@mastodonuser',
   email: 'jack@youstra.com',
   github: 'https://github.com/jackyoustra',
-  twitter: 'https://twitter.com/master_thrawn',
   facebook: 'https://www.facebook.com/profile.php?id=100004602496445',
   // youtube: 'https://youtube.com',
   linkedin: 'https://www.linkedin.com/in/jackyoustra',
@@ -26,6 +29,9 @@ const siteMetadata = {
     umamiAnalytics: {
       // We use an env variable for this site to avoid other users cloning our analytics ID
       umamiWebsiteId: process.env.NEXT_UMAMI_ID, // e.g. 123e4567-e89b-12d3-a456-426614174000
+      // You may also need to overwrite the script if you're storing data in the US - ex:
+      // src: 'https://us.umami.is/script.js'
+      // Remember to add 'us.umami.is' in `next.config.js` as a permitted domain for the CSP
     },
     // plausibleAnalytics: {
     //   plausibleDataDomain: '', // e.g. tailwind-nextjs-starter-blog.vercel.app

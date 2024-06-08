@@ -1,4 +1,11 @@
-const projectsData = [
+interface Project {
+  title: string,
+  description: string,
+  href?: string,
+  imgSrc?: string,
+}
+
+const projectsData: Project[] = [
   {
     title: 'NanoFlick',
     description: `My main pursuit for the last few years or so. Check it out!`,
