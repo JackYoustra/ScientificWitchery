@@ -77,7 +77,6 @@ Fortunately, there are a plethora of tools to turn a typescript type into a diff
 GBNF is a type of grammar that is used to specify the syntax of a programming language.
 Unlike typescript, which specifies the structure of a data type, GBNF specifies the structure of a language.
 The difference is that GBNF, given a string, has all the information necessary to determine the full set of allowed tokens for the next possible token in the sequence.
-It operates much like a regex, where it models a finite state machine. By viewing what the valid next states are in the finite state machine, we can prune the logits to only allow the valid tokens.
 
 For our `Person` type, the GBNF would look something like this:
 
