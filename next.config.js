@@ -108,6 +108,10 @@ module.exports = () => {
         }
       ]
 
+      if (!options.isServer) {
+        config.output.environment = { ...config.output.environment, asyncFunction: true };
+      }
+
       config.experiments.asyncWebAssembly = true
       config.experiments.layers = true
 
