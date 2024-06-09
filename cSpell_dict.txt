@@ -23,7 +23,9 @@ Existentials
 Exyte
 Failable
 Feifei
+Finetuning
 Fishhooking
+GBNF
 GGML
 GTLR
 Ghidra
@@ -40,6 +42,7 @@ Monomophization
 NDEBUG
 Nivo
 Objc
+Ollama
 PLAV
 PLUI
 PTHREAD
@@ -93,8 +96,10 @@ bazel
 beachball
 biiig
 bindgen
+blackbox
 bloaty
 blogpost
+bfnrt
 buildable
 cargs
 categoryoptions
@@ -153,6 +158,7 @@ ferror
 ffast
 fileflame
 fileno
+finetuning
 firestore
 fishhooking
 flto
@@ -164,6 +170,7 @@ fseek
 fsstat
 ftell
 fwasm
+gbnfspec
 getattrlistbulk
 getpath
 gettting
@@ -199,6 +206,7 @@ libvpx
 listified
 listifying
 lmao
+logits
 longjmp
 lumos
 madvise
@@ -270,7 +278,9 @@ seqlen
 seralization
 serde
 setjmp
+sglang
 sidenote
+softmax
 soooo
 sshfs
 stationned
@@ -306,6 +316,7 @@ vulkano
 waaaayyyy
 webm
 webworkers
+whitebox
 woohoo
 worky
 wrng
