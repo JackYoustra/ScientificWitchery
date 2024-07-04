@@ -1,0 +1,144 @@
+---
+title: "Some tools I found useful"
+date: '2024-07-04'
+tags: ['workflow', 'productivity']
+draft: false
+summary: "A detailed look into Jack's personal workflow and productivity tools."
+---
+
+_Author's note: it's unclear if this should be a post. I may yet move it, but I'll try and make this page a permalink?_
+
+<TOCInline toc={props.toc} exclude="Introduction" toHeading={2} indentDepth={2} />
+
+As a developer and tools enthusiast, I've come across various things that have significantly improved my productivity and / or QoL. This list compiles some of the most useful ones I've encountered, along with brief descriptions and links. Whether you're a seasoned computer user or just starting out, you might find something here to enhance your own toolkit.
+
+## File and Directory Management
+* [ripgrep: Grep (a finder) but way better. Respects .gitignore, ignores binary files, and much more!](https://github.com/BurntSushi/ripgrep)
+    * multithreaded
+    * `rg -tpy foo` limits your search to Python files
+    * `rg -z foo` _includes contents of compressed files_ in your search
+    * Regex support
+    * Unicode support (grep doesn't)
+    * [Common options md](https://github.com/BurntSushi/ripgrep/blob/master/GUIDE.md#common-options) (symbolic links, sort, etc)
+* [Dust](https://github.com/bootandy/dust)
+    * Quickly make a tree of filesizes in a directory
+    * No interactive mode! For that, use [ncdu](https://dev.yorhel.nl/ncdu) instead
+* [ncdu](https://dev.yorhel.nl/ncdu) - interactive du / dust
+* [duf](https://github.com/muesli/duf) - A better df
+* [bat](https://github.com/sharkdp/bat) - A better cat (highlighting and git)
+* [fd](https://github.com/sharkdp/fd) - A better find. Stop doing `find . | rg <name>`
+* [exa](https://the.exa.website/) - A better ls.
+* [xsv](https://github.com/BurntSushi/xsv) - Command line csv query engine
+* [hyperfine](https://github.com/sharkdp/hyperfine) - Quick command line benchmarking
+
+
+* Jdupes:
+    * Theory: if you have two files, A and B, and they're both the same, but you don't want to [hardlink](https://miro.medium.com/v2/resize:fit:624/1*bEu7dBB67IXWxxb_Qi8A0w.jpeg) them because if you change one you don't want it to reflect on the other, you're usually in a tough spot. Some filesystems (notably APFS - the mac file system) support _cloning_, though, which means that the copy is instead _delayed_, it's treated as a hardlink until there's a write to the contents of either file, at which point the copy actually happens and there's a write to the second file as the new file
+    * Jdupes does this in reverse: it scans a file structure, identifies duplicates, and replaces the duplicates with clones.
+    * It can do this with hardlinks and softlinks on non-cloning filesystems, but I'd discourage it as it isn't a pure space optimization (can change behavior)
+        * Test if your filesystem supports copy on write by running `cp –reflink=always <trivial> <trivial copy>`. If it fails, no support. If it succeeds, support.
+    * Not good for reliable performance, but really shouldn't matter
+
+## Git Tools
+* [Gitkracken](https://www.gitkraken.com/): a nice git explorer + cool commit graph (ai commit messages now too). Free for students and most repos. Has a vscode extension [gitlens](https://marketplace.visualstudio.com/items?itemName=eamodio.gitlens)
+* [GitLens](https://marketplace.visualstudio.com/items?itemName=eamodio.gitlens)
+* Clone blobless by default and shallow if you really just need a one-shot: https://github.blog/2020-12-21-get-up-to-speed-with-partial-clone-and-shallow-clone/
+
+## GPU Monitoring
+* [Nvidia-smi+](https://marketplace.visualstudio.com/items?itemName=RSIP-Vision.nvidia-smi-plus): makes a nvidia smi window in xcode (also can do amd gpus)
+* [Nvtop](https://github.com/Syllo/nvtop): better nvidia-smi
+
+## General dev tools
+* [Quicktype](https://app.quicktype.io/): translate any json to parsing code + types, or just types. Supports most languages.
+* [difftastic](https://github.com/Wilfred/difftastic) - structural diff tool
+* [mold](https://github.com/rui314/mold) - faster linker
+
+## LLM tools
+* [LLM visualizer](https://bbycroft.net/llm) The best LLM visualization tool. I use it to reason about how LLMs work, much easier than grokking math.
+* [code2prompt: Code repository to prompt. A nice preamble to attach to code queries!](https://github.com/mufeedvh/code2prompt)
+* [llm-explorer](https://llm-explorer.com/) - a tool for finding useful llms for whatever task you may have.
+* [Interact with streams as if they were json](https://github.com/h4l/json.bash)
+    * [jq](https://jqlang.github.io/jq/) allows you to query json on command line too
+* [Outlines](https://github.com/outlines-dev/outlines) - constrained LLM generation (simple)
+* [Guidance](https://github.com/guidance-ai/guidance) - constrained LLM generation (complex)
+_(or, if you want to do it manually)_
+* [Ollama](https://ollama.com/library) - really quickly and easily run models! Can run most open source models at most quantization levels (via llama.cpp)
+    * Run the server: `OLLAMA_FLASH_ATTENTION=1 OLLAMA_MAX_LOADED_MODELS=0 OLLAMA_NUM_PARALLEL=0 OLLAMA_DEBUG=1 OLLAMA_GRAMMAR=true ./ollama serve`
+    * Pull: `ollama pull llama3:8b-instruct-q8_0`
+    * Make requests
+        * CLI: `ollama run` (can just chat in terminal)
+        * OpenAI compatible API: just point the openai sdk to localhost:11434
+            * Slightly different if not localhost, some [additional setup](https://github.com/ollama/ollama/blob/main/docs/faq.md#how-can-i-use-ollama-with-ngrok) required
+    * [Runpod has out of the box support for an ollama client](https://docs.runpod.io/tutorials/pods/run-ollama)
+* Quicktype -> ollama (a fork thereof): [see my blog post](/blog/typescript-with-ollama#implementation) for a guide, but you can constrain LLM output to fit a typescript type (or any json schema). Useful for running experiments (for example, my implementation of TAP had _no error handling / retry code_ needed).
+    * NB: for now, you're going to have to manually build ollama for this. It's not too tricky and you can use neat flags, but the grammar PR hasn't been merged yet, so either build a branch yourself or ask me for mine (be more than happy to do it).
+
+## Swift tools
+* [swift-format](https://github.com/apple/swift-format) - a tool for formatting swift code.
+* [SwiftFormat](https://github.com/nicklockwood/SwiftFormat) - a tool for formatting swift code. I use this one.
+* [Periphery](https://github.com/peripheryapp/periphery) - identify unused swift code.
+* [Swift Regex](https://swiftregex.com/) - a tool for working with regex in swift and building them.
+* [swift-ast-explorer](https://swift-ast-explorer.com/) - a tool for exploring the swift abstract syntax tree. Useful for macros!
+* [Async Channels](https://github.com/gh123man/Async-Channels) - go channels, in Swift. Performant.
+* [DLKit](https://github.com/johnno1962/DLKit) - Very convenient [fishhook](https://github.com/facebook/fishhook) wrapper to interpose method calls in dylibs.
+* [Swift Injection](https://github.com/krzysztofzablocki/Inject) - Runtime method replacement in swift. Lots of requirements but VERY fast (per-file compilation times instead of module).
+* [HotReloading](https://github.com/johnno1962/HotReloading) - A more direct version of the prior package.
+* [swift-url-routing](https://github.com/pointfreeco/swift-url-routing) - Typesafe Swift URL router / builder
+* [SwiftTrace](https://github.com/johnno1962/SwiftTrace) - A runtime tracing tool for Swift. Trace and filter method invocations to see what's going on in the app. Useful for monkey patching.
+* [UtilityType](https://github.com/bannzai/UtilityType) - [TypeScript utility](https://www.typescriptlang.org/docs/handbook/utility-types.html) types for Swift.
+* [SwiftUI-Introspect](https://github.com/siteline/SwiftUI-Introspect) - Runtime introspection of SwiftUI views.
+* [lumos](https://github.com/jackyoustra/lumos) - My preferred tool for [method swizzling](https://nshipster.com/method-swizzling/). Not very good, probably shouldn't use this one.
+
+## Mobile dev tools
+* [Expo](https://expo.dev/) - an extension of react native that makes it very easy to develop and test cross platform react native apps. IMO, the best way to write a mobile app.
+* [Flipper](https://fbflipper.com/) - a tool for debugging react native apps.
+* [Chisel](https://github.com/facebook/chisel) - an lldb environment of useful commands for iOS lldb (such as open a UIImage in preview, print the view hierarchy, etc).
+* [TCA](https://github.com/pointfreeco/swift-composable-architecture) - A good reducer framework for Apple SDKs.
+* [Swift Snapshot Testing](https://github.com/pointfreeco/swift-snapshot-testing) - Write snapshot tests for swift.
+* [SnapshotPreviews-iOS](https://github.com/EmergeTools/SnapshotPreviews-iOS) - Turn your SwiftUI previews into snapshot tests!
+* [AccessibilitySnapshot](https://github.com/cashapp/AccessibilitySnapshot) - Snapshot test accessibility
+* [ViewInspector](https://github.com/nalexn/ViewInspector) - Runtime inspection of SwiftUI views
+* [Prefire](https://github.com/BarredEwe/Prefire) - [Storybook](https://storybook.js.org/), but for SwiftUI
+* [swiftui-navigation-transitions](https://github.com/davdroman/swiftui-navigation-transitions) - Custom transitions in SwiftUI
+
+
+## Web dev tools
+* [wired-elements](https://github.com/rough-stuff/wired-elements) - a cute components library with a handdrawn look.
+
+
+## Binary analysis
+* [godbolt](https://godbolt.org/) - The compiler explorer. A tool for testing and optimizing code with different compilers and different flags. [A cool example](https://godbolt.org/z/z87EfP9fE).
+    * explore opt pipelines
+    * view microarchitecture implications on diff arches
+* [dogbolt](https://dogbolt.org/) - The reverse of godbolt, a decompiler explorer.
+* [bloaty](https://github.com/google/bloaty) - a tool for analyzing binary code.
+    * [This website's gui version of bloaty!](/binary)
+* [capa](https://github.com/mandiant/capa) - a first guess at a binary's capabilities.
+
+## Rust creates
+* [serde](https://serde.rs/) - a rust library for serializing and deserializing data.
+* [tokio](https://tokio.rs/) - a rust runtime for writing concurrent code.
+* [async-std](https://async.rs/) - a rust runtime for writing concurrent code.
+* [wgpu](https://wgpu.rs/) - a rust library for writing cross-platform GPU code.
+* [naga](https://github.com/nagase-yutaka/naga) - a universal shader compiler (any sl to any target language).
+* [bevy](https://bevyengine.org/) - a rust ECS game engine. Really nice community!
+* [proptest](https://crates.io/crates/proptest) - a rust library for property based testing.
+* [cargo-watch](https://crates.io/crates/cargo-watch) - a rust library for watching cargo projects and running cargo commands when files change.
+* [cargo-fuzz](https://crates.io/crates/cargo-fuzz) - a rust library for [fuzz testing](https://github.com/google/fuzztest).
+* [llvm-plugin-rs](https://github.com/jamesmth/llvm-plugin-rs) - out of tree llvm plugin framework! Write compiler passes without having to clone and build llvm.
+* [insta](https://github.com/mitsuhiko/insta) - snapshot testing
+* [kani](https://github.com/model-checking/kani) - Rust formal verification engine, for times when proptesting and fuzzing won't cut it. Really nice ergonomics!
+
+
+## Misc
+* [Obsidian Dataview](https://github.com/blacksmithgu/obsidian-dataview) - Turn your markdown notes into searchable databases and query over them.
+* Alfred (hackernews plugin)
+* Screen
+* [Bun.sh](https://bun.sh/) - if you ever have to run `npm` anything or `npx` anything, just run `bun` or `bunx` instead. It's much faster.
+* [Turbolizer](https://v8.github.io/tools/head/turbolizer/index.html) - a v8 tool for analyzing and optimizing javascript code by looking at the JIT passes.
+* [d8](https://gist.github.com/kevincennis/0cd2138c78a07412ef21) - a v8 shell for running javascript and learning about the v8 engine and the optimizations it performs.
+* [regex101](https://regex101.com/) - a tool for testing regex and building them. I use this one, no particular attachment.
+* [regexr](https://regexr.com/) - another tool for testing regex and building them.
+* [v86](https://copy.sh/v86/) - Quickly run (small) OSes in the browser
+* [Ball](https://github.com/nate-parrott/ball) - A ball that lives in your dock. Quite fun.
+* [Money stuff](https://www.bloomberg.com/account/newsletters/money-stuff) - Free fun "weird things in finance" newsletter.
