@@ -74,7 +74,11 @@ function createTagCount(allBlogs) {
       })
     }
   })
-  writeFileSync('./app/tag-data.json', JSON.stringify(tagCount))
+  // sort to make canonical ordering, preserve record form
+  const sortedTagCount: Record<string, number> = Object.fromEntries(
+    Object.entries(tagCount).sort((a, b) => b[1] - a[1])
+  )
+  writeFileSync('./app/tag-data.json', JSON.stringify(sortedTagCount))
 }
 
 function createSearchIndex(allBlogs) {
