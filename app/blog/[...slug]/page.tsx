@@ -107,7 +107,7 @@ export default async function Page({ params }: { params: { slug: string[] } }) {
   const Layout = layouts[post.layout || defaultLayout]
 
   return (
-    <>
+    <div className="max-w-full" style={{ overflowWrap: 'anywhere' }}>
       <script
         type="application/ld+json"
         dangerouslySetInnerHTML={{ __html: JSON.stringify(jsonLd) }}
@@ -115,6 +115,6 @@ export default async function Page({ params }: { params: { slug: string[] } }) {
       <Layout content={mainContent} authorDetails={authorDetails} next={next} prev={prev}>
         <MDXLayoutRenderer code={post.body.code} components={components} toc={post.toc} />
       </Layout>
-    </>
+    </div>
   )
 }

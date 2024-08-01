@@ -4,6 +4,8 @@ const withBundleAnalyzer = require('@next/bundle-analyzer')({
   enabled: process.env.ANALYZE === 'true',
 })
 
+const path = require('path')
+
 // You might need to insert additional domains in script-src if you are using external services
 const ContentSecurityPolicy = `
   default-src 'self';
@@ -70,6 +72,9 @@ module.exports = () => {
   const plugins = [withContentlayer, withBundleAnalyzer]
   return plugins.reduce((acc, next) => next(acc), {
     reactStrictMode: true,
+    experimental: {
+      swcPlugins: [['@onlook/nextjs', { root: path.resolve('.') }]],
+    },
     pageExtensions: ['ts', 'tsx', 'js', 'jsx', 'md', 'mdx'],
     eslint: {
       dirs: ['app', 'components', 'layouts', 'scripts'],
@@ -83,7 +88,7 @@ module.exports = () => {
         {
           protocol: 'https',
           hostname: 'pbs.twimg.com',
-        }
+        },
       ],
     },
     async headers() {
@@ -105,11 +110,11 @@ module.exports = () => {
         {
           test: /\.wasm$/,
           type: 'webassembly/async',
-        }
+        },
       ]
 
       if (!options.isServer) {
-        config.output.environment = { ...config.output.environment, asyncFunction: true };
+        config.output.environment = { ...config.output.environment, asyncFunction: true }
       }
 
       config.experiments.asyncWebAssembly = true
