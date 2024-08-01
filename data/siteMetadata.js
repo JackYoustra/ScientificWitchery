@@ -8,13 +8,13 @@ const siteMetadata = {
   theme: 'system', // system, dark or light
   siteUrl: 'https://jackyoustra.com',
   siteRepo: 'https://github.com/JackYoustra/ScientificWitchery',
-  siteLogo: '/static/images/logo.png',
+  siteLogo: `${process.env.BASE_PATH || ''}/static/images/logo.png`,
   instagram: 'https://www.instagram.com',
   threads: 'https://www.threads.net',
   x: 'https://twitter.com/x',
   twitter: 'https://twitter.com/master_thrawn',
   image: '/static/images/avatar.webp',
-  socialBanner: '/static/images/twitter-card.webp',
+  socialBanner: `${process.env.BASE_PATH || ''}/static/images/twitter-card.webp`,
   // mastodon: 'https://mastodon.social/@mastodonuser',
   email: 'jack@youstra.com',
   github: 'https://github.com/jackyoustra',
@@ -35,6 +35,8 @@ const siteMetadata = {
     },
     // plausibleAnalytics: {
     //   plausibleDataDomain: '', // e.g. tailwind-nextjs-starter-blog.vercel.app
+    // If you are hosting your own Plausible.
+    //   src: '', // e.g. https://plausible.my-domain.com/js/script.js
     // },
     // simpleAnalytics: {},
     // posthogAnalytics: {
@@ -82,7 +84,7 @@ const siteMetadata = {
   search: {
     provider: 'kbar', // kbar or algolia
     kbarConfig: {
-      searchDocumentsPath: 'search.json', // path to load documents to search
+      searchDocumentsPath: `${process.env.BASE_PATH || ''}/search.json`, // path to load documents to search
     },
     // provider: 'algolia',
     // algoliaConfig: {
