@@ -12,7 +12,7 @@ const siteMetadata = {
   instagram: 'https://www.instagram.com',
   threads: 'https://www.threads.net',
   x: 'https://twitter.com/x',
-  twitter: 'https://twitter.com/master_thrawn',
+  twitter: 'https://twitter.com/jackyoustra',
   image: '/static/images/avatar.webp',
   socialBanner: `${process.env.BASE_PATH || ''}/static/images/twitter-card.webp`,
   // mastodon: 'https://mastodon.social/@mastodonuser',
