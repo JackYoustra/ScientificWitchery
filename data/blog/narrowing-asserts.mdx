@@ -1,0 +1,115 @@
+---
+title: Narrowing types with asserts
+date: '2024-09-30'
+tags: ['python', 'typescript', 'swift']
+draft: false
+summary: "How to make an Optional<T> into T when we're sure"
+---
+
+_Author's Note: Sorry for being gone for so long! Ramping on AI is a lot of learning, and most of the stuff I've learned hasn't met my bar for originality 'cause, y'know, ramping. I may start writing on things that may be out there already but I feel like there's either a new way to explain it or a new nuance that I've learned. These posts will probably be shorter. Let me know what you think!_
+
+# Narrowing!
+
+I've been learning Python for a while now, and I've noticed that the language has a lot of features that are very similar to TypeScript.
+One of the features that I've found particularly useful is the ability to narrow types using asserts.
+
+You usually have this seen in typescript with code like this:
+
+```typescript
+let x: string | number | undefined = nondeterministic_function()
+
+if (typeof x === 'string') {
+  // x is now known to the typechecker to be a string
+}
+```
+
+In Python, you can do something similar with the `isinstance` function:
+
+```python
+x = nondeterministic_function()
+
+if isinstance(x, str):
+    # x is now known to the typechecker to be a string
+```
+
+Notably, this also works with asserts in Python, probably most used in Optional types:
+
+```python
+x: Optional[str] = nondeterministic_function()
+
+assert x is not None
+# x is now known to the typechecker to be a string
+```
+
+In compiled languages, such as Swift, you usually can't do this.
+Oh, sure, you can do a cast with a new binding for the name
+
+```swift
+let x: String? = nondeterministic_function()
+if let x {
+    // x is now known to the typechecker to be a string
+}
+```
+
+Which, on its own, certainly _looks_ like it's doing the same thing, but this is just syntactic sugar around the following:
+
+```swift
+let x: String? = nondeterministic_function()
+if case .some(let inner_scope_x) = x {
+    // inner_scope_x is now known to the typechecker to be a string
+}
+```
+
+This is really just a new variable binding / reassingment, not a fundamental dynamic narrowing by the typechecker.
+
+# Bonus tech talk
+
+This can be done in interpreted languages because they don't have ahead-of-time fixed types. Everything is dynamic, so suppose you have the following:
+
+```python
+x = exec("<some python>")
+
+if isinstance(x, str):
+    length = len(x)
+```
+
+[gets compiled to](https://gcc.godbolt.org/z/8Eo3Tcc6e)
+
+```bytecode
+# ...
+4           36 PUSH_NULL
+            38 LOAD_NAME                4 (len)
+            40 LOAD_NAME                1 (x)
+            42 CALL                     1
+            50 STORE_NAME               5 (length)
+            52 RETURN_CONST             1 (None)
+# ...
+```
+
+whereas this (compiled) Swift:
+
+```swift
+let x: String? = nondeterministic_function()
+
+if let x {
+    length = len(x)
+}
+```
+
+[has the SIL of the follwing](https://gcc.godbolt.org/z/YhdMM4bYY)
+
+```sil
+// ...
+bb1(%5 : $String):                                // Preds: bb0
+  debug_value %5 : $String, let, name "unwrapped", loc "/app/example.swift":4:12, scope 6 // id: %6
+  %7 = function_ref @$sSS5countSivg : $@convention(method) (@guaranteed String) -> Int, loc "/app/example.swift":5:26, scope 7 // user: %8
+  %8 = apply %7(%5) : $@convention(method) (@guaranteed String) -> Int, loc "/app/example.swift":5:26, scope 7 // user: %10
+  release_value %2 : $Optional<String>, loc * "<compiler-generated>":0:0, scope 2 // id: %9
+  br bb3(%8 : $Int), loc "/app/example.swift":5:9, scope 7 // id: %10
+// ...
+```
+
+The method call in the python bytecode is purely virtual and always is: there's only a call to an abstract name, whose concrete form is determined by the python interpreter.
+
+In the Swift SIL, which later gets compiled to machine code, there's a direct method call to the appropriate implementation,
+which implicitly has a dependency on the shape: that's what the `@guaranteed String` means.
