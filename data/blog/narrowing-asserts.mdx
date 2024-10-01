@@ -75,7 +75,7 @@ if isinstance(x, str):
 
 [gets compiled to](https://gcc.godbolt.org/z/8Eo3Tcc6e)
 
-```bytecode
+```python
 # ...
 4           36 PUSH_NULL
             38 LOAD_NAME                4 (len)
@@ -96,9 +96,9 @@ if let x {
 }
 ```
 
-[has the SIL of the follwing](https://gcc.godbolt.org/z/YhdMM4bYY)
+[has the SIL of the follwing](https://gcc.godbolt.org/z/YhdMM4bYY)[^1]
 
-```sil
+```llvm
 // ...
 bb1(%5 : $String):                                // Preds: bb0
   debug_value %5 : $String, let, name "unwrapped", loc "/app/example.swift":4:12, scope 6 // id: %6
@@ -112,4 +112,10 @@ bb1(%5 : $String):                                // Preds: bb0
 The method call in the python bytecode is purely virtual and always is: there's only a call to an abstract name, whose concrete form is determined by the python interpreter.
 
 In the Swift SIL, which later gets compiled to machine code, there's a direct method call to the appropriate implementation,
-which implicitly has a dependency on the shape: that's what the `@guaranteed String` means.
+which implicitly has a dependency on the shape: that's what the `String` in `@guaranteed String` means.[^2]
+
+[^1]: Prism doesn't have syntax highlighting for SIL. Sad! We'll just use LLVM IR highlighting instead.
+
+[^2]:
+    The `@guaranteed` refers to lifetime, not on the status of an optional value!
+    For more on what the `@guaranteed` means, check out the (imo) veryfun to read [SIL docs](https://github.com/swiftlang/swift/blob/main/docs/SIL.rst#ownership-kind) on the matter.
