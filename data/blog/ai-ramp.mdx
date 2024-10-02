@@ -1,0 +1,100 @@
+---
+title: AI Ramp
+date: '2024-10-01'
+tags: ['ai']
+draft: false
+summary: 'My thoughts after working on AI for a few months'
+---
+
+# AI Ramp
+
+I've been working on AI for a few months now. I have a lot of random thoughts, but I lack the expertise to actually go into long-form on each of them
+and be confident in my understanding.
+
+Instead, I'll just put out a bunch of half-formed thoughts here and there, and see where they go.
+This will probably flow similar to my [tooling post](/blog/jacks-tooling), where I just dump a bunch of stuff that I've found interesting and link to other more polished resources.
+I'm probably going to look back at this and be embarrassed by some of it, but that's life. If you read it and think something could be better, please let me know!
+
+## Code
+
+I've primarily been using PyTorch with numpy and huggingface. I've been pretty happy with it.
+I'll probably look to try the following over the next few months:
+
+- [Pytorch Lightning](https://lightning.ai/docs/pytorch/stable/): This seems to mostly target boilerplate and make pytorch more modular. A lot of pytorch is just systems code that's easy to get wrong, so perhaps this will help.
+- [Dask](https://dask.org/): Every numpy array is contiguous. This can lead to problems: suppose we have a list of 10 numpy arrays, each of shape (70, \<large\>) and we want to reshape it into a list / dict / whatever of 70 numpy arrays, each of shape (10, \<large\>).[^1] Doing this in numpy implies a full memory copy, which is slow and wasteful. Dask can do this lazily and, in some instances, not at all (you can just operate over the chunks). If your ultimate destination is just a GPU copy anyway and you're careful about memory access patterns, perhaps this can save a lot of copies!
+
+## Fine-tuning
+
+There's a lot to be said about fine-tuning libraries. Solutions abound, and I've only looked at a few:
+
+### Hosted:
+
+- [OpenAI](https://platform.openai.com/docs/guides/fine-tuning): The big dog. Lets you train (or soft prompt, its unclear?) the GPT-series just by uploading a jsonl file.
+- [Together](https://docs.together.ai/guides/fine-tuning): Has a fairly customizeable way to fine-tune several common model variants. I haven't been able to find a way to download just the lora adapters though, so rip disk space and efficient multi-lora inference.
+- (other services that I haven't used. There are a lot of them.)
+
+I've only personally used openai and together ai so far, but there are plenty of other options out there.
+
+---
+
+Before you go any further, you're going to have to learn a good amount about fine-tuning hyperparameters (more than lora, learning, rate, etc).
+There are a few concepts you should read about:
+
+- [FSDP](https://lightning.ai/docs/pytorch/stable/advanced/model_parallel/fsdp.html)
+- [Deepspeed](https://lightning.ai/docs/pytorch/stable/advanced/model_parallel/deepspeed.html)
+
+Frustratingly, I can't find a really good systems-based approach to the above. Maybe I'll write it one day, but I found [this blog post](https://sumanthrh.com/post/distributed-and-efficient-finetuning/) that looks pretty good if you want somewhat of a comprehensive overview.
+
+### Local:
+
+- [Axolotl](https://github.com/axolotl-ai-cloud/axolotl/blob/main/docs/config.qmd) - I linked the config docs because that's where you'll be spending most of your time, but the README is good too. Axolotl has it all: custom datasets, custom optimized operators, cutting-edge techniques, and a nice yaml configuration files. Easy to get started, and good caching, too. Recommend!
+- [LLaMA-Factory](https://github.com/hiyouga/LLaMA-Factory) - Runner-up to Axolotl. Has a lot of the same features, but a little more difficulty with custom datasets and FSDP. I found their documentation a little easier to understand, though.
+- [Torchtune](https://github.com/pytorch/torchtune) - Spent some time trying to use this and found the documentation lacking and somewhat out of date. It lacks all of the nice autotemplating of the above for unclear gain. After doing some botched fine-tunes, abandoned it.
+- [LLaMA-Recipies](https://github.com/meta-llama/llama-recipes) - Intended specifically for the LLaMA series, it provides a lot of the basics when it comes to fine-tuning. Has some llama-specific setups. Haven't really used it.
+- [Unsloth](https://github.com/unsloth-ai/unsloth) - Quite fast and quite efficient! Has a paid tier for super fast and multi-GPU. Integrates with Axolotl, so you can just set some config stuff instead of switching your whole harness.
+
+### Manual:
+
+- [Huggingface](https://huggingface.co/docs/transformers/main/en/tasks/fine-tuning)
+- [Lightning](https://lightning.ai/docs/pytorch/stable/common/trainer.html)
+
+Like most pytorch / huggingface code, there's a lightning equivalent. This is the most modular and fine-grained control you can get.
+Expect to do your own tokenization, caching, dataset processing, etc. If you're thinking about doing this, I'd look at the above solutions first
+and see if there's a way to patch them internally (they probably use huggingface's trainer internally) for your purposes: that way, you get
+the rest of the ergonomics on top of whatever you're building.
+
+## Inference
+
+### API
+
+There are so many of these I won't go into any individually, (shoutout to Cerebras though, they seem to have a neat chip and really fast inference!).
+
+- Directly call the API or use their SDK. This has the problem of each API having different endpoints, different parameters, different behavior, etc. If you plan on doing multiple, you have to write your own wrapper. This is becoming less and less of a problem, though: most companies seem to standardize on openai's API.
+- Use [litellm](https://docs.litellm.ai/) (my preferred first port of call). This is nice because it also has a caching solution and has backends for most major AI providers. However, it does have bugs, so sometimes it's just less of a pain to go to openai directly and roll your own caching layer.
+
+### Local
+
+- [Ollama](https://ollama.com/): Free, open source, and easy to use. We've [talked about it before](/blog/typescript-with-ollama) on this blog. `ollama pull` will get most models at most (GGUF) quantizations, and it will run on basically anything. It's a little slower than other solutions on some machines, and isn't the best at multi-GPU, but it's quite good and definitely a great first choice when you're just trying to get something running or play around. I have this installed on my m2 and I've been completely satisfied.
+- [vLLM](https://github.com/vllm-project/vllm): What seems to be the most-used inference library. It's got a lot of features, a lot of quant providers, and a lot of model support, but I've found really nasty edge cases in many different parts of it, from egregiously long startup times for some quants (~tens of minutes to build cuda graphs) to flaky quant support to OOM errors when the scheduler doesn't respect your explicit VRAM limits. It'll serve you well initially, but I would instead use...
+- [SGLang](https://github.com/sgl-project/sglang). Fast, good startup time, great quant support (including runtime quant), quick to update support for new model constructs, and a great scheduler that respects VRAM limits on WSL (so it won't overflow into shared graphics memory off-chip). Plus, it has the best constrained generation I've found, which I [had to patch in myself](/blog/typescript-with-ollama) for ollama! Will also run in a lot of places.
+- [WebLLM](https://webllm.mlc.ai/): Really like webGPU, so it's good to see someone bringing an llm engine to the web. Has the basics you'd expect (good variety, OAI api compatibility, streaming, etc). If you're having trouble getting llama.cpp to build for your platform or having a tough time deploying, this might be a good solution.
+- [TensorRT-LLM](https://github.com/NVIDIA/TensorRT-LLM): I've heard good things about this. [SGLang claims to have it beat.](https://lmsys.org/blog/2024-07-25-sglang-llama3/). Obviously nvidia only. That's about all I know about it.
+
+## Tooling
+
+- [Cursor](https://www.cursor.com/): I've switched to using this over VSCode / copilot. Its RAG is very good, especially when conversing with the codebase, @Docs is nice (although the crawler is finnicky), and the autocomplete is quite good. I've been using it on some of my more annoying side-projects and it's been great. Definitely worth $20/month.
+- [code2prompt](https://github.com/mufeedvh/code2prompt). Code repository to prompt. A nice preamble to attach to code queries, if you use your own chat or api key or whatever! Use the main branch, it's much better than the version on cargo.
+
+## Evals
+
+I've met basically no one that thinks that [MMLU](https://paperswithcode.com/dataset/mmlu) is good. I've heard vaguely positive things about [GPQA](https://github.com/idavidrein/gpqa)
+and a general sense that [chatbot-arena](https://lmarena.ai/) (same people who wrote SGLang too!) is the best we have. Super uninformed on this front, though.
+
+## Fun games
+
+If you're trying to find some cool games to get into the mind of an AI, a few come to mind:
+
+- [Semantle](https://semantle.com/): Guess the word the AI is thinking of by finding the cosine similarity between your guesses. Specifically, mmeasures the distances between embeddings trained by masked bag-of-words on [Google News](https://www.kaggle.com/datasets/leadbest/googlenewsvectorsnegative300/data).
+- [lm-game](https://rr-lm-game.herokuapp.com/whichonescored): [See the writeup](https://www.alignmentforum.org/posts/htrZrxduciZ5QaCjw/language-models-seem-to-be-much-better-than-humans-at-next). Given some corpus (webtext?), you try to guess what the next token is between two options. You're graded against several different gpt-2 tier models. Quite hard! Quite fun. Maybe I'll make a mobile version on custom text?
+
+[^1]: If this were a full numpy array, you could do this with a view, but sometimes you have a function which returns a numpy array, and you run it in a loop over many different inputs, and before you know it, you've got a huge list of numpy arrays.
