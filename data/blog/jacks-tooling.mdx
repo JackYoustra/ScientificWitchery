@@ -6,7 +6,7 @@ draft: false
 summary: "A detailed look into Jack's personal workflow and productivity tools."
 ---
 
-_Author's note: it's unclear if this should be a post. I may yet move it, but I'll try and make this page a permalink?_
+_Author's note: it's unclear if this should be a post. I may yet move it, but I'll try and make this page a permalink? The date here is the first posted date, but I've been updating it as I find new tools._
 
 <TOCInline toc={props.toc} exclude="Introduction" toHeading={2} indentDepth={2} />
 
@@ -47,6 +47,8 @@ As a developer and tools enthusiast, I've come across various things that have s
 ## GPU Monitoring
 * [Nvidia-smi+](https://marketplace.visualstudio.com/items?itemName=RSIP-Vision.nvidia-smi-plus): makes a nvidia smi window in xcode (also can do amd gpus)
 * [Nvtop](https://github.com/Syllo/nvtop): better nvidia-smi
+* [Nvitop](https://github.com/XuehaiPan/nvitop): better nvidia-smi
+_Note, you can also look at [this article](https://lambdalabs.com/blog/keeping-an-eye-on-your-gpus-2) for an overview of the ecosystem_
 
 ## General dev tools
 * [Quicktype](https://app.quicktype.io/): translate any json to parsing code + types, or just types. Supports most languages.
@@ -72,6 +74,10 @@ _(or, if you want to do it manually)_
     * [Runpod has out of the box support for an ollama client](https://docs.runpod.io/tutorials/pods/run-ollama)
 * Quicktype -> ollama (a fork thereof): [see my blog post](/blog/typescript-with-ollama#implementation) for a guide, but you can constrain LLM output to fit a typescript type (or any json schema). Useful for running experiments (for example, my implementation of TAP had _no error handling / retry code_ needed).
     * NB: for now, you're going to have to manually build ollama for this. It's not too tricky and you can use neat flags, but the grammar PR hasn't been merged yet, so either build a branch yourself or ask me for mine (be more than happy to do it).
+
+## Python tools
+* [nbconvert](https://nbconvert.readthedocs.io/en/latest/) - convert notebooks to other formats. Useful if you have a notebook that you want to convert to a script for LLM iteration.
+* [jupytext](https://jupytext.readthedocs.io/en/latest/) - If you get tons of install issues with nbconvert (like me), this also works quite well.
 
 ## Swift tools
 * [swift-format](https://github.com/apple/swift-format) - a tool for formatting swift code.
