@@ -1,9 +1,9 @@
 ---
-title: "DeepSeek R1 released: A Leap Forward in AI Reasoning"
+title: 'DeepSeek R1 released: A Leap Forward in AI Reasoning'
 date: '2025-01-22'
 tags: ['ai']
 draft: false
-summary: "A stunningly-good CoT model, with even better distilled children."
+summary: 'A stunningly-good CoT model, with even better distilled children.'
 ---
 
 # Introduction
@@ -13,12 +13,15 @@ It has near o1 (OpenAI's reasoning model) performance with (hypothesized) far, f
 This has already been [discussed in hackernews](https://news.ycombinator.com/item?id=42768072) but I thought I'd write a bit about the parts that stood out to me,
 mostly from the [github](https://github.com/deepseek-ai/DeepSeek-R1).
 
-
 # Unsurprising things
- **Large Context Length:**  A context window of 128k tokens is consistent with recent advancements, notably mirroring capabilities seen in models like Llama and 4o.
- **Scaling Laws and Mixture of Experts (MoE):** The architecture appears to reinforce the established scaling laws for Mixture of Experts models, suggesting continued efficiency gains with larger, sparsely activated networks.
- **Strong Performance:** It's on-par with o1 performance. It has (presumably) far fewer activated parameters than o1 assuming o1 is based on 4o and 4o is dense.
- **Reasoning Benchmark Token Count:**  The benchmarks utilize 32,768 tokens for reasoning tasks. Explicitly stating this number is valuable as it provides a clearer reference point for the token usage in Chain-of-Thought evaluations, something often implicit in other reports.
+
+**Large Context Length:** A context window of 128k tokens is consistent with recent advancements, notably mirroring capabilities seen in models like Llama and 4o.
+
+**Scaling Laws and Mixture of Experts (MoE):** The architecture appears to reinforce the established scaling laws for Mixture of Experts models, suggesting continued efficiency gains with larger, sparsely activated networks.
+
+**Strong Performance:** It's on-par with o1 performance. It has (presumably) far fewer activated parameters than o1 assuming o1 is based on 4o and 4o is dense.
+
+**Reasoning Benchmark Token Count:** The benchmarks utilize 32,768 tokens for reasoning tasks. Explicitly stating this number is valuable as it provides a clearer reference point for the token usage in Chain-of-Thought evaluations, something often implicit in other reports.
 
 # The Real Jaw-Droppers: Distillation Magic
 
@@ -26,42 +29,56 @@ The most remarkable findings from DeepSeek R1 are undoubtedly in their distillat
 
 They distill their chain of thought model into smaller dense models, which is nice for people who aren't able to serve a 600b+ parameter moe.
 These models range from the mobile-friendly Qwen-1.5B to the frontier Llama-3.3-70B.
-They evaluate on several challenging benchmarks: AIME (American Invitational Mathematics Examination - a notoriously difficult high school math competition), MATH (a dataset of advanced mathematics problems), GPQA Diamond (a graduate-level Q&A benchmark), and programming challenges from LiveCodeBench and CodeForces.
+They evaluate on several challenging benchmarks:
 
-_And the benchmarks, oh, the benchmarks._
+- AIME (American Invitational Mathematics Examination - a notoriously difficult high school math competition)
+- MATH (a dataset of advanced mathematics problems)
+- GPQA Diamond (a graduate-level Q&A benchmark)
+- programming challenges from LiveCodeBench and CodeForces.
 
-The benchmark results are truly impressive.  The CoT distillation process appears to imbue these smaller models with significantly enhanced reasoning abilities, surpassing the 'brief and untrained' reasoning observed even in larger, frontier models that have not undergone similar distillation.
+_And [the benchmarks](https://github.com/deepseek-ai/DeepSeek-R1#distilled-model-evaluation), oh, the benchmarks._
+
+The benchmark results are truly impressive. The CoT distillation process appears to imbue these smaller models with significantly enhanced reasoning abilities, surpassing the 'brief and untrained' reasoning observed even in larger, frontier models that have not undergone similar distillation.
 
 This advantage is starkly illustrated by the 1.5B parameter model. It achieves a 29% pass rate on AIME (pass@1), dramatically outperforming models like GPT-4o (9.3%) and Claude 3.5 Sonnet (16.0%), both of which are significantly larger, frontier-level models. This result strongly suggests that CoT distillation is a highly effective method for enhancing reasoning in smaller models, particularly in tasks like AIME. While larger models may retain an edge in knowledge-intensive tasks such as fact retrieval (as evidenced by the 1.5B model being narrowly outperformed in GPQA by frontier models without CoT distillation), the distilled 7B model surpasses GPT-4o in GPQA, and the Llama 3.3 70B distilled model outperforms Claude 3.5 Sonnet.
 
-## Wait, Distillation is Beating... Human Data?!
+## Some other places this is discussed
+
+The [interconnects blog](https://www.interconnects.ai/p/deepseek-r1-recipe-for-o1) has a more in-depth discussion.
+
+[aider](https://aider.chat/blog/deepseek-r1), an open-source AI assistant, has a SWE benchmark to test how well a given AI can solve programming problems. It has two roles in its architecture: an _architect_, which reasons at a high level about solutions, and a _coder_, which actually writes the code. Their new results table is crazy: R1 + Sonnet _beat_ o1 at less than 10% of the cost.
+
+{/* ## Wait, Distillation is Beating... Human Data?!
 QwQ is a model trained on human chain-of-thought data, the same way r1 is, just much smaller: it only has 32b parameters.
 We can see from the benchmark table distilled models are outperforming QwQ: you can control for parameter count by comparing
-QwQ (32b) with R1-distilled Qwen-32B. The distilled model performs better in _every benchmark_ than QwQ, suggesting that
-distillation is a _superior_ method for making a reasoning model than gathering human-labeled training data.
+QwQ (32b) with R1-distilled Qwen-32B. The distilled model performs better in *every benchmark* than QwQ, suggesting that
+distillation is a *superior* method for making a reasoning model than gathering human-labeled training data.
 This is a weak certainty claim on my part, but it's one of the only explanations I can think of for the outperformance.
-I wonder if this is also the difference between o1 and o3? If someone knows, please let me know!
-
+I wonder if this is also the difference between o1 and o3? If someone knows, please let me know! */}
 
 # Political notes
 
 Something else I'd like to note. There's a narrative[^1] of China being able to do AI better than the West. This mostly comes down to a couple arguments:
- - China can collect data without regard to privacy and force corporations into data sharing agreements to make the best models.
- - China's industrial capacity is essentially unrivaled except at the very high end of niche markets and supply chain areas.
- - China has minimal, if any, legal impediments to nationalizing the AI labs and consolidating them to make a super-model.
 
-[^1]: I think I'm in the minority in thinking most of the [situational awareness paper](https://situational-awareness.ai/wp-content/uploads/2024/06/situationalawareness.pdf) is garbage (blog post soon?), but just an excerpt: page 96. "We still have an opportunity to deny China these key algorithmic breakthroughs, without which they'd be stuck at the data wall. But without better security, we may well irreversibly supply China with these key AGI breakthroughs."
-Or, y'know, they just did it themselves, and themselves believe it so non-proprietary they license it on the most permissive in the industry, beating even Llama, on communist party terms!
+- China can collect data without regard to privacy and force corporations into data sharing agreements to make the best models.
+- China's industrial capacity is essentially unrivaled except at the very high end of niche markets and supply chain areas.
+- China has minimal, if any, legal impediments to nationalizing the AI labs and consolidating them to make a super-model.
+
+[^1]:
+    I think I'm in the minority in thinking most of the [situational awareness paper](https://situational-awareness.ai/wp-content/uploads/2024/06/situationalawareness.pdf) is garbage (blog post soon?), but just an excerpt: page 96. "We still have an opportunity to deny China these key algorithmic breakthroughs, without which they'd be stuck at the data wall. But without better security, we may well irreversibly supply China with these key AGI breakthroughs."
+    Or, y'know, they just did it themselves, and themselves believe it so non-proprietary they license it on the most permissive in the industry, beating even Llama, on communist party terms!
 
 I think these are all red herrings. Reading the [DeepSeekMath paper](https://arxiv.org/pdf/2402.03300) (which introduced the GRPO method), several things become apparent:
- - The edge that produced the RL environment leading to a well-made CoT model was _technically complex open web_ data cleaning (mostly a distillation of commoncrawl, something as freely available as wikipedia), the exact opposite of "collect all the data all the time, it doesn't matter how sophisticated the post-processing is". This is paired with several different fine-tuning and RL methods - again, the opposite of "just apply scaling."
- - (This has already been reported on) the (deepseek v3) model took ~$6M to train on non-export controlled hardware and is a 600b parameter 32 active MoE.
- - The model is released on more than generous commercial terms: it's released on an MIT license! That's even more permissive than llama's license!
- - They [met with Li Qiang](https://www.scmp.com/tech/policy/article/3295662/beijing-meeting-puts-spotlight-chinas-new-face-ai-deepseek-founder-liang-wenfeng), not before the release, but after! A private upstart leading the bleeding commercial edge in Chinese AI research with the post-fact backing of the Premier is the exact opposite of what you'd expect from a national-team narrative.
+
+- The edge that produced the RL environment leading to a well-made CoT model was _technically complex open web_ data cleaning (mostly a distillation of commoncrawl, something as freely available as wikipedia), the exact opposite of "collect all the data all the time, it doesn't matter how sophisticated the post-processing is". This is paired with several different fine-tuning and RL methods - again, the opposite of "just apply scaling."
+- (This has already been reported on) the (deepseek v3) model took ~$6M to train on non-export controlled hardware and is a 600b parameter 32 active MoE.
+- The model is released on more than generous commercial terms: it's released on an MIT license! That's even more permissive than llama's license!
+- They [met with Li Qiang](https://www.scmp.com/tech/policy/article/3295662/beijing-meeting-puts-spotlight-chinas-new-face-ai-deepseek-founder-liang-wenfeng), not before the release, but after! A private upstart leading the bleeding commercial edge in Chinese AI research with the post-fact backing of the Premier is the exact opposite of what you'd expect from a national-team narrative.
 
 This is _exactly the opposite of the narrative_. DeepSeek, a private, capital-constrained company, trained a state-of-the-art model on non-export controlled hardware, on a commercial budget, and released the model on commercial terms. I'm handwaving a bit here, there can be some quibbles around the macro-picture, but it's overall pretty damning to the current story of Chinese AI superiority.
 
 ## It's All About the People
+
 I find myself thinking about the only thing that matters: the right people in the right place, and I can't help but thinking about [Qian Xuesen](https://en.wikipedia.org/wiki/Qian_Xuesen).
 No matter how many billions of dollars Donald Trump pours into AI, it won't matter if we don't get the people, and right now, the few people who aren't in China are slowly losing work authorization and being forced to leave.
 
