@@ -1,0 +1,299 @@
+---
+title: 'Using Cursor AI IDE Like a Pro: Advanced Strategies for AI-Assisted Development'
+date: '2025-03-02'
+tags: ['cursor']
+draft: false
+summary: 'A comprehensive guide to getting the most out of Cursor and other AI-assisted development environments with practical workflows and hidden features.'
+---
+
+# Using Cursor AI IDE Like a Pro
+
+Many developers have started using AI-assisted development tools like [Cursor](https://cursor.sh/), but few are leveraging these tools to their full potential. This guide will share advanced strategies, hidden features, and optimized workflows based on extensive experience with the platform.
+
+This is the first in a two-part series:
+
+1. **Part 1 (this post):** Optimizing standard Cursor usage, exploring hidden features, and setting up your environment. This is mostly a general overview of using Cursor.
+2. [**Part 2:**](/blog/cursor-agent) Mastering Agent Mode for test-driven product development and code generation. This will be a deep dive into using Cursor's Agent Mode.
+
+## What is Cursor?
+
+Cursor is an AI-powered IDE based on VS Code that integrates large language models directly into your development workflow. It offers features like AI chat, code generation, and semantic search across your codebase. The recent addition of "Agent Mode" allows for even more autonomous coding experiences.
+
+## Models and Performance Insights
+
+One of the most important decisions when using Cursor is which model to select. Here's what you should know:
+
+| Model                                                                 | Premium Required? | Best Use Cases                                                                           |
+| --------------------------------------------------------------------- | ----------------- | ---------------------------------------------------------------------------------------- |
+| [Claude 3.7 Sonnet](https://www.anthropic.com/news/claude-3-7-sonnet) | Yes               | Best all-around option, excellent reasoning                                              |
+| [GPT-4o](https://openai.com/index/gpt-4o/)                            | Yes               | Complex reasoning, detailed explanations                                                 |
+| [GPT-4o Mini](https://openai.com/index/gpt-4o-mini/) / cursor mini    | No                | Quick assistance, simple tasks, free!                                                    |
+| [DeepSeek V3](https://www.deepseek.com/)                              | No                | Capable, [free](https://forum.cursor.com/t/is-deepseek-r1-unlimited-use-in-cursor/45399) |
+| DeepSeek R1                                                           | Yes               | Strong, explicit chain-of-thought reasoning capabilities                                 |
+
+Most users don't realize that DeepSeek V3 is a free model, making them excellent options for those who have exhausted their free credits.
+
+Despite the availability of the O series and R1 series models, the Claude 3.7 Sonnet line has consistently proven to be the most effective for programming tasks in my experience. I recommend using it whenever possible if you have premium access.
+
+## Documentation Integration
+
+Cursor's ability to understand and reference documentation is one of its strongest features, yet many users don't fully utilize it.
+
+### Adding Documentation Sources
+
+You can enhance Cursor's capabilities by adding documentation for the libraries and frameworks you're working with:
+
+1. Open the command palette (Cmd/Ctrl+Shift+P)
+2. Type "Add Documentation"
+3. Enter the URL of the documentation site
+
+Popular documentation sources are pre-indexed and ready to add:
+
+- [OpenAI API docs](https://platform.openai.com/docs)
+- [Hugging Face Transformers](https://huggingface.co/docs/transformers/index)
+- [React](https://react.dev/reference/react)
+- [React Native](https://reactnative.dev/docs/getting-started)
+- [Node.js](https://nodejs.org/en/docs)
+- [Python standard library](https://docs.python.org/3/library/index.html)
+- And [many more](https://github.com/getcursor/crawler)
+
+If you're working with a less common library, you can add custom documentation by providing the URL. Cursor will crawl and index it automatically.
+
+> **Pro Tip**: After adding documentation, click the page icon next to the documentation entry to verify how many pages were indexed. This helps ensure the crawler captured everything properly.
+
+For more details on documentation integration, see the [official guide](https://docs.cursor.com/context/@-symbols/@-docs#docs).
+
+### Web Search Integration
+
+For more general queries, you can use the ["Add Web" feature](https://docs.cursor.com/context/@-symbols/@-web) to perform a web search during your chat. This is particularly useful when you need information that isn't contained in your documentation or codebase. If you want a specific link, there's also `@Link` that will visit individual links. Note that this feature will autoparse links pasted in the chat.
+
+### Model Context Protocol (MCP): Beyond Simple Tool Calling
+
+Cursor implements the [Model Context Protocol (MCP)](https://modelcontextprotocol.io/), an open standard that fundamentally changes how AI assistants interact with external systems. Unlike traditional tool calling, MCP creates a standardized interface between AI models and the tools they use.
+
+#### What Makes MCP Different?
+
+Standard tool calling in most AI platforms is limited:
+
+- Tools must be registered with the AI provider
+- Interactions follow a simple request-response pattern
+- Tools typically can't maintain state between calls
+- Resource handling (files, images) is often inconsistent
+
+MCP addresses these limitations through:
+
+1. **Open Protocol Architecture**: Any developer can create MCP-compatible tools that work with any MCP-supporting assistant
+2. **Client-Server Model**: MCP servers can run anywhere—locally for privacy, or remotely for shared access
+3. **Rich Resource Handling**: First-class support for files, images, and other non-text data
+4. **Stateful Interactions**: Tools can maintain context across multiple interactions
+5. **Local Privacy**: Sensitive operations can stay on your device rather than routing through cloud services
+
+#### Technical Capabilities
+
+What truly sets MCP apart are its advanced technical capabilities:
+
+1. **Bidirectional Communication**: Unlike one-way tool calls, MCP enables servers to request the client to sample from the LLM during execution. This means tools can ask the AI for clarification or additional processing mid-operation.
+
+2. **Resource Subscriptions**: Clients can subscribe to resource updates, enabling real-time data flows between tools and the AI.
+
+3. **Structured Context Management**: The protocol handles sharing relevant context including resource metadata, descriptions, tool documentation, and JSON schemas.
+
+4. **Standardized Error Handling**: MCP defines consistent patterns for error reporting and recovery across all tools.
+
+5. **Tool Composition**: Tools can be chained together in complex workflows while maintaining context throughout the entire process.
+
+#### My Custom MCP Setup
+
+While Cursor includes basic MCP functionality out-of-the-box, I've extended my environment with additional MCP servers. Here's (how cursor sees) my personal configuration:
+
+```
+# Web Information Access
+mcp__brave_web_search    - Search the web using Brave Search
+mcp__brave_local_search  - Find local businesses and places
+mcp__search              - Search using Exa AI
+mcp__fetch               - Retrieve and parse content from specific URLs
+mcp__webSearch           - Search using DuckDuckGo
+
+# Local System Access (with permission)
+mcp__contacts            - Access Apple Contacts
+mcp__notes               - Access Apple Notes
+mcp__messages            - Interact with Apple Messages
+mcp__mail                - Interact with Apple Mail
+mcp__reminders           - Access Apple Reminders
+```
+
+**Important Note**: These tools are NOT included by default in Cursor—they're part of my custom setup. I'll cover how to add MCP tools through the Cursor GUI in a separate section below.
+
+For my personal setup, I use [Smithery](https://smithery.ai/) with commands like:
+
+```
+bunx -y @smithery/cli@latest run exa --config "{\"exaApiKey\":\"get-your-own-exa-key\"}"
+```
+
+#### MCP in Action: A Practical Example
+
+When I use my custom MCP setup with a command like `Please ask Brave to search for 'What are the latest features in React 19?'`, here's what actually happens under the hood:
+
+1. **Client Request Initiation**: Cursor (the MCP client) parses my command and routes it to the appropriate MCP servers, including my Brave Search server.
+
+2. **Tool Discovery and Selection**: The client first calls the server's `ListTools` endpoint to discover available tools. My Brave Search server responds with two tools: `brave_web_search` and `brave_local_search`, each with their JSON schema definitions.
+
+3. **Tool Invocation**: The client then calls the `CallTool` endpoint, using structured output, with:
+
+   ```json
+   {
+     "name": "brave_web_search",
+     "arguments": {
+       "query": "latest features in React 19",
+       "count": 10
+     }
+   }
+   ```
+
+4. **Server Processing**: The Brave Search server:
+
+   - Validates the arguments against the tool's input schema
+   - Checks rate limits (1 request/second, 15,000/month)
+   - Constructs an API request to Brave's search endpoint with proper authentication
+   - Processes the response, extracting titles, descriptions, and URLs
+   - Formats the results into a structured text response
+
+5. **Response Handling**: The server returns a response with:
+
+   ```json
+   {
+     "content": [
+       {
+         "type": "text",
+         "text": "Title: React 19 New Features and Release Date\nDescription: React 19 introduces concurrent rendering, automatic batching, and improved Suspense...\nURL: https://example.com/react-19\n\nTitle: What's New in React 19...\n..."
+       }
+     ],
+     "isError": false
+   }
+   ```
+
+6. **Parallel Processing**: This same process happens simultaneously with my other search servers (Exa, DuckDuckGo), each returning their own results.
+
+7. **Result Aggregation**: Cursor aggregates all these responses, deduplicates them, and presents them to Claude in a structured format.
+
+8. **AI Processing**: Claude processes these results and generates a comprehensive response that synthesizes information from multiple sources.
+
+What makes this particularly powerful is the standardized interface. Each MCP server implements the same protocol with consistent request/response patterns, error handling, and schema validation. This allows me to easily swap or add new search providers without changing how Cursor or Claude interact with them.
+
+For local searches, the process is even more sophisticated. My `brave_local_search` tool actually makes multiple API calls behind the scenes:
+
+1. An initial search to identify location IDs
+2. Parallel requests to fetch detailed POI (Point of Interest) data and descriptions
+3. Intelligent fallback to web search if no local results are found
+
+All of this complexity is abstracted away behind the MCP interface, making it seamless for both the AI and for me as the user.
+
+#### When to Use MCP
+
+MCP shines in scenarios that would be difficult with standard tool calling:
+
+- **Privacy-Sensitive Operations**: Working with local files or personal data
+- **Complex Workflows**: Chaining multiple tools together in a coherent process
+- **Custom Integrations**: Connecting to internal systems or specialized tools
+- **Local Development**: Working with tools that need to access your local environment
+
+#### Getting Started with MCP
+
+If you're interested in extending your own Cursor setup with custom MCP tools:
+
+1. Check out the [MCP GitHub repository](https://github.com/modelcontextprotocol/docs) for documentation
+2. Explore [Smithery](https://smithery.ai/) for pre-built MCP servers. Using these are nice because you can automatically update by hitting the refresh button - `bunx` will automatically update the package.
+3. Consider building your own MCP servers for specific data sources you use
+
+The learning curve can be steep, but the payoff is substantial—you'll have an AI assistant that can seamlessly access exactly the data sources and tools you need.
+
+## Indexing Dependencies
+
+A common frustration is that Cursor doesn't index dependencies by default. Here's how to work around this limitation:
+
+### Standard Method (with limitations)
+
+You can modify your `.gitignore` to not ignore node_modules, but this is often impractical.
+
+### Advanced Method: Unix Bind Mounts
+
+For more complex projects, especially in languages like Swift, you can use [Unix bind mounts](https://man7.org/linux/man-pages/man8/mount.8.html) to make dependencies indexable:
+
+```bash
+# Example for mounting Swift dependencies
+sudo mount --bind /path/to/dependencies /path/to/project/deps
+```
+
+Unlike symlinks, which Cursor won't follow, Unix bind mounts operate at the vnode level[^1] and work with directories. This allows Cursor to crawl and index your dependencies effectively.[^6] Keep in mind that these mounts don't persist across reboots by default[^4] and for large dependency trees, you may want to be selective about what you mount.[^5]
+
+[^1]: We've discussed what a vnode is in [Xcode Test Lag](/blog/xcode-test-lag#whats-a-vnode)
+
+[^4]: Bind mounts don't persist across system reboots by default. To make them permanent, add an entry to `/etc/fstab` with the `bind` option: `/path/to/dependencies /path/to/project/deps none bind 0 0`
+
+[^5]: For very large dependency trees, selective mounting of only the most critical dependencies can improve indexing performance while still providing the AI with necessary context.
+
+[^6]: On macOS, use `mount_bindfs` from Homebrew (`brew install bindfs`) instead: `bindfs /path/to/dependencies /path/to/project/deps`. On Windows, consider using directory junctions: `mklink /J C:\path\to\project\deps C:\path\to\dependencies`
+
+## Recommended Settings
+
+Here are my non-default recommended settings to get the most out of Cursor[^2]. All of the things mentioned are changed to ON:
+
+[^2]: You can get these by exporting from the sql table in `/Users/<user>/Library/Application Support/Cursor/User/globalStorage/state.vscdb` but my goodness it's a pain - the json is a blob in a single row entry. I'll just read from the settings page instead). It would be nice if they had a way of accessing it in JSON mode, but I'm not holding my breath.
+
+- **Auto-import** (typescript + python)
+- **Enable yolo mode**: VERY useful. No judge prompt and no real denylist. I added delete file protection, but you probably don't need it (and if you do you porbably want to add a judge prompt to more broadly prevent file deletion)
+- **Large context** (note that this is just a default - the large context box will pop up next to your chat box whenever its needed regardless of what you set here, it just changes the default checked state)
+- **Iterate on lints**: vscode has a built-in linter, and this exposes the lint results to the agent.
+- **Web search tool**: adds agentic web searching. I keep this on with my MCP setup, the MCP is just if I want exotic searching (like exa).
+
+## Hidden Tools in Agent Mode
+
+While Agent Mode is well-known, the specific tools available within it aren't documented publicly. Here's a quick reference of some of the most useful tools:
+
+1. `codebase_search` - Semantic search for code
+2. `read_file` - Read file contents
+3. `run_terminal_cmd` - Run terminal commands
+4. `list_dir` - List directory contents
+5. `grep_search` - Text/regex based search
+6. `edit_file` - Propose file edits
+7. `file_search` - Fuzzy file path search
+8. `delete_file` - Delete a file
+9. `reapply` - Reapply last edit with smarter model
+
+The `codebase_search` tool is by FAR the most useful of all of these: it allows the model to use the `chat with codebase` cursor tool, but with its own queries generated by the model.
+
+I'll cover these in more detail in Part 2 of this series, focusing specifically on Agent Mode.
+
+## Context Window Management
+
+One of the biggest challenges when working with AI tools is managing the context window effectively. Here are some strategies:
+
+1. **Use focused files**: Keep only relevant files in context
+2. **Summarize conversations**: Use the "Summarize" button to create a new chat with a condensed version of your current conversation
+3. **Use command flags**: Add flags like `| tail -n 50` to limit command output
+4. **Save outputs to files**: Instead of displaying large outputs in the chat, save them to files that can be referenced later
+
+## Special Workflows
+
+### Cursor with Xcode Projects
+
+Working with Xcode projects in Cursor requires some special handling due to Xcode's particular project structure.
+
+[Contact me on X for more details on this specific workflow]
+
+## Bug Fighter and Other Experimental Features
+
+Cursor includes some experimental features worth exploring:
+
+- **Bug Fixer**: Analyzes your PRs (as measured by change from the main branch) for potential bugs (I haven't extensively tested this). Seems expensive.
+- **Notepads**: A feature for taking notes within Cursor (similarly untested)
+
+## Conclusion
+
+Cursor represents a significant evolution in how we write code, enabling developers to leverage AI assistance without sacrificing control or understanding. By implementing the strategies outlined in this guide, you can dramatically improve your efficiency and effectiveness when using Cursor.
+
+In Part 2 of this series, we'll dive deep into Agent Mode and explore a test-driven development workflow that leverages the full potential of AI assistance.
+
+Have questions or want to share your own Cursor tips? Connect with me on X or leave a comment below.[^3]
+
+[^3]: I'm still having trouble with giscus and CORP / COEP issues, so no comments for now.

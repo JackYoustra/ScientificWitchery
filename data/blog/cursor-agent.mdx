@@ -1,0 +1,349 @@
+---
+title: "Mastering Cursor's Agent Mode: Test-Driven Development with AI"
+date: '2025-03-03'
+tags: ['cursor']
+draft: false
+summary: "An in-depth guide to leveraging Cursor's Agent Mode for test-driven development, with powerful workflows that maximize AI assistance without sacrificing code quality."
+---
+
+# Mastering Cursor's Agent Mode: Test-Driven Development with AI
+
+In [part one](/blog/cursor-overview) of this series, we explored how to optimize your standard Cursor usage with documentation integration, model selection, and other essential features. Now, we'll dive deep into Agent Mode—arguably Cursor's most powerful feature—and how to leverage it for effective test-driven development.
+
+## Understanding Agent Mode
+
+Agent Mode fundamentally changes how you interact with AI in your development workflow. Instead of having a conversation with the AI, you're effectively delegating coding tasks to an agent that can think, plan, search your codebase, and execute commands on your behalf.
+
+While Agent Mode is incredibly powerful, many developers struggle to use it effectively. The key is to establish a structured workflow that plays to the AI's strengths while mitigating its limitations.
+
+## The Agent Mode TDD Workflow
+
+After extensive experimentation, I've found that test-driven development (TDD) is the most effective way to leverage Agent Mode. Here's my step-by-step workflow:
+
+### 1. Start with Documentation
+
+Before writing a single line of code or test, begin by having Agent Mode create comprehensive documentation, usually in the form of a README.md (potentially folder-scoped), a manifesto, or a ticket:
+
+```
+Write documentation for a module that will [describe your feature].
+Make sure it follows the style and conventions of the rest of the codebase,
+referencing specific code snippets and other documentation as needed.
+Use the semantic search tool to find documentation and code snippets that you need to integrate the feature.
+```
+
+The reason for starting with documentation is two-fold:
+
+1. It forces you to clearly define what you're building
+2. It gives the AI a clear specification to work from
+
+Iterate on this documentation until you're satisfied with the conceptual design. This is your chance to work out the UX, API design, interfaces, and overall architecture.
+
+> **Pro Tip**: The semantic search tool is critical here. It helps the AI understand the documentation style of your codebase. Without it, you'll often get generic documentation that doesn't match your project's conventions.
+
+### 2. Create Test Files
+
+Once you have solid documentation, the next step is to create comprehensive tests:
+
+```
+Create test files for the functionality described in the documentation.
+Use a mix of unit tests, integration tests, and property-based tests where appropriate.
+All tests should fail initially since we haven't implemented the code yet.
+Use the semantic search tool to find testing patterns and documentation in the codebase
+and present a test strategy and ask for confirmation before writing any tests.
+```
+
+This is where the magic starts to happen. By having the AI create tests first, you're ensuring that:
+
+1. The AI fully understands the requirements
+2. You'll have a clear measure of success
+3. You're following best practices for TDD (red-green-refactor)
+
+Make sure the tests are comprehensive and cover edge cases. This is your opportunity to think through all the ways your code might be used or misused.
+If you notice that a test covers something you didn't think of, or you want to add a new test case,
+ensure that you update step 1 documentation to reflect the new requirements. As much as you can, you want the source of truth for downstream steps to be upstream steps.
+
+### 3. Create a Test Runner
+
+To make the iterative development process smoother, have Agent Mode create a test runner script. This can usually be reused across multiple features.
+
+```
+Create a simple script that runs all the tests we just created and clearly shows pass/fail results.
+Make sure it handles errors gracefully and limits output to prevent context window overload.
+```
+
+This test runner is crucial for the next steps. It should:
+
+- Run all tests in the correct order
+- Provide clear, concise output about what passed and failed
+- Limit output verbosity (e.g., using `| tail -n 20` to capture only the most relevant parts)
+
+Here's an example of what such a script might look like:
+
+```bash
+#!/bin/bash
+# test_runner.sh
+
+# Set color codes
+GREEN='\033[0;32m'
+RED='\033[0;31m'
+NC='\033[0m' # No Color
+
+# Run tests and capture output
+echo "Running tests..."
+TEST_OUTPUT=$(npm test 2>&1)
+
+# Check if tests passed
+if [[ $? -eq 0 ]]; then
+  echo -e "${GREEN}All tests passed!${NC}"
+else
+  echo -e "${RED}Tests failed:${NC}"
+  # Only show the last 20 lines to prevent context window overload
+  echo "$TEST_OUTPUT" | tail -n 20
+fi
+```
+
+### 4. Implement with a Plan-Execute Cycle
+
+Now for the core implementation phase. Here's the prompt I use:
+
+```
+Write code that passes all tests when I run the test runner.
+Always plan first, then implement.
+Use the semantic search tool to understand the codebase patterns and conventions.
+After implementation, run `./test_runner.sh` to check your work.
+Keep iterating until all tests pass.
+```
+
+This is where Agent Mode truly shines. It will:
+
+1. Plan its approach (often by breaking down the problem)
+2. Search the codebase for relevant patterns and implementations
+3. Write code in manageable chunks
+4. Test after each significant change
+5. Debug and fix issues as they arise
+
+The key is that you've set up a clear feedback loop. The agent knows exactly what success looks like (all tests passing) and has the tools to get there.
+
+> **Important**: If Agent Mode reaches its interaction limit (currently 25 steps), you can simply type "continue" and it will pick up where it left off.
+
+### 5. Handle UI Components with VDOMs
+
+One limitation of Agent Mode is that it can't effectively preview or visualize UI components. My solution is to use Virtual DOM (VDOM) representations:
+
+```
+For any UI components, include a test that outputs a VDOM representation of the rendered component.
+This should show the component structure in a text format that can be evaluated in the test suite.
+```
+
+For example, in React:
+
+```javascript
+// Example test that outputs VDOM for a component
+test('Counter component renders with correct structure', () => {
+  const { container } = render(<Counter initialValue={0} />)
+  console.log(prettyDOM(container))
+
+  // Actual assertions
+  expect(screen.getByText('Count: 0')).toBeInTheDocument()
+  expect(screen.getByRole('button', { name: '+' })).toBeInTheDocument()
+})
+```
+
+and in SwiftUI, with the [swift-snapshot-testing library](https://github.com/pointfreeco/swift-snapshot-testing):
+
+```swift
+// Example test that outputs a text representation of SwiftUI view
+import XCTest
+import SwiftUI
+import SnapshotTesting
+@testable import YourAppName
+
+class CounterViewTests: XCTestCase {
+    func testCounterViewStructure() throws {
+        // Create the SwiftUI view
+        let counterView = CounterView(count: 0)
+
+        // Use swift-snapshot-testing to capture a text representation of the view
+        let dump = assertSnapshot(matching: counterView, as: .dump)
+        print(dump) // This will print the textual representation to the console
+
+        // Verify the view matches a previously recorded snapshot
+        assertSnapshot(matching: counterView, as: .dump)
+
+        // You can also use other snapshot formats like:
+
+        // 1. Image snapshot (renders the actual UI)
+        // note that cursor doesn't have support for agentic image reads yet
+        // so you'll have to manually add the image to the chat if you want agentic iteration
+        assertSnapshot(matching: counterView.frame(width: 300, height: 100), as: .image)
+
+        // 2. JSON representation
+        assertSnapshot(matching: counterView, as: .json)
+
+        // Standard XCTest assertions can still be used alongside snapshots
+        let viewController = UIHostingController(rootView: counterView)
+        _ = viewController.view
+        XCTAssertNotNil(viewController.view)
+    }
+}
+```
+
+This gives Agent Mode a text representation of the UI that it can reason about without needing to actually see the rendered output.
+
+### 6. Manage Long Outputs with File Redirects
+
+When dealing with verbose outputs that would overflow the context window, use file redirects! The test runner can output to a file, and semantic search can read the embedding of the file.
+You may have to insert a sleep to ensure that the file is automatically embedded by cursor before you can search it.
+
+This two-step process allows Agent Mode to run a command that might produce a lot of output, save that output to a file, and then examine only the parts it needs.
+
+Of course, most tools which produce a lot of output will either have a way to limit the output or a way to save the output to a file. You should probably use those if they exist.
+
+### 7. Final Review with Git Integration
+
+Once all tests are passing, have Agent Mode perform a final review with the `@PR` chat command:
+
+```
+@PR (Diff with Main Branch)
+Review these changes and provide feedback on:
+1. Code quality and adherence to project conventions
+2. Test coverage and quality
+3. Documentation completeness
+4. Any potential improvements or refactorings
+```
+
+This leverages Agent Mode's ability to analyze git diffs and provide an overview of your changes. It's an excellent way to catch any issues before submitting a PR.
+
+## Advanced Agent Mode Techniques
+
+### System Prompt for TDD Workflow
+
+To make this workflow even more efficient, you can create a system prompt that guides Agent Mode through the entire process. Here's a very bare bones template:
+
+```
+You are an AI coding assistant helping with test-driven development. Follow this workflow:
+
+1. Start by writing comprehensive documentation for the feature
+2. Create detailed tests that initially fail
+3. Create a test runner to execute and verify tests
+4. Implement code that passes the tests
+5. Refactor and optimize while maintaining passing tests
+
+Always do the following:
+- Use your semantic search tool to understand codebase patterns
+- Plan before implementing
+- Run tests frequently
+- Keep outputs concise
+- Document your thought process
+
+Prioritize code quality, test coverage, and adherence to project conventions.
+```
+
+### Context Window Management Strategies
+
+Agent Mode's effectiveness is limited by context window size. Here are strategies to maximize it:
+
+1. **Focused file selections**: Only keep relevant files in context
+2. **Output truncation**: Always limit command outputs (e.g., `| head -n 10`)
+3. **Staged implementation**: Break large features into smaller, testable chunks in files that can be individually added to the context window
+4. **Strategic searching**: Lean on semantic search with specific queries rather than broad terms
+5. **Documentation references**: Use `@docs` to pull in only the relevant documentation rather than a broader [gitingest](https://gitingest.com/) paste
+
+> **Pro Tip**: You can add JIRA as an MCP source! See the [Cursor overview](/blog/cursor-overview) for more details, but the server to add will be something like the following
+
+```
+npx -y @smithery/cli@latest run mcp-atlassian --config "{\"confluenceUrl\":\"confluence_url\",\"confluenceUsername\":\"username\",\"confluenceApiToken\":\"token\",\"jiraUrl\":\"url\",\"jiraUsername\":\"username\",\"jiraApiToken\":\"token\"}"
+```
+
+## Common Pitfalls and Solutions
+
+### Handling Ambiguous Requirements
+
+If your requirements are ambiguous, Agent Mode will make assumptions that may not align with your intentions. To mitigate this:
+
+1. Be extremely clear in your initial plan documentation
+2. Review and refine test cases before implementation starts
+3. Use property-based tests to define behavior boundaries
+4. Add a system prompt to reject the agentic approach is there's any degree of ambiguity. Add examples in the system prompt of what such examples would look like.
+
+### Dealing with Context Fragmentation
+
+As projects grow complex, Agent Mode may lose track of the full context. Solutions include:
+
+1. Create a "project overview" file that Agent Mode can reference
+2. Periodically summarize progress and next steps
+3. Break large features into distinct, well-documented modules
+4. Use the notepads feature! I'm not sure how to use them very well, so please let me know if you have any tips.
+
+### Overcoming Tool Limitations
+
+Agent Mode sometimes struggles with complex tool interactions. Workarounds include:
+
+1. Chain simpler commands instead of complex one-liners
+2. Verify tool outputs manually when critical
+3. Provide examples of expected tool output formats
+
+## Real-World Example
+
+Let's walk through a simplified real-world example of this workflow. Imagine we're adding a new authentication feature to a web application:
+
+1. **Documentation Phase**:
+
+   ```
+   Write documentation for a module that will handle JWT-based authentication with refresh tokens.
+   Include functions for login, token validation, refresh, and logout.
+   Use your semantic search tool to find existing authentication patterns in the codebase.
+   ```
+
+2. **Test Creation Phase**:
+
+   ```
+   Create comprehensive tests for the JWT authentication module described in the documentation.
+   Include tests for successful login, failed login, token validation, token expiration, refresh flow, and logout.
+   Make sure to mock external services appropriately.
+   Use your semantic search tool to find testing patterns in our authentication code.
+   ```
+
+3. **Test Runner Creation**:
+
+   ```
+   Create a simple script that runs the authentication tests and provides clear pass/fail output.
+   Limit the verbosity of the output to prevent context window overload.
+   ```
+
+4. **Implementation Phase**:
+
+   ```
+   Implement the JWT authentication module that passes all tests.
+   Plan your approach first, then execute.
+   Use your semantic search tool to understand our existing authentication patterns.
+   Run ./auth_test_runner.sh after each significant change.
+   ```
+
+5. **Review Phase**:
+   ```
+   @PR (Diff with Main Branch)
+   Review the changes to the authentication system and provide feedback on:
+   1. Code quality and adherence to project conventions
+   2. Test coverage and quality
+   3. Documentation completeness
+   4. Any potential improvements or refactorings
+   ```
+
+## Conclusion
+
+Agent Mode transforms Cursor from a helpful coding assistant into a semi-autonomous developer that can handle significant portions of your workflow. By combining it with test-driven development principles, you create a structured environment where the AI can excel while still producing high-quality, well-tested code.
+
+The key insights from this approach are:
+
+1. Start with clear documentation and specifications
+2. Let tests define success criteria
+3. Create efficient feedback loops
+4. Manage context window limitations deliberately
+5. Use appropriate tools for each phase of development
+
+As AI-assisted development tools continue to evolve, workflows like this will become increasingly important. They allow us to leverage AI's strengths while compensating for its limitations, resulting in better code and more efficient development processes.
+
+What's your experience with Agent Mode? Have you found other effective workflows? Share your thoughts in the comments below[^3] or reach out to me on X.
+
+[^3]: I'm still having trouble with giscus and CORP / COEP issues, so no comments for now.
