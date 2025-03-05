@@ -94,7 +94,7 @@ and a general sense that [chatbot-arena](https://lmarena.ai/) (same people who w
 
 If you're trying to find some cool games to get into the mind of an AI, a few come to mind:
 
-- [Semantle](https://semantle.com/): Guess the word the AI is thinking of by finding the cosine similarity between your guesses. Specifically, mmeasures the distances between embeddings trained by masked bag-of-words on [Google News](https://www.kaggle.com/datasets/leadbest/googlenewsvectorsnegative300/data).
+- [Semantle](https://semantle.com/): Guess the word the AI is thinking of by finding the cosine similarity between your guesses. Specifically, it measures the distances between embeddings trained by masked bag-of-words on [Google News](https://www.kaggle.com/datasets/leadbest/googlenewsvectorsnegative300/data).
 - [lm-game](https://rr-lm-game.herokuapp.com/whichonescored): [See the writeup](https://www.alignmentforum.org/posts/htrZrxduciZ5QaCjw/language-models-seem-to-be-much-better-than-humans-at-next). Given some corpus (webtext?), you try to guess what the next token is between two options. You're graded against several different gpt-2 tier models. Quite hard! Quite fun. Maybe I'll make a mobile version on custom text?
 
 [^1]: If this were a full numpy array, you could do this with a view, but sometimes you have a function which returns a numpy array, and you run it in a loop over many different inputs, and before you know it, you've got a huge list of numpy arrays.

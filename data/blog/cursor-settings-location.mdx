@@ -1,0 +1,164 @@
+---
+title: 'Trying to change Cursor settings without clicking? Sync them? Read them? Good luck!'
+date: '2025-03-05'
+tags: ['cursor']
+draft: false
+summary: 'No more nice editable json for settings, the AI world demands (checks notes) a JSON blob shoved in a cell in an SQL table 🤦'
+---
+
+I've written a [few](/blog/cursor-overview) [posts](/blog/cursor-agent) about using Cursor.
+
+If you've used VS Code, you're probably familiar with its straightforward approach to settings: a nice, human-readable JSON file that you can edit directly. It's simple, intuitive, and most importantly, _accessible_ in a [documented location](https://code.visualstudio.com/docs/editor/settings#:~:text=User%20settings.json%20location,Code%2FUser%2Fsettings.json).
+
+Enter Cursor, the AI-powered IDE based on VS Code. While it inherits many of VS Code's best features, it takes a decidedly different approach to storing settings—one that will make you question the sanity of modern software design.
+
+## The Hunt for Settings
+
+When I first needed to modify some advanced settings in Cursor that weren't exposed in the GUI, I naturally looked for the equivalent of VS Code's `settings.json`. After all, Cursor is built on VS Code, so surely they'd maintain this user-friendly approach?
+
+Oh, how naive I was.
+
+### How I Found the Settings Location
+
+After searching through the application directories with no luck, I turned to our old friend: Instruments. This powerful macOS tool can track file system activity, making it perfect for discovering where an application stores its data.
+
+My approach was simple but effective:
+
+1. Launch Instruments and select the File Activity template
+2. Target the Cursor application
+3. Start recording
+4. Change a setting in Cursor's preferences
+5. Watch which files get modified
+
+Selecting the end of the trace showed a very clear culprit:[^1]
+
+[^1]: As noted when I last did this with [laggy tests](/blog/xcode-test-lag), string corruption is rampant in the paths in the inspector. Fortunately, humans are fuzzy readers!
+
+![Instruments trace showing Cursor writing to SQLite database](/static/images/cursortrace.webp)
+
+```
+/Users/<username>/Library/Application Support/Cursor/User/globalStorage/state.vscdb
+```
+
+> Pro tip: If you want to try this on your own but don't feel comfortable using instruments and are willing to wait, put a [UUID](https://www.uuidgenerator.net/) in your cursor rules, click around a bit to make sure that it's saved, and then run in your home folder `rg -uuu \<UUID\>` to find the file. Assuming it's somewhere in or under your home folder, of course.
+
+I did some rummaging around in [DB Browser for SQLite](https://sqlitebrowser.org/) and found all of the settings!
+
+This was my "aha!" moment, though it quickly turned into an "oh no" when I realized what was happening inside that database: **Cursor stores its settings as a JSON blob inside a SQLite database cell**. Yes, you read that correctly. Your carefully crafted settings are serialized into a JSON string and then stuffed into a cell in an SQL table. Try finding what yours are with
+
+```bash
+sqlite3 "/Users/<user>/Library/Application Support/Cursor/user/globalStorage/state.vscdb" "SELECT value FROM ItemTable WHERE key = 'history.recentlyOpenedPathsList'" | python3 -m json.tool | less
+```
+
+### Why I Needed the Settings
+
+My quest for Cursor's settings wasn't entirely idle curiosity. I was writing my [Cursor overview post](/blog/cursor-overview) and wanted to include a section on recommended settings. The plan was simple: export my carefully tuned settings as JSON, clean them up a bit, and include them in the blog post as a helpful reference for other users.
+
+In VS Code, this would have been trivial—open the settings file, copy, paste, done. But with Cursor? What should have been a five-minute task turned into an archaeological expedition through application directories and database files.
+
+As I noted in my overview post:
+
+> You can get these [settings] by exporting from the sql table in `/Users/<user>/Library/Application Support/Cursor/User/globalStorage/state.vscdb` but my goodness it's a pain - the json is a blob in a single row entry. I'll just read from the settings page instead). It would be nice if they had a way of accessing it in JSON mode, but I'm not holding my breath.
+
+In the end, I gave up on exporting the settings directly and resorted to manually listing my recommended settings based on what I could see in the GUI. A far cry from the elegant JSON snippet I had envisioned.
+
+### Even Worse Than watchOS Communication Stringification
+
+This approach reminds me of what I had to do in my [Llama iOS post](/blog/llama-ios) when working with SwiftData. But it also brings back painful memories of developing watchOS apps that communicate with their iOS counterparts.
+
+When building apps that span both iOS and watchOS, you're forced to serialize everything through the WatchConnectivity framework, which only accepts a limited set of data types. Any custom objects must be stringified into JSON or archived with NSKeyedArchiver:
+
+```swift
+// iOS app sending data to watchOS
+func sendSettingsToWatch(settings: UserSettings) {
+    guard WCSession.default.isReachable else {
+        print("Watch is not reachable")
+        return
+    }
+
+    do {
+        // Convert our custom object to JSON data
+        let jsonData = try JSONEncoder().encode(settings)
+
+        // Convert to a dictionary with the JSON as a string
+        let message = ["settings": String(data: jsonData, encoding: .utf8)!]
+
+        // Send to watch
+        WCSession.default.sendMessage(message, replyHandler: { reply in
+            print("Settings sent successfully")
+        }, errorHandler: { error in
+            print("Error sending settings: \(error.localizedDescription)")
+        })
+    } catch {
+        print("Failed to encode settings: \(error)")
+    }
+}
+
+// watchOS app receiving data
+func session(_ session: WCSession, didReceiveMessage message: [String: Any]) {
+    if let settingsString = message["settings"] as? String,
+       let jsonData = settingsString.data(using: .utf8) {
+        do {
+            // Decode the JSON string back to our custom object
+            let settings = try JSONDecoder().decode(UserSettings.self, from: jsonData)
+            // Use the settings...
+        } catch {
+            print("Failed to decode settings: \(error)")
+        }
+    }
+}
+```
+
+In both cases, we're dealing with the same fundamental issue: data that should be directly accessible is instead wrapped in layers of serialization. But while Apple's approach with watchOS was a result of prior technical constraints and a greenfield design mistake, Cursor's approach is an out-of-the-way deviation from an already-working json settings file.
+
+## Why This Matters
+
+This might seem like a minor inconvenience, but it represents a broader issue in modern software design: the prioritization of internal convenience over user accessibility.
+
+VS Code's approach of using plain JSON files means:
+
+- Users can easily back up their settings
+- Settings can be version-controlled
+- Settings can be shared between machines without complex export/import procedures
+- Users can directly edit settings when the GUI doesn't expose what they need
+
+Cursor's approach means:
+
+- Settings are effectively locked in a black box
+- Backup and migration become unnecessarily complex
+- Direct editing requires database skills
+- Version control becomes nearly impossible
+
+This is especially exacerbated by Cursor's [lack of settings sync](https://github.com/getcursor/cursor/issues/876)!
+
+## The Irony
+
+The greatest irony here is that Cursor is an AI-powered IDE designed to make coding more accessible and efficient. Yet its settings system does exactly the opposite, creating unnecessary friction for users who want to customize their experience.
+
+This is particularly frustrating for power users who rely on customization to optimize their workflow. The very audience that would benefit most from Cursor's advanced features is the same audience being hampered by its settings architecture.
+
+## A Plea to Cursor Developers
+
+If anyone from the Cursor team is reading this: please consider bringing back plain text settings files. Your product is fantastic in so many ways, but this particular design choice is a significant step backward from the VS Code foundation you built upon.
+
+Even a simple export/import feature for settings would be a massive improvement. Let us extract our settings as JSON, edit them directly, and then reimport them without having to become SQLite experts.
+
+## Workarounds
+
+Until this is fixed, here are some workarounds for fellow Cursor users:
+
+1. **Use the GUI for everything possible**: Avoid the database entirely by sticking to settings exposed in the interface.
+
+2. **SQLite GUI tools**: If you must edit the database directly, tools like [DB Browser for SQLite](https://sqlitebrowser.org/) make the process slightly less painful.
+
+3. **Regular backups**: Before making any changes to the database, create a backup copy of the `state.vscdb` file. There should already be a backup file too, but it's a good idea to make your own just in case.
+
+4. **Feature requests**: Submit feature requests to the Cursor team asking for better settings management. The more users who ask for this, the more likely it is to be implemented.
+
+## Conclusion
+
+Cursor is an incredible tool that has genuinely improved my coding workflow, especially with its AI capabilities. But its settings management is a perfect example of how even the best software can be hampered by poor design choices.
+
+For now, I'll continue using Cursor despite this frustration, but I sincerely hope the team reconsiders their approach to settings in future updates. After all, in the world of developer tools, accessibility and customization aren't just nice-to-haves—they're essential features.
+
+Have you found better ways to manage Cursor settings? Do you want me to make a sync tool? Let me know in the comments or bluesky. I'd love to hear about any solutions I've missed.
