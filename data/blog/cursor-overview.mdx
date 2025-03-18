@@ -232,7 +232,23 @@ Unlike symlinks, which Cursor won't follow, Unix bind mounts operate at the vnod
 
 [^5]: For very large dependency trees, selective mounting of only the most critical dependencies can improve indexing performance while still providing the AI with necessary context.
 
-[^6]: On macOS, use `mount_bindfs` from Homebrew (`brew install bindfs`) instead: `bindfs /path/to/dependencies /path/to/project/deps`. On Windows, consider using directory junctions: `mklink /J C:\path\to\project\deps C:\path\to\dependencies`
+[^6]: On macOS, use `mount_bindfs` from Homebrew: `brew install gromgit/fuse/bindfs-mac` instead: `bindfs /path/to/dependencies /path/to/project/deps`. This alternative tap is necessary because the standard Homebrew formula for bindfs was disabled in April 2021 when FUSE for macOS transitioned from open source to proprietary. The history here is fascinating: macFUSE (formerly OSXFUSE) was initially open source, but began closing parts of its codebase around 2021, which triggered Homebrew's policy against proprietary dependencies. You could technically still build bindfs from source (`./configure && make && sudo make install`), but the gromgit tap provides a much more convenient solution. The original GitHub issue discussing this problem is [available here](https://github.com/mpartel/bindfs/issues/101).
+
+On Windows, directory junctions (`mklink /J C:\path\to\project\deps C:\path\to\dependencies`) provide the necessary functionality. Junctions are a type of NTFS reparse point that were available since Windows 2000, predating symbolic links which were introduced in Windows Vista. The technical distinction is critical for our use case:
+
+1. **Server-side vs. Client-side resolution**: Junctions are processed on the server side while symbolic links are processed on the client. This means Cursor's indexer always sees the actual target directory content with junctions.
+
+2. **Local-only targeting**: Junctions can only target local directories (not network paths), ensuring that dependency indexing works consistently without network dependencies.
+
+3. **Privilege requirements**: Unlike symbolic links which require administrator privileges by default, junctions can be created by standard users, making them more practical for development environments.
+
+4. **Implementation details**: Junctions store absolute paths internally and are implemented at a lower level in the filesystem driver, making them more transparent to applications that aren't explicitly designed to handle symbolic links.
+
+5. **Cycle handling**: While junctions could technically create directory cycles (turning a directory tree into a DAG), NTFS includes cycle detection to prevent infinite recursion. The filesystem will allow the creation of circular references but prevents traversal loops.
+
+One caveat: be careful when moving junction points in Windows Explorer as older Windows versions had a bug where moving a junction would actually move the target directory's contents (this was fixed in recent Windows 10 builds).
+
+Junctions are ideal for our indexing purposes because they're treated as "real" directories by applications that aren't explicitly designed to handle symbolic links – including Cursor's codebase indexer.
 
 ## Recommended Settings
 
