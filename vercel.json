@@ -1,3 +1,6 @@
 {
-    "ignoreCommand": "INIT_CWD=$PWD chmod u+x vercel_build.sh && ./vercel_build.sh && next build"
+  "ignoreCommand": "INIT_CWD=$PWD chmod u+x vercel_build.sh && ./vercel_build.sh && next build",
+  "git": {
+    "deploymentEnabled": false
+  }
 }
