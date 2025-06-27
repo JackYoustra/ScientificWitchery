@@ -1,0 +1,35 @@
+---
+title: 'Claude Code'
+date: '2025-05-25'
+tags: ['claude']
+draft: false
+summary: "I try out claude code. It's pretty good!"
+---
+
+So I've been playing around with Claude Code!
+I've only used it for a week or so at this point but it's replaced cursor as my main AI assistant.
+
+Some tips (that you can also get from --help):
+
+## Command-line flags
+
+- `--dangerously-skip-permissions` is the equivalent of cursor's agent mode with auto-run (on everything) turned on.
+  Use it if you have some long-run task that you're okay with Claude working on without oversight.
+- `--resume` is how you resume old conversations; `--continue` resumes the last one.
+
+## In-chat commands
+
+- `/help` gives you a help list. Of note from those are:
+- `#` at the start of a message makes the message a _memory_ - prepended to the prompt. Use these for patterns that you want claude to hew close to.
+- `@` anywhere allows you to insert something in-context.
+
+Note that claude code can read images just like any other file! Use this to place design docs in-context.
+
+You can also migrate your mcp settings from claude desktop to claude code.
+
+As you write lots of code and have longer and longer claude code sections, you'll eventually hit the 200k token limit.
+In the bottom-right corner you'll see a percentage left; when this is hit, it'll auto-summarize, taking about a minute before proceeding.
+Around when this warning starts to happen quality tends to lower. I recommend as much as you can keeping the context window small
+and putting shared conversation docs in a dedicated docs folder.
+
+That's all the thoughts for now.
