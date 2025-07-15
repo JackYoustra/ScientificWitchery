@@ -9,13 +9,13 @@ const path = require('path')
 // You might need to insert additional domains in script-src if you are using external services
 const ContentSecurityPolicy = `
   default-src 'self';
-  script-src 'self' 'unsafe-eval' 'unsafe-inline' giscus.app analytics.umami.is va.vercel-scripts.com;
-  style-src 'self' 'unsafe-inline' giscus.app;
+  script-src 'self' 'unsafe-eval' 'unsafe-inline' giscus.app analytics.umami.is va.vercel-scripts.com claude.ai;
+  style-src 'self' 'unsafe-inline' giscus.app claude.ai;
   img-src * blob: data:;
   media-src 'self' *.s3.amazonaws.com https://img.buzzfeed.com/;
   connect-src *;
   font-src 'self';
-  frame-src giscus.app gcc.godbolt.org gist.github.com;
+  frame-src giscus.app gcc.godbolt.org gist.github.com claude.ai;
 `
 
 const securityHeaders = [
@@ -62,6 +62,11 @@ const securityHeaders = [
   {
     key: 'Cross-Origin-Opener-Policy',
     value: 'same-origin',
+  },
+  // CORP
+  {
+    key: 'Cross-Origin-Resource-Policy',
+    value: 'cross-origin',
   },
 ]
 
