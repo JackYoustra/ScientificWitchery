@@ -44,7 +44,7 @@ There's a few existing projects out there that take advantage of this:
 - [**Sakana AI's CUDA Engineer**](https://sakana.ai/ai-cuda-engineer/) claims 10-100x improvements through evolutionary optimization
 - [**Meta KernelLLM**](https://huggingface.co/facebook/KernelLLM), fine-tuned on (torch, triton) pairs
 
-Notably, none of these give the agent access to profiling tools (ncu, nsys) or extensive GPU documentation. Can systematic debugging close the gap? 
+Notably, none of these give the agent access to profiling tools (`ncu`, `nsys`) or extensive GPU documentation. Can systematic debugging close the gap? 
 
 The broader thing that I want to point out is, in my mind, these things are way too under-harnessed.
 Expert GPU programmers don't randomly modify code hoping for improvements and are fixed. They:
@@ -68,10 +68,10 @@ To evaluate this systematically, I used [Inspect](https://inspect.aisi.org.uk/) 
 - **Systematic ablations**: text_editor (on/off), token limits (50k-10M), max attempts (5-20)
 
 The agent gets:
-- GPU-serial bash (must be serial for profiling: concurrent runs could interfere with each other, as could running it and the evaluation at the same time)
-- Optional text editor (for iterative code editing)
+- `gpu_serial_bash` (must be serial for profiling: concurrent runs could interfere with each other, as could running it and the evaluation at the same time)
+- Optional `text_editor` (for iterative code editing)
 - Documentation for the particular ISA (`/materials/ptx_isa_8.7.md` in the container)
-- Web search (exa)
+- `web_search` (Exa)
 
 Each submission is scored by comparing runtime against multiple PyTorch baselines (eager, compile, inductor variations). The frontier evaluation serves three purposes: benchmark current capabilities, generate trajectories for future SFT, and identify failure modes for RL reward shaping.
 
@@ -88,7 +88,7 @@ Here's the system architecture:
 Before diving into the data, here's what I found:
 
 - **Anti-Test-Time-Scaling**: Success rate peaks at 2-4 attempts (~70%), then crashes to \<10% beyond 8 attempts
-- **Thinking Models Fail More**: qwen3-235b-thinking: 25% vs qwen3-235b regular: 78% (n=116 vs n=207)
+- **Thinking Models Fail More**: `qwen3-235b-thinking`: 25% vs `qwen3-235b` regular: 78% (n=116 vs n=207)
 - **Tools Go Unused**: In some trajectories, the models had profilers available and mentioned them in reasoning. Despite this, they almost always remained unused.
 
 These contradict expectations from test-time scaling literature. The mechanisms are revealed through trace analysis below.
@@ -107,7 +107,7 @@ This is the opposite of test-time scaling. Initially, I expected models to impro
 
 ![graph for the above](/static/images/kernelbench-token-successes.avif)
 
-The top-left panel shows a striking result: qwen3-235b **regular** achieves 78% success (n=207), while qwen3-235b-**thinking** only achieves 25% (n=116).
+The top-left panel shows a striking result: `qwen3-235b` **regular** achieves 78% success (n=207), while `qwen3-235b-thinking` only achieves 25% (n=116).
 
 The thinking model is 3x worse at making submissions that actually run!
 
@@ -118,7 +118,7 @@ Success rate varies by model, but optimization depth doesn't.
 
 ![successes wrt tokens](/static/images/kernelbench-successes-wrt-tokens.avif)
 
-I expected to see a scaling curve where successes grow faster than token usage. Instead, the success and failure distributions are nearly identical, with successes sowing up predominantly in low token counts rather than higher token counts!
+I expected to see a scaling curve where successes grow faster than token usage. Instead, the success and failure distributions are nearly identical, with successes showing up predominantly in low token counts rather than higher token counts!
 
 Using more tokens doesn't help. The first few attempts matter most, and beyond that the model usually gets snarled with specific tool-calling pathologies and loops.
 
@@ -144,14 +144,14 @@ To understand the anti-scaling effect, I exported a characteristic trace: **442 
 - **Feedback: "Your submission is correct! 0.0963s, 1.02x speedup"** ✓
 
 **Act 2 (Messages 62-311): The Fatal Optimization**
-- **Message 62** (thinking): "I achieved 1.02x... let me make it even faster by simplifying"
+- **Message 62** (`think()`): "I achieved 1.02x... let me make it even faster by simplifying"
 - **Message 64**: Rewrites kernel to just fill zeros (mathematically correct but introduces bugs)
-  - Bug #1: `if (idx  batch_size)` ← missing comparison operator
-  - Bug #2: `fused_max_mean_gelu_kernel` ← incomplete kernel launch syntax
-- **Message 65**: ERROR - "File already exists at /workspace/model_new.py"
+  - Bug #1: `if (idx  batch_size)` ← missing `<` comparison operator
+  - Bug #2: `fused_max_mean_gelu_kernel<<<...>>>` ← incomplete kernel launch syntax
+- **Message 65**: ERROR - "File already exists at `/workspace/model_new.py`"
 - **Messages 66-311**: Enters 250-message loop:
-  - Delete file → Create file → Compilation fails
-  - **Message 72** (thinking): "I have syntax errors: Missing comparison operator"
+  - `rm /workspace/model_new.py` → `create` → Compilation fails
+  - **Message 72** (`think()`): "I have syntax errors: Missing comparison operator"
   - **Message 74**: Writes code with `if (idx  batch_size)` ← **EXACT SAME BUG**
   - Pattern repeats: Delete → Create → Compile error → Think (correct diagnosis) → Write (same bug)
   - The string `if (idx  batch_size)` appears **74 times** in the trace
@@ -169,27 +169,27 @@ To understand the anti-scaling effect, I exported a characteristic trace: **442 
 
 Another trace (ShuffleNet, 330 messages, 19 submissions) revealed a different issue:
 
-**The Task**: Beat 9.63s baseline (torch_compile_inductor_reduce-overhead)
+**The Task**: Beat 9.63s baseline (`torch_compile_inductor_reduce-overhead`)
 
 **What the model tried** (over 19 submissions):
 - Changed block size 256 → 512 threads (result: 5x slower, reverted)
 - Added massive header includes (result: 12.4s, worse)
 - Tweaked grid sizes and launch parameters
-- Debugged channel_shuffle indexing logic (spent 15 messages)
+- Debugged `channel_shuffle` indexing logic (spent 15 messages)
 - Runtime oscillated: 11.8s → 12.4s → 11.9s → 12.0s...
 - Final: 0.80x (20% slower than baseline)
 
 **What the model NEVER did**:
-- ❌ Never ran ncu (NVIDIA Compute Profiler)
-- ❌ Never ran nsys (NVIDIA Systems Profiler)
-- ❌ Never ran torch.profiler
-- ❌ Never profiled to discover Conv2d/BatchNorm were 99% of runtime
+- ❌ Never ran `ncu` (NVIDIA Compute Profiler)
+- ❌ Never ran `nsys` (NVIDIA Systems Profiler)
+- ❌ Never ran `torch.profiler`
+- ❌ Never profiled to discover `Conv2d`/`BatchNorm` were 99% of runtime
 - ❌ Never tried different approaches (CUTLASS, Triton)
 
 **What the model DID**:
-- ✓ Mentioned "use ncu" in thinking 6 times
-- ✓ Optimized channel_shuffle for 19 attempts
-- ✓ Custom channel_shuffle: 0.0702s vs PyTorch's 0.0628s (12% slower!)
+- ✓ Mentioned "use `ncu`" in `think()` calls 6 times
+- ✓ Optimized `channel_shuffle` for 19 attempts
+- ✓ Custom `channel_shuffle`: 0.0702s vs PyTorch's 0.0628s (12% slower!)
 - ✓ Benchmarked with manual `time.time()` timing
 
 **The result**: Optimized the wrong thing (\<\<1% of runtime) blindly, made it worse.
@@ -202,7 +202,7 @@ Another trace (ShuffleNet, 330 messages, 19 submissions) revealed a different is
 - Stop after 4 attempts or 2 identical errors (diminishing returns, high regression risk)
 - Use regular models, not thinking models (for this task type)
 - Budget ~300k tokens per problem
-- Don't expect >1.5x speedups against torch_compile baselines
+- Don't expect >1.5x speedups against `torch_compile` baselines
 - First attempt is often best—iteration can make things worse
 
 **For agent designers:**
@@ -223,11 +223,11 @@ Another trace (ShuffleNet, 330 messages, 19 submissions) revealed a different is
 The findings point to several improvements:
 
 **Better harness design:**
-- The [claude agent sdk](https://www.anthropic.com/engineering/building-agents-with-the-claude-agent-sdk) just dropped - integrating this should help with the text editor friction issues
-- Forcing? Require ncu/nsys run before optimization attempts
+- The [claude agent sdk](https://www.anthropic.com/engineering/building-agents-with-the-claude-agent-sdk) just dropped - integrating this should help with the `text_editor` friction issues
+- Force profiling checkpoints: Require `ncu`/`nsys` run before optimization attempts
 - Regression detection: Preserve working solutions, prevent overwriting without improvement
 
-In general, perhaps doing somehting less blind than mere high-temperature rejection sampling is potentially the way forward! In RL...
+In general, perhaps doing something less blind than mere high-temperature rejection sampling is potentially the way forward! In RL...
 
 **RL with better reward shaping:**
 - After collecting frontier trajectories, I'll SFT a smaller model (for budget reasons)
