@@ -1,0 +1,106 @@
+---
+title: 'Kernelbench Agent'
+date: '2025-09-23'
+tags: ['llm']
+draft: false
+summary: Can we get AI to optimize kernels agentically?
+---
+
+So! Everyone is vibe coding.
+The hardest part about vibe coding, is, of course, the verifier: how do you know
+if the viber made the correct code? Usually the answer is when a senior engineer yells at you
+and tells you that your code is hopelessly buggy.
+
+Fortunately (or [unfortunately](https://www.amazon.com/Anyone-Builds-Everyone-Dies-Superhuman/dp/0316595640) depending on who you are)
+the kernels that make up modern LLMs are _remarkably_ easy to test.
+Want to see if it's correct? Check if it produces (roughly) the same output as a preexisting sample.
+Want to see if it's fast? Benchmark it.
+
+Because we have a good verifier, it is a ripe target for a particularly automated vibe coding loop:
+
+```python
+attempts = []
+for _ in range(N) {
+  kernel = ask_llm(attempts)
+  evaluation = evaluate(kernel)
+  if evaluation.correct and evaluation.speedup > 1.10:
+    log_success()
+  else:
+    log_failure()
+  kernel.append((kernel, evaluation))
+}
+```
+
+Super simple and easy! This is the core agentic loop as featured in the [ReAct](https://arxiv.org/abs/2210.03629) paper.
+
+Other people have noticed this: the first benchmark (as far as I'm aware) for this is [KernelBench](https://arxiv.org/abs/2502.10517) (raw dataset on [hf](https://huggingface.co/datasets/ScalingIntelligence/KernelBench)).
+
+Anyway, there's a few existing projects out there:
+- [**METR's KernelAgent**](https://metr.org/blog/2025-02-14-measuring-automated-kernel-engineering/) achieves 1.8x average speedup using parallel tree search. No ncu, no RL.
+- [**Cognition AI's Kevin-32B**](https://cognition.ai/blog/kevin-32b) demonstrates 65% correctness with multi-turn RL BUT no ncu.
+- [**Sakana AI's CUDA Engineer**](https://sakana.ai/ai-cuda-engineer/) claims 10-100x improvements through evolutionary optimization. No RL.
+- [**Meta KernelLLM**](https://huggingface.co/facebook/KernelLLM), fine-tuned on (torch, triton) pairs, no apparent RL loop. 
+
+The broader thing that I want to point out is, in my mind, these things are way too under-harnessed.
+Expert GPU programmers don't randomly modify code hoping for improvements and are fixed. They:
+1. Profile the kernel to identify specific bottlenecks
+2. Consult documentation for optimization strategies
+3. Apply targeted fixes based on profiler insights
+4. Iterate until performance goals are met
+
+There's not much of a way for the AI to do it in any prior work! I hope that by giving it a search tool, a persistent terminal in a completely tooled-up docker image,
+and a local copy of the accelerator documentation it can start to learn how to do really strong kernel development.
+
+
+# RL Theory
+
+If we want this to be a fair evaluation, we'll need a standardized evaluation framework to judge different frontier models against the artifact we create.
+For this, I chose [Inspect](https://inspect.aisi.org.uk/) as my eval framework.
+I'll also use these frontier evaluation samples to rejection sample from, as well as perfect the harness. We thus get threefold return out of each of these frontier evaluation samples 😄
+
+After taking the frontier samples, we'll SFT a much smaller model on it and use that model to perform RL over, so my poor independent research budget doesn't go broke.
+
+Here's a crude diagram of my setup!
+
+<img src="/static/images/kernelbench-pipeline.svg" alt="KernelBench System Architecture & Agent Flow" style={{width: '100%', maxWidth: '1400px', height: 'auto'}} />
+
+# Results!
+
+The first result is the most important: there are really not that many speedups that we get from rejection sampling: we'd need to get them from RL in the current setup:
+
+![speedups](/static/images/kernelbench-speedup-histogram.avif)
+
+To figure out why, I did a fairly high level look: I blended all different ablations and runs together, so the picture is not very precise; I just
+give these graphs as a _high level_ picture of what I found and why it's hard for me to make progress as-is:
+
+Several bits of terminology you'll see:
+ - 'success / win': this means the trajectory resulted in a single submission that
+    - existed (it correctly wrote a file to the location) by the submission called
+    - compiled
+    - correct (no speedup required)
+  - Note that some of the y-axes have tokens from 0 to 1e6 (one million)
+
+The clear winner in wins is qwen3-235b, but these wins do not translate to concrete speedups in the wins themselves: across models, the ability to speedup is relatively the same and fairly muted.
+
+![graph for the above](/static/images/kernelbench-token-successes.avif)
+
+Moreover, the token efficiency is rather overstated and is due to weird issues scaling token counts! Initially, I expected to see a curve like those seen in the inference-time scaling papers, where we see successes grow much faster than token counts and we see huge returns.
+We... do not see that! It looks like the model's first attempt is the strongest attempt.
+Most wins happen early on, and long run improvement usually gets stuck.
+
+![successes wrt tokens](/static/images/kernelbench-successes-wrt-tokens.avif)
+
+It doesn't vary based on submission count either: the model succeeds both in low token and low submission counts,
+indicating that our harness can't support out-of-the-box frontier models or we have to do our own reliability training in RL:
+
+![successes wrt submissions](/static/images/kernelbench-successes-wrt-submissions.avif)
+
+We can qualitatively see the reason for it getting stuck in such a characteristic trace, especially with the text editor use:
+
+{/* <show one of the YUGE coder traces> */}
+
+So... it looks like we need better harnesses!
+
+## Next steps
+
+The new [claude agent sdk](https://www.anthropic.com/engineering/building-agents-with-the-claude-agent-sdk) just dropped - I'll try integrating that! However it managed to make claude code work will probably eliminate the HUGE harness issues we have.
