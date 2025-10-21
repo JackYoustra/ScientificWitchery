@@ -383,10 +383,9 @@ Perhaps we can try adjusting the tile shapes and see if that changes the error? 
 
 ## CUTLASS
 
-_add quotes for all of these and check_
-
 Writing a CUDA kernel usually revolves around the same few tricks: compute partial sums for dot products, minimizing reads to global memory, using the cache / bank coalescing efficiently, using all of the registers available, pipelining, latency hiding with swaps (and pipelining!), and more.
 
+You can see details to this in [a great blog](http://siboehm.com/articles/22/CUDA-MMM) on efficient matmul on GPUs.
 
 On the pipelining, see this for details: https://docs.nvidia.com/cutlass/media/docs/cpp/efficient_gemm.html
 basically you want to double-buffer (at least) the gemm - that way you're continuously loading from global memory into shared memory for the next iteration,
