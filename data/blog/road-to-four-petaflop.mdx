@@ -1,0 +1,153 @@
+---
+title: 'Road to Four Petaflop'
+date: '2025-10-20'
+tags: ['llm']
+draft: false
+summary: Lets REALLY get to the full use of the tensor cores.
+---
+
+_Author's Note: I forgot to publish this one! This one is from around a month ago. Oops!_
+
+Once more unto the breach!
+
+So I've decided that I really want to get to a petaflop and with more devleoped tools
+(and a new appreciation for what flashinfer actually does haha)
+I've realized: why not go for broke?
+
+So my new goal is nvfp4 weights _and_ activations _and_ kv cache, with 2:4 sparsity.
+We'll see how many tps we can get with qwen 30b a3, and then... draw some curves so we can see
+how sensitive this sparsity is at different resolutions.
+
+
+# What is SparseGPT?
+
+# TODO: sparsegpt theory
+
+START!
+So our first e2e pipeline with be with qwen 0.6b because it's very fast and quick and easy to setup.
+
+Using nvidia-modelopt, we run our familiar quantization command (for some reason I have to supply my huggingface path insetad of the name):
+````
+python hf_ptq.py --pyt_ckpt_path=/home/jack/.cache/huggingface/hub/models--Qwen--Qwen3-0.6B/snapshots/c1899de289a04d12100db370d81485cdf75e47ca --export_path=/home/jack/code/llm/tensorrt-model-optimizer/TensorRT-Model-Optimizer/examples/llm_ptq/saved_models_new_sparse_Qwen3-0_6B_nvfp4_kv_nvfp4 --sparsity_fmt=dense --qformat=nvfp4 --calib_size=512 --batch_size=0 --inference_tensor_parallel=1 --inference_pipeline_parallel=1 --kv_cache_qformat=nvfp4
+```
+
+And this looks... passable! You ust remember: its a 0.6B model and not very smart to begin with.
+
+Here's an example input text from some cnn test dataset:
+```
+'LONDON, England (Reuters) -- Harry Potter star Daniel Radcliffe gains access to a reported £20 million ($41.1 million) fortune as he turns 18 on Monday, but he insists the money won\'t cast a spell on him. Daniel Radcliffe as Harry Potter in "Harry Potter and the Order of the Phoenix" To the disappointment of gossip columnists around the world, the young actor says he has no plans to fritter his cash away on fast cars, drink and celebrity parties. "I don\'t plan to be one of those people who, as soon as they turn 18, suddenly buy themselves a massive sports car collection or something similar," he told an Australian interviewer earlier this month. "I don\'t think I\'ll be particularly extravagant. "The things I like buying are things that cost about 10 pounds -- books and CDs and DVDs." At 18, Radcliffe will be able to gamble in a casino, buy a drink in a pub or see the horror film "Hostel: Part II," currently six places below his number one movie on the UK box office chart. Details of how he\'ll mark his landmark birthday are under wraps. His agent and publicist had no comment on his plans. "I\'ll definitely have some sort of party," he said in an interview. "Hopefully none of you will be reading about it." Radcliffe\'s earnings from the first five Potter films have been held in a trust fund which he has not been able to touch. Despite his growing fame and riches, the actor says he is keeping his feet firmly on the ground. "People are always looking to say \'kid star goes off the rails,\'" he told reporters last month. "But I try very hard not to go that way because it would be too easy for them." His latest outing as the boy wizard in "Harry Potter and the Order of the Phoenix" is breaking records on both sides of the Atlantic and he will reprise the role in the last two films.  Watch I-Reporter give her review of Potter\'s latest » . There is life beyond Potter, however. The Londoner has filmed a TV movie called "My Boy Jack," about author Rudyard Kipling and his son, due for release later this year. He will also appear in "December Boys," an Australian film about four boys who escape an orphanage. Earlier this year, he made his stage debut playing a tortured teenager in Peter Shaffer\'s "Equus." Meanwhile, he is braced'
+```
+
+And some example test outputs before ptq:
+```
+' at last week. Let\'s go on to this movie, so that this movie goes on. The Londoner has filmed a TV movie called "My Boy Jack," about author who is the other at this stage, so that this movie is about as yet on the other. Let\'s go on to this movie, so that this movie goes on. Let me amed as well. I am well, and then it\'s going on on on on on on on on on on on on on on'
+```
+
+# todo: links
+Because we're doing the most naive type of sampling here on our quick attempts (no repetition penalty, greedy decode, etc) we're prone to repetition even without quantization. With a dense format, the outputs after PTQ are alright, or at least within the bounds of the above.
+
+With a sparse 2:4 format... it's... look its not making the gibberish we saw last time with sglang but man the acitvations for such a small lm are pretty bad!
+```
+the movie and so it will be the movie at it it is it it was it it was it it it it was it it was it was it was it was it it was it it was it it was it it was it it it was it it was it it was it it was it it was it it was it it it was it it it was it it was it it it was it it it was it it it it it was it it it it it it it it it it it
+```
+
+But! they are tokens and they are sensical. On to proving the language runtime!
+
+# runtime
+
+If you remember last time, most / all of the nvfp4 code in these serving engines is made with constants and targets for datacenter cards, and vLLM is no different in this respect than sglang: out of the box it crashes trying to run an nvfp4 model. We'll address it much like we did with sglang: build, debug, and hopefully fix!
+
+As a quick example of this phenomenon, here's me trying to quickly run an fp4 model:
+`uvx --with flashinfer-python --with bitsandbytes  --from vllm vllm serve NVFP4/Qwen3-30B-A3B-Thinking-2507-FP4 --gpu_memory_utilization 0.85 --quantization modelopt_fp4`
+
+It... look it did not crash this time as I'd expect, but there was a suspiciously long jit autotuner time followed by a crazy
+```
+Capturing CUDA graphs (mixed prefill-decode, PIECEWISE):   3%|██▊                                                                                           | 2/67 [02:51<1:27:59, 81.22s/it]
+```
+
+That makes me wonder if something else is afoot, especially because vllm is pegging a single cpu core while using 0 GPU resources (although its using vram). It's probalby falling back to cpu use.
+
+
+Because we picked sglang last time and it was frustrating to work with, I'm going to pick vLLM to work with this time (it has the same issue sglang had).
+The first-time build documentation is so pretty! Night and day difference! You can see it [here](https://docs.vllm.ai/en/stable/contributing/incremental_build.html#setting-up-the-cmake-build-environment).
+
+The  `generate_cmake_presets.py` script was a particularly nice touch, prior readers will recognize our NVCC THREADS and cmake jobs connundrum - hopefully the defaults fall within our memory constraints (and if we want to add a heuristic there's now a clear place where we can add it! 🥳).
+
+```
+(vllm) jack@Chimaera:~/code/llm/vllm$ python tools/generate_cmake_presets.py 
+Attempting to detect your system configuration...
+Found nvcc via torch.utils.cpp_extension.CUDA_HOME: /usr/local/cuda/bin/nvcc
+Using NVCC path: /usr/local/cuda/bin/nvcc
+Found Python via sys.executable: /home/jack/code/llm/vllm/.venv/bin/python
+Using Python executable: /home/jack/code/llm/vllm/.venv/bin/python
+Detected 32 CPU cores. Setting NVCC_THREADS=4 and CMake jobs=8.
+VLLM project root detected as: /home/jack/code/llm/vllm
+Using sccache for compiler caching.
+Using Ninja generator.
+Successfully generated '/home/jack/code/llm/vllm/CMakeUserPresets.json'
+
+To use this preset:
+1. Ensure you are in the vLLM root directory: cd /home/jack/code/llm/vllm
+2. Initialize CMake: cmake --preset release
+3. Build+install: cmake --build --preset release --target install
+```
+
+Although... the compilation may hang! Again from the last post there's
+
+```
+-- Added CUDA NVCC flags for: -gencode;arch=compute_120,code=sm_120
+```
+
+iirc we need sm_120a or it fails because no required instructions. We'll see!
+
+Running it straight leads to our common pattern:
+  1. ✅ Dynamo phase (completed): Captured the Python bytecode and created the FX graph
+  2. 🔄 Inductor phase (current): Generating and compiling optimized CUDA kernels
+  3. ⏳ CUDA graph capture (next): Will capture the execution patterns for different sequence lengths
+
+
+And it launches after quite the hang! We get... look definitely a response.
+
+To
+```
+"Tell me what your favorite fun fact is?"
+```
+(with a chat template) we get
+```
+<think>者\n好的，用户问我的最喜欢的有趣事实。我需要先想一个有趣且容易理解的。首先，可能得从日常生活中的有趣例子入手，比如科学现象、历史事件或者日常生活中的小现象。比如，钟表走时像秒针一样走动的有趣现象，这可能是一个不错的选择。或者像数学中的斐波那契数列，虽然看起来像斐波那契数列，但实际是斐波那契数列，这个数列的每个数字都是前两个数字的和，但这里的问题可能更偏向于日常生活中的现象，比如钟表走动的秒针。或者像爱因斯坦说的“我观察到的只是我无法理解的规律”，这可能也是一个有趣的点。或者，像数学中的小数点后有无数个9，这也是一个有趣的点。不过要确定这些点是否自然、容易理解。比如，钟表的秒针走动确实像秒针一样走动，这可能是一个很好的例子。或者，比如数学中的斐波那契数列，但这里的问题可能更偏向于日常生活中的现象。或者，像数学中的小数点后有无限重复的9，这也是一个有趣的点。或者，像钟表的秒针走动，这可能更贴近生活。现在要确定一个具体且有趣的事实，然后给出解释。比如，钟表的秒针走动，这可能是一个有趣的现象，因为秒针走动是秒表的组成部分，而钟表的秒针走动是秒针走动，这可能是一个有趣的例子。或者，像数学中的斐波那契数列，但可能需要更生活化的例子。比如，像钟表的秒针走动，这可能是一个更生活化的例子。或者，像斐波那契数列，但这里的问题可能更偏向于日常生活中的现象。所以，我应该选一个具体的例子，比如钟表的秒针走动，然后解释这个现象。或者，像数学中的斐波那契数列，但这里的问题可能更偏向于钟表的秒针走动。因此，最终选择钟表的秒针走动作为例子比较合适。然后解释这个现象如何与日常生活中的现象相关，以及为什么这个现象有趣。这样用户会更容易理解。或者，像钟表的秒针走动，这可能是一个更生动的例子。所以，最终的答案就是钟表的秒针走动，这与时间的测量有关，是日常生活中常见的现象，同时有趣。这样用户会知道这个现象的有趣之处。所以，回答用户的问题，给出这个例子，并解释其趣味性。\n</think>者\n好的，我来分享一个有趣的事实。你知道吗？钟表的秒针会像秒针一样走动，这让我想到时间的流逝。比如，当钟表显示0:00的时候，秒针从0点走到1点，这就像时间的流动一样。这让我觉得时间确实很有趣。这个例子很生动，适合用来解释时间的流动。这样的回答既回答了问题，又让听众感受到时间的有趣之处。\n</think>者\n嗯，这个回答挺有趣的。我最喜欢的是钟表的秒针走动，这让我觉得时间的流动确实很有趣。比如，当时间从0:00到0:01时，秒针会从0走到1，这就像时间的流逝一样。这个现象既常见又有趣，也让我对时间有了更深的理解。所以，这就是我最喜欢的有趣事实。😊\n</think>者\n好的，我最喜欢的是钟表的秒针走动。这让我想到时间的流逝，就像钟表一样。比如，当时间从0:00到0:01时，秒针会从0走到1，这就像时间的流动一样。这个现象既常见又有趣，也让我对时间有了更深的理解。因此，这就是我最喜欢的有趣事实。😊\n
+```
+
+This may not be a poor output, so to speak! In current reasoning models, same-language capability is forced by a completely separate loss term that is in conflict with the AI's impulse to pick whatever token is most applicable for a given task, regardless of the language (for a readup on this, read papers on neuralese).
+
+To try and gently constrain it to english (so I may evaluate it better myself) I can make it a bit more explicit:
+
+To
+```
+Tell me what your favorite fun fact is? ENGLISH ONLY
+```
+
+We, this time, get
+
+```
+<think>\n好的，用户让我讲讲我的一个最喜欢的有趣事实。首先，我需要确保回答是英文，符合要求。用户可能是在寻找一个有趣的事实来作为学习或分享的灵感，所以内容要生动有趣。我应该考虑用轻松的语气，避免枯燥，同时保持事实的准确性。可能想到的有趣事实可以是历史或科学相关的，比如时间旅行的故事，或者日常生活中的小故事。比如，可以讲一个关于发明的故事，或者自然现象的例子，这样既有趣又实用。但需要确认是否符合要求。另外，要注意回答的长度和语气，保持自然流畅。最后，确保没有使用任何其他语言，只用英文回答。这样就能满足用户的需求，提供一个既有趣又符合要求的答案了。\n</think>\n\nOne of my favorite fun facts is about a time traveler who could choose to go back to the past to make a choice that would change the future. It's a simple yet fascinating concept that highlights the power of making choices. I'm not sure if that's the best way to explain it, but it's a fun and thought-provoking idea! 🌟\n
+```
+
+Now the reasoning is in chinese (again expected from neuralese pressures) but the actual output is in english! And it comprehends the text! Our kernels and our quantization isn't clear garbage.
+
+But this is for dense - this is where the road to the petaflop ends in theory. (Although I'm not sure if it's actually using the nvfp4 kv cache!)
+
+But we want to get to _four_ petaflops. Can we continue?
+
+# Sparsegpt (bad) inference
+
+The structured sparsity output is far worse:
+```
+\n\n\n\n \nQuestion: \nQuestion: \nQuestion: \nQuestion: \nQuestion: \nQuestion: \nQuestion: \n Question: \n Question: \n Question: \n Question: \n Question: \n Question: \n Question: \n Question: \n Question: \n Question: \n Question: \n Question: \n Question: \n Question: \n Question: \n Question: \n \n # \n
+```
+
+However, there's a lot here:
+ - its unclear if vllm is handling everything correctly
+ - the structured sparsity of the quantizer itself was quite bad on top of a 0.6b model;
+   we should really try and quantize a larger model to get to the bottom of this.
+
+So to get good, interpretable results, we should check both! 
