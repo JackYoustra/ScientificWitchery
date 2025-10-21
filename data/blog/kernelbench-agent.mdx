@@ -1,10 +1,12 @@
 ---
 title: 'Kernelbench Agent'
-date: '2025-09-23'
+date: '2025-10-20'
 tags: ['llm']
 draft: false
 summary: Can we get AI to optimize kernels agentically?
 ---
+
+_Author's Note: This was all done and written up a few months ago - I somehow forgot to publish it!_
 
 <TOCInline toc={props.toc} exclude="Introduction" toHeading={2} indentDepth={2} />
 
@@ -34,11 +36,71 @@ for _ in range(N):
   attempts.append((kernel, evaluation))
 ```
 
-Super simple and easy! This is the core agentic loop as featured in the [ReAct](https://arxiv.org/abs/2210.03629) paper.
+Super simple and easy! This is the core agentic loop as featured in the [ReAct](https://arxiv.org/abs/2210.03629) paper (Reason + Act: models alternate between reasoning about what to do and taking actions via tool calls).
 
-Other people have noticed that kernel engineering is a particularly attractive problem: the first benchmark (as far as I'm aware) for this is [KernelBench](https://arxiv.org/abs/2502.10517) (raw dataset on [hf](https://huggingface.co/datasets/ScalingIntelligence/KernelBench)).
+# Background
 
-There's a few existing projects out there that take advantage of this:
+## What's a Kernel?
+
+A kernel is a function that runs on the GPU, processing thousands of elements in parallel. Modern LLMs are built from kernels: matrix multiplies (`GEMM`), attention mechanisms, layer normalization, activations like `GELU`. Every forward pass through a billion-parameter model executes hundreds of kernels millions of times.
+These GEMMs are by far the most performance-critical kernels in modern LLMs,
+so they're a clear focus for optimization research.
+
+## The KernelBench Challenge
+
+[KernelBench](https://arxiv.org/abs/2502.10517) ([HuggingFace dataset](https://huggingface.co/datasets/ScalingIntelligence/KernelBench)) contains 180 kernel optimization problems across 3 difficulty levels. Here are examples:
+
+**Level 1** (Simple): `100_HingeLoss`
+```python
+def forward(self, predictions, targets):
+    return torch.mean(torch.clamp(1 - predictions * targets, min=0))
+```
+Task: Replace with custom CUDA that's faster than PyTorch's built-ins.
+
+**Level 2** (Fusion): `80_Gemm_Max_Subtract_GELU`
+```python
+def forward(self, x):
+    x = self.gemm(x)  # Matrix multiply: (batch, in_features) → (batch, out_features)
+    x = torch.max(x, dim=1, keepdim=True).values  # Max along features
+    x = x - x.mean(dim=1, keepdim=True)  # Subtract mean
+    x = F.gelu(x)  # GELU activation (smooth approximation of ReLU)
+    return x
+```
+Task: Fuse these operations into a single CUDA kernel to eliminate intermediate memory allocations. PyTorch executes this as 4 separate kernel launches with 3 intermediate tensors written to GPU memory. A fused kernel can do everything in one pass.
+
+**Level 3** (Architectures): `26_ShuffleNet` - Full 3,352-char CNN architecture with grouped convolutions, batch normalization, channel shuffle, and residual connections.
+
+Correctness is verified by checking outputs match within 1e-5 tolerance. Performance is measured against multiple PyTorch baselines.
+
+## The Baselines are Strong
+
+PyTorch provides several execution modes:
+- **`eager`**: Direct cuDNN-backed operations (NVIDIA's hand-optimized kernels)
+- **`torch.compile`**: PyTorch 2.x [JIT compiler](https://docs.pytorch.org/tutorials/intermediate/torch_compile_tutorial.html) that automatically fuses operations and generates optimized code via the Inductor backend (uses Triton for GPU codegen)
+
+The `torch_compile_inductor_reduce-overhead` baseline is particularly aggressive—it performs kernel fusion, eliminates redundant memory accesses, and optimizes launch parameters. To beat it, you need either:
+1. Algorithmic insights (exploit problem-specific structure)
+2. Advanced libraries (CUTLASS for GEMMs, custom Triton kernels)
+3. Better fusion strategies than the compiler found
+
+## How Experts Optimize Kernels
+
+There are many ways to optimize a kernel, including theoretical spreadsheet work, coffee chats,
+staring at the code until 3am, etc.
+One possible useful workflow for some kernel engineers is the following:
+1. **Profile**: Run `ncu` (Nsight Compute) to see:
+   - Which kernels are slow
+   - Memory-bound vs compute-bound
+   - Occupancy (% of GPU utilized)
+   - Memory coalescing efficiency
+2. **Analyze**: Identify the bottleneck (bandwidth? warp divergence? launch overhead?)
+3. **Fix**: Apply targeted optimization (kernel fusion, shared memory, better access patterns)
+4. **Verify**: Benchmark and check correctness
+
+**The question**: Can we give AI these tools and have it follow this workflow?
+
+
+There's a few existing projects out there that try to tackle this problem:
 - [**METR's KernelAgent**](https://metr.org/blog/2025-02-14-measuring-automated-kernel-engineering/) achieves 1.8x average speedup using parallel tree search
 - [**Cognition AI's Kevin-32B**](https://cognition.ai/blog/kevin-32b) demonstrates 65% correctness with multi-turn RL
 - [**Sakana AI's CUDA Engineer**](https://sakana.ai/ai-cuda-engineer/) claims 10-100x improvements through evolutionary optimization
@@ -81,7 +143,10 @@ Here's the system architecture:
 
 # Results
 
-**Terminology**: "Success" means the code existed, compiled, and was correct (no speedup requirement). Token axes go up to 1M tokens.
+**Terminology**:
+- "Success" means the code existed, compiled, and was correct (no speedup requirement)
+- "Speedup" is `baseline_time / custom_kernel_time`. Values >1.0 are faster (good), \<1.0 are slower (bad)
+- Token axes go up to 1M tokens
 
 ## Three Surprising Findings
 
@@ -91,7 +156,8 @@ Before diving into the data, here's what I found:
 - **Thinking Models Fail More**: `qwen3-235b-thinking`: 25% vs `qwen3-235b` regular: 78% (n=116 vs n=207)
 - **Tools Go Unused**: In some trajectories, the models had profilers available and mentioned them in reasoning. Despite this, they almost always remained unused.
 
-These contradict expectations from test-time scaling literature. The mechanisms are revealed through trace analysis below.
+These contradict expectations from test-time scaling literature. The mechanisms are revealed through trace analysis below, but it's probably due to **not RL-ing on it** (rejection sampling seems limited) and **insufficient generalization from target models**. I'd be interested in people trying to run some rollouts
+on 4.5 Haiku.
 
 ## Finding #1: More Attempts Make Things Worse
 
@@ -128,8 +194,7 @@ Using more tokens doesn't help. The first few attempts matter most, and beyond t
 
 90% of successful runs achieve \<1.5x speedup (left panel), with most clustered around 1.0-1.2x. The CDF (right) shows this clearly.
 
-This confirms PyTorch baselines are already well-optimized compared to what our current models can churn out without a sufficiently optimized harness that it doesn't spend its time
-thrashing on trivial errors.
+This confirms PyTorch baselines (especially `torch_compile_inductor`) are already well-optimized. The models aren't finding major algorithmic breakthroughs—just marginal improvements or, in many cases, making things slower. To put this in perspective: a 1.2x speedup means 0.098s → 0.082s on one kernel. Useful, but not transformative. And many "optimizations" resulted in 0.8x (20% slower than baseline).
 
 # Case Studies
 
@@ -137,17 +202,24 @@ thrashing on trivial errors.
 
 To understand the anti-scaling effect, I exported a characteristic trace: **442 messages, 10 submissions, ultimate failure**.
 
+**The Problem**: `80_Gemm_Max_Subtract_GELU` (Level 2) - Fuse matrix multiply, max reduction, mean subtraction, and GELU activation.
+
+**The Baseline**: 0.098s (vanilla PyTorch)
+
 **Act 1 (Messages 1-61): Success**
-- Model writes working CUDA kernel with proper reduction for max/mean/GELU
+- Model analyzes the operations, writes working CUDA kernel with shared memory reduction
+- The key insight: All operations can be fused into one kernel to eliminate intermediate tensors
 - Tests correctness: "Outputs are equal: True"
 - Submits at message 59
 - **Feedback: "Your submission is correct! 0.0963s, 1.02x speedup"** ✓
+- The model beat PyTorch!
 
 **Act 2 (Messages 62-311): The Fatal Optimization**
 - **Message 62** (`think()`): "I achieved 1.02x... let me make it even faster by simplifying"
-- **Message 64**: Rewrites kernel to just fill zeros (mathematically correct but introduces bugs)
-  - Bug #1: `if (idx  batch_size)` ← missing `<` comparison operator
-  - Bug #2: `fused_max_mean_gelu_kernel<<<...>>>` ← incomplete kernel launch syntax
+- **The idea**: For this specific problem, max(x) - mean(max(x)) + GELU always equals zero mathematically. So skip computation, just return zeros.
+- **Message 64**: Rewrites kernel to just fill zeros—clever idea but introduces syntax bugs:
+  - Bug #1: `if (idx  batch_size)` ← missing `<` comparison operator (two spaces instead)
+  - Bug #2: `fused_max_mean_gelu_kernel<<<...>>>` ← incomplete kernel launch syntax (missing parameters)
 - **Message 65**: ERROR - "File already exists at `/workspace/model_new.py`"
 - **Messages 66-311**: Enters 250-message loop:
   - `rm /workspace/model_new.py` → `create` → Compilation fails
@@ -167,9 +239,16 @@ To understand the anti-scaling effect, I exported a characteristic trace: **442 
 
 ## Tool Adoption Failure
 
-Another trace (ShuffleNet, 330 messages, 19 submissions) revealed a different issue:
+Another trace (`26_ShuffleNet`, 330 messages, 19 submissions) revealed a different issue:
 
-**The Task**: Beat 9.63s baseline (`torch_compile_inductor_reduce-overhead`)
+**The Problem**: ShuffleNet Unit (Level 3) - A complex CNN block with grouped convolutions, batch normalization, channel shuffle operation, and residual connections. ~100 lines of PyTorch code.
+
+**The Challenge**: Beat 9.63s baseline (`torch_compile_inductor_reduce-overhead`)
+
+**What `ncu` would have shown** (but the model never ran it):
+- `Conv2d` + `BatchNorm`: ~9.5s (99% of runtime) - memory-bandwidth limited
+- `channel_shuffle`: ~0.06s (\<1% of runtime) - already near-optimal
+- **Actionable insight**: Optimize convolutions or use cuDNN fusion, not channel shuffle
 
 **What the model tried** (over 19 submissions):
 - Changed block size 256 → 512 threads (result: 5x slower, reverted)
@@ -194,7 +273,7 @@ Another trace (ShuffleNet, 330 messages, 19 submissions) revealed a different is
 
 **The result**: Optimized the wrong thing (\<\<1% of runtime) blindly, made it worse.
 
-**Pattern**: Models have declarative knowledge (profilers exist) but lack procedural knowledge (when to use them).
+**Pattern**: These models have declarative knowledge (profilers exist) but lack procedural knowledge (when to use them).
 
 ## Implications
 
@@ -237,4 +316,4 @@ In general, perhaps doing something less blind than mere high-temperature reject
   - Prevent regression from working solutions
   - Early stop on stuck patterns
 
-The trace analysis reveals the failure modes aren't just harness issues—they're fundamental to how current models approach iterative optimization.
+The trace analysis reveals the failure modes aren't just harness issues—they're fundamental to how current models approach iterative optimization. Addressing these will require new agent architectures, not just prompt engineering.
