@@ -2,7 +2,7 @@
 title: 'Road to Four Petaflop'
 date: '2025-10-20'
 tags: ['llm']
-draft: false
+draft: true
 summary: Lets REALLY get to the full use of the tensor cores.
 ---
 
@@ -27,7 +27,7 @@ START!
 So our first e2e pipeline with be with qwen 0.6b because it's very fast and quick and easy to setup.
 
 Using nvidia-modelopt, we run our familiar quantization command (for some reason I have to supply my huggingface path insetad of the name):
-````
+```
 python hf_ptq.py --pyt_ckpt_path=/home/jack/.cache/huggingface/hub/models--Qwen--Qwen3-0.6B/snapshots/c1899de289a04d12100db370d81485cdf75e47ca --export_path=/home/jack/code/llm/tensorrt-model-optimizer/TensorRT-Model-Optimizer/examples/llm_ptq/saved_models_new_sparse_Qwen3-0_6B_nvfp4_kv_nvfp4 --sparsity_fmt=dense --qformat=nvfp4 --calib_size=512 --batch_size=0 --inference_tensor_parallel=1 --inference_pipeline_parallel=1 --kv_cache_qformat=nvfp4
 ```
 

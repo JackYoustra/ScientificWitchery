@@ -248,7 +248,8 @@ except Exception as e:
 
 This reproduces the error in the `cutlass_scaled_fp4_mm` function.
 
-Now we have to figure out what's going on. For reference, here's a [link](TODO) to the concerned function.
+Now we have to figure out what's going on. For reference, here's the concerned function.
+{/* TODO: link to the concerned function */}
 
 For such failures, there's a lot of available CUDA debugging tools. The relevant one to try out now is [compute-sanitizer](https://docs.nvidia.com/compute-sanitizer/ComputeSanitizer/index.html). You just run it like valgrind: shove it in front of the command you want to run.
 
@@ -326,7 +327,8 @@ Python exception: Error Internal
 ========= ERROR SUMMARY: 2 errors
 ```
 
-The relevant portion talks about an invalid argument in `runGemm`. `runGemm` refers to the templated cutlass method used to invoke gemm kernels, invoked [here](TODO).
+The relevant portion talks about an invalid argument in `runGemm`. `runGemm` refers to the templated cutlass method used to invoke gemm kernels.
+{/* TODO: link to the runGemm invocation */}
 The actual cuda API method that's failing is `cudaFuncSetAttribute`. We can find out precisely which one by preloading
 the function and hooking it and dumping the value whenever it's returned null. There may be a way to do this with gdb or cuda-gdb, but I'm unfamiliar with how to use cuda-gdb and hooking is sufficient for now.
 

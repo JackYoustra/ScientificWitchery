@@ -1,10 +1,6 @@
 'use client'
 
 import { BuzzFeedQuiz } from 'react-buzzfeed-quiz'
-import BackgroundImage from '/public/static/images/nanoflick.webp'
-import FirstResultImage from '/public/static/images/nanoflick.webp'
-import SecondResultImage from '/public/static/images/nanoflick.webp'
-import ResponseImage from '/public/static/images/nanoflick.webp'
 import 'react-buzzfeed-quiz/lib/styles.css'
 import './customstyles.css'
 
@@ -33,12 +29,12 @@ export default function Projects() {
         }
         autoScroll={true}
         facebookShareButton={true}
-        facebookShareLink={'www.jackyoustra.com/projects/quiz'}
+        facebookShareLink={'https://jackyoustra.com/projects/quiz'}
         twitterShareButton={true}
-        twitterShareLink={'www.jackyoustra.com/projects/quiz'}
+        twitterShareLink={'https://jackyoustra.com/projects/quiz'}
         copyShareButton={true}
         copyShareLink={
-          'Find out what your job will be once the revolution happens at www.jackyoustra.com/projects/quiz.'
+          'Find out what your job will be once the revolution happens at https://jackyoustra.com/projects/quiz'
         }
         questions={[
           {
@@ -49,7 +45,7 @@ export default function Projects() {
               'Working with my hands',
               'Reading, discussing, debating ideas',
               'Wandering the Great Outdoors',
-            ].map((answer, index) => ({
+            ].map((answer) => ({
               answer,
               backgroundColor: 'red',
               resultID: 0,
@@ -58,7 +54,7 @@ export default function Projects() {
           {
             question: 'What was your favorite subject in school?',
             backgroundColor: 'blue',
-            answers: ['Math', 'Science', 'Literature', 'History'].map((answer, index) => ({
+            answers: ['Math', 'Science', 'Literature', 'History'].map((answer) => ({
               answer,
               backgroundColor: 'blue',
               resultID: 0,
@@ -72,7 +68,7 @@ export default function Projects() {
               'Caring, compassionate',
               'Tough, strong',
               'Funny, life of the party',
-            ].map((answer, index) => ({
+            ].map((answer) => ({
               answer,
               backgroundColor: 'black',
               resultID: 0,
@@ -86,7 +82,7 @@ export default function Projects() {
               'Working with small teams',
               'Working in very large organizations',
               "Work? I'm more of a free spirit!",
-            ].map((answer, index) => ({
+            ].map((answer) => ({
               answer,
               resultID: 0,
               backgroundColor: 'purple',
@@ -100,7 +96,7 @@ export default function Projects() {
               'To discover new things about the world around us',
               'To build something that will stand the test of time',
               'To connect with others, and grow as a person',
-            ].map((answer, index) => ({
+            ].map((answer) => ({
               answer,
               backgroundColor: 'pink',
               resultID: 0,
@@ -114,7 +110,7 @@ export default function Projects() {
               'Rejoice, comrade! The Central Committee has determined your ideal new job in our socialist utopia - collective farm labor. Your comrades in the army will be along shortly to escort you and your family to a new, socialist home.',
             resultImageSrc:
               'https://www.encyclopediaofukraine.com/pic%5CC%5CO%5CCollective%20farm%20propaganda%20poster.jpg',
-            imageAttribution: 'Your photo attribution text goes here',
+            imageAttribution: 'Collective farm propaganda poster, via the Encyclopedia of Ukraine',
             resultID: 0,
           },
         ]}

@@ -149,6 +149,7 @@ export default dynamic(
     const { DuplicateKeys, TypeNarrowing } = await import('rust-wasm/pkg/rust_wasm.js')
     return function ConverterLoaded() {
       const [output, setOutput] = useState('')
+      const [copied, setCopied] = useState(false)
       const [checked, setChecked] = useState(true)
       const [prettyprint, setPrettyprint] = useState(true)
       // segmented control for keys
@@ -177,9 +178,19 @@ export default dynamic(
           const result = parse_jomini(input, duplicateKeysMode, prettyprint, typeNarrowing)
           setOutput(result)
         } catch (e) {
-          setOutput(e)
+          setOutput(e instanceof Error ? e.message : String(e))
         }
       }, [inputRef, duplicateKeysMode, prettyprint, typeNarrowing])
+
+      const handleCopy: MouseEventHandler<HTMLButtonElement> = useCallback(() => {
+        if (!output) {
+          return
+        }
+        navigator.clipboard.writeText(output).then(() => {
+          setCopied(true)
+          setTimeout(() => setCopied(false), 1500)
+        })
+      }, [output])
 
       // load next tick every settings change
       useEffect(() => {
@@ -287,9 +298,11 @@ export default dynamic(
             </button>
             <button
               type="button"
-              className="focus:shadow-outline-blue items-center rounded-md border border-transparent bg-blue-600 px-4 text-sm font-medium leading-5 text-white transition duration-150 ease-in-out hover:bg-blue-500 focus:border-blue-700 focus:outline-none"
+              className="focus:shadow-outline-blue items-center rounded-md border border-transparent bg-blue-600 px-4 text-sm font-medium leading-5 text-white transition duration-150 ease-in-out hover:bg-blue-500 focus:border-blue-700 focus:outline-none disabled:cursor-not-allowed disabled:opacity-50"
+              onClick={handleCopy}
+              disabled={!output}
             >
-              Copy
+              {copied ? 'Copied' : 'Copy'}
             </button>
           </div>
         </>
