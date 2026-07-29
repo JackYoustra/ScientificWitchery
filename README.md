@@ -47,7 +47,7 @@ is optional for local development.
 
 Posts are MDX files in `data/blog/`. Frontmatter fields are declared in
 `contentlayer.config.ts` — `title` and `date` are required, the rest
-(`tags`, `summary`, `images`, `draft`, `lastmod`, `canonicalUrl`) are not. Site
+(`tags`, `images`, `draft`, `lastmod`, `series`, `part`) are not. Site
 configuration lives in `data/siteMetadata.js`, nav links in
 `data/headerNavLinks.ts`, and the projects page reads `data/projectsData.ts`.
 

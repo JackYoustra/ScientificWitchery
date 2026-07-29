@@ -1,6 +1,7 @@
 AMFI
 APFS
 Aaaand
+avfoundation
 backgrounded
 Bazel
 Bloatface
@@ -47,6 +48,7 @@ PLAV
 PLUI
 PTHREAD
 PTHREADS
+Petaflop
 Prefs
 RAII
 Raytracing

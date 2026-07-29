@@ -22,8 +22,55 @@ import rehypePrismPlus from 'rehype-prism-plus'
 import rehypePresetMinify from 'rehype-preset-minify'
 import siteMetadata from './data/siteMetadata'
 import { allCoreContent, sortPosts } from 'pliny/utils/contentlayer.js'
+import { isoDate } from './lib/formatDate'
 
 const isProduction = process.env.NODE_ENV === 'production'
+
+/**
+ * Formats an OG/Twitter card scraper will actually render. Notably absent:
+ * `.svg` and `.avif`, which neither Twitter nor Facebook accept — a post whose
+ * only art is an SVG diagram is better off with the site banner than a card
+ * that fails to load.
+ */
+const CARD_IMAGE_EXTENSIONS = /\.(png|jpe?g|webp|gif)$/i
+
+/** ```fenced``` blocks, so a path inside a code sample is never mistaken for art. */
+const FENCED_CODE = /^[^\S\n]*(```|~~~)[\s\S]*?^[^\S\n]*\1[^\S\n]*$/gm
+
+/**
+ * `![alt](/path)`, `![alt](</path>)`, and the JSX forms — both the raw `<img>`
+ * and the `<Image>` component, whose attributes are usually spread over several
+ * lines. `<source>` is deliberately not matched: those are videos.
+ */
+const IMAGE_REFERENCE =
+  /!\[[^\]]*\]\(\s*<?([^)\s>]+)|<(?:img|image)\b[^>]*?\bsrc=\{?\s*["']([^"']+)["']/gi
+
+/**
+ * Best-effort social card image for a post that declares no `images:`.
+ *
+ * Picks the first *local* body image in a card-friendly format. Remote images
+ * are deliberately skipped: hotlinking someone else's CDN into our OG tags
+ * breaks the moment they move or hotlink-protect the file.
+ */
+function deriveSocialImage(body: string): string {
+  const prose = body.replace(FENCED_CODE, '')
+  for (const match of prose.matchAll(IMAGE_REFERENCE)) {
+    const url = (match[1] || match[2] || '').trim()
+    if (url.startsWith('/') && CARD_IMAGE_EXTENSIONS.test(url.split(/[?#]/)[0])) {
+      return url
+    }
+  }
+  return siteMetadata.socialBanner
+}
+
+/** Author-declared `images:` wins, then the first body image, then the banner. */
+function cardImage(doc): string {
+  if (doc.images) {
+    const declared = typeof doc.images === 'string' ? doc.images : doc.images[0]
+    if (declared) return declared
+  }
+  return deriveSocialImage(doc.body.raw)
+}
 
 // heroicon mini link
 const icon = fromHtmlIsomorphic(
@@ -102,23 +149,39 @@ export const Blog = defineDocumentType(() => ({
     tags: { type: 'list', of: { type: 'string' }, default: [] },
     lastmod: { type: 'date' },
     draft: { type: 'boolean' },
-    summary: { type: 'string' },
+    // Required: every post has one, and a missing summary silently degrades the
+    // listing, the search index, and both meta descriptions.
+    summary: { type: 'string', required: true },
     images: { type: 'json' },
     authors: { type: 'list', of: { type: 'string' } },
-    canonicalUrl: { type: 'string' },
+    /** Optional multi-part grouping, e.g. `series: 'Road to Petaflop'` + `part: 1`. */
+    series: { type: 'string' },
+    part: { type: 'number' },
   },
   computedFields: {
     ...computedFields,
+    /**
+     * Card image for OG/Twitter. Author-declared `images:` wins; otherwise we
+     * fall back to the post's first usable body image, then the site banner.
+     */
+    socialImage: { type: 'string', resolve: cardImage },
+    /** Whole minutes at 200wpm. The raw word count stays internal to `readingTime`. */
+    readingMinutes: {
+      type: 'number',
+      resolve: (doc) => Math.max(1, Math.ceil(readingTime(doc.body.raw).words / 200)),
+    },
     structuredData: {
       type: 'json',
       resolve: (doc) => ({
         '@context': 'https://schema.org',
         '@type': 'BlogPosting',
         headline: doc.title,
-        datePublished: doc.date,
-        dateModified: doc.lastmod || doc.date,
+        // Calendar days, rendered in UTC so they match the frontmatter rather
+        // than the build machine's timezone.
+        datePublished: isoDate(doc.date),
+        dateModified: isoDate(doc.lastmod || doc.date),
         description: doc.summary,
-        image: doc.images ? doc.images[0] : siteMetadata.socialBanner,
+        image: cardImage(doc),
         url: `${siteMetadata.siteUrl}/${doc._raw.flattenedPath}`,
       }),
     },
