@@ -1,6 +1,12 @@
 /target
 **/*.rs.bk
-Cargo.lock
 bin/
-pkg/
 wasm-pack.log
+.idea/
+
+# NOTE: Cargo.lock and pkg/ are intentionally COMMITTED.
+#   - Cargo.lock: the twiggy dependencies are git deps on a floating
+#     `branch = "master"`, so without the lockfile every build re-resolves them.
+#   - pkg/: package.json declares `"rust-wasm": "./rust-wasm/pkg"`, so a fresh
+#     clone cannot `bun install` unless the built package is in the repo.
+#     Regenerate with `bun run wasm` and commit the result.

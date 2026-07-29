@@ -1,0 +1,7 @@
+[toolchain]
+# Pinned so every machine (and the local Vercel build) compiles the wasm with
+# the exact same rustc. Bump deliberately, then re-run `bun run wasm`.
+channel = "1.97.1"
+targets = ["wasm32-unknown-unknown"]
+components = ["rustfmt", "clippy"]
+profile = "minimal"

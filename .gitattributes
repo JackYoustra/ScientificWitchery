@@ -200,3 +200,6 @@ Procfile          text
 
 # Ignore files (like .npmignore or .gitignore)
 *.*ignore         text
+
+# WebAssembly (committed build output of rust-wasm/)
+*.wasm            binary

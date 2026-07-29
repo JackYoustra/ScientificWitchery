@@ -1,5 +1,5 @@
 {
-  "ignoreCommand": "INIT_CWD=$PWD chmod u+x vercel_build.sh && ./vercel_build.sh && next build",
+  "$schema": "https://openapi.vercel.sh/vercel.json",
   "git": {
     "deploymentEnabled": false
   }

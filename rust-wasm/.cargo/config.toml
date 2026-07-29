@@ -1,2 +1,15 @@
 [build]
 target = "wasm32-unknown-unknown"
+
+# Rust 1.82+ turns on the wasm `reference-types` proposal by default for
+# wasm32-unknown-unknown. The webpack 5 bundled inside Next 14 still uses the
+# old @webassemblyjs parser, which cannot decode a module that uses it and dies
+# with "Internal failure: parseVec could not cast the value" at build time.
+# Turning the feature back off keeps the emitted module in the dialect the
+# bundler understands.
+#
+# NOTE: a `RUSTFLAGS` environment variable *overrides* this table wholesale, so
+# the `wasm` script in the root package.json sets the same flag explicitly.
+# Don't rely on this file alone if you have a global RUSTFLAGS in your shell rc.
+[target.wasm32-unknown-unknown]
+rustflags = ["-C", "target-feature=-reference-types"]
