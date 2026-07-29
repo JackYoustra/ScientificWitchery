@@ -1,4 +1,4 @@
-import { readFileSync, writeFileSync, mkdirSync } from 'fs'
+import { readFileSync, writeFileSync, mkdirSync, readdirSync, rmSync, existsSync } from 'fs'
 import path from 'path'
 import { slug } from 'github-slugger'
 import { escape } from 'pliny/utils/htmlEscaper.js'
@@ -47,7 +47,20 @@ async function generateRSS(config, allBlogs, page = 'feed.xml') {
   }
 
   if (publishPosts.length > 0) {
-    for (const tag of Object.keys(tagData)) {
+    const tags = Object.keys(tagData)
+    // Prune feeds for tags that no longer exist. Nothing else cleans this up, so
+    // without it `public/tags/` accumulates directories forever and keeps
+    // serving RSS for tags the site dropped years ago.
+    const tagsRoot = path.join('public', 'tags')
+    if (existsSync(tagsRoot)) {
+      const live = new Set(tags)
+      for (const entry of readdirSync(tagsRoot, { withFileTypes: true })) {
+        if (entry.isDirectory() && !live.has(entry.name)) {
+          rmSync(path.join(tagsRoot, entry.name), { recursive: true, force: true })
+        }
+      }
+    }
+    for (const tag of tags) {
       const filteredPosts = allBlogs.filter((post) => post.tags.map((t) => slug(t)).includes(tag))
       const rss = generateRss(config, filteredPosts, `tags/${tag}/${page}`)
       const rssPath = path.join('public', 'tags', tag)

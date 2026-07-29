@@ -18,7 +18,7 @@ import {
   useState,
 } from 'react'
 import dynamic from 'next/dynamic'
-import type { DuplicateKeys, TypeNarrowing } from 'rust-wasm/pkg/rust_wasm.d.ts'
+import type { DuplicateKeys, TypeNarrowing } from 'rust-wasm'
 
 const abeLincoln = `dna_abraham_lincoln = {
   portrait_info = {
@@ -145,8 +145,7 @@ const abeLincoln = `dna_abraham_lincoln = {
 // Wasm hard! https://github.com/vercel/next.js/issues/53163
 export default dynamic(
   async function Converter() {
-    const { parse_jomini } = await import('rust-wasm')
-    const { DuplicateKeys, TypeNarrowing } = await import('rust-wasm/pkg/rust_wasm.js')
+    const { parse_jomini, DuplicateKeys, TypeNarrowing } = await import('rust-wasm')
     return function ConverterLoaded() {
       const [output, setOutput] = useState('')
       const [copied, setCopied] = useState(false)

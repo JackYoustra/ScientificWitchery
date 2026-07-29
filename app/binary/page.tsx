@@ -5,11 +5,30 @@ import dynamic from 'next/dynamic'
 import Link from 'next/link'
 // async import
 // eslint-disable-next-line @typescript-eslint/no-explicit-any
-import Fullscreen from '@mui/icons-material/Fullscreen'
-import FullscreenExit from '@mui/icons-material/FullscreenExit'
 import _ from 'lodash'
 import Chart, { LoadedTableDataProps } from './chart'
 import { AnalysisEngine, ChartDataEntry, parseBuffer } from './parser'
+
+// Inline replacements for @mui/icons-material's Fullscreen / FullscreenExit.
+// Same 24x24 Material path data, same rendered size (1.5rem), fill: currentColor.
+const iconProps = {
+  className: 'inline-block h-6 w-6 shrink-0 select-none fill-current',
+  viewBox: '0 0 24 24',
+  focusable: 'false' as const,
+  'aria-hidden': true,
+}
+
+const Fullscreen = () => (
+  <svg {...iconProps}>
+    <path d="M7 14H5v5h5v-2H7zm-2-4h2V7h3V5H5zm12 7h-3v2h5v-5h-2zM14 5v2h3v3h2V5z" />
+  </svg>
+)
+
+const FullscreenExit = () => (
+  <svg {...iconProps}>
+    <path d="M5 16h3v3h2v-5H5zm3-8H5v2h5V5H8zm6 11h2v-3h3v-2h-5zm2-11V5h-2v5h5V8z" />
+  </svg>
+)
 
 type RunInformation = {
   availableAnalysisEngines: AnalysisEngine[]

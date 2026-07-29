@@ -18,13 +18,11 @@ import {
 import rehypeSlug from 'rehype-slug'
 import rehypeAutolinkHeadings from 'rehype-autolink-headings'
 import rehypeKatex from 'rehype-katex'
-import rehypeCitation from 'rehype-citation'
 import rehypePrismPlus from 'rehype-prism-plus'
 import rehypePresetMinify from 'rehype-preset-minify'
 import siteMetadata from './data/siteMetadata'
 import { allCoreContent, sortPosts } from 'pliny/utils/contentlayer.js'
 
-const root = process.cwd()
 const isProduction = process.env.NODE_ENV === 'production'
 
 // heroicon mini link
@@ -107,8 +105,6 @@ export const Blog = defineDocumentType(() => ({
     summary: { type: 'string' },
     images: { type: 'json' },
     authors: { type: 'list', of: { type: 'string' } },
-    layout: { type: 'string' },
-    bibliography: { type: 'string' },
     canonicalUrl: { type: 'string' },
   },
   computedFields: {
@@ -173,7 +169,6 @@ export default makeSource({
         },
       ],
       rehypeKatex,
-      [rehypeCitation, { path: path.join(root, 'data') }],
       [rehypePrismPlus, { defaultLanguage: 'js', ignoreMissing: true }],
       rehypePresetMinify,
     ],

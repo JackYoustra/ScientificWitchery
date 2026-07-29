@@ -74,8 +74,7 @@ Rust tests run in a browser, not on the host: `cd rust-wasm && wasm-pack test
 - The bundled wasm is loaded asynchronously (`next.config.js` sets
   `asyncWebAssembly`), so the pages that use it do **not** survive `EXPORT=1`
   static export. Deploy as a normal Vercel serverless build.
-- `bun` is the package manager here despite the leftover `yarn.lock` /
-  `packageManager` field. Use `bun install`.
+- `bun` is the package manager. There is one lockfile, `bun.lockb`.
 - `wasm-bindgen` is held at the `0.2.63` requirement (`0.2.89` in the lockfile)
   for the same webpack reason: 0.2.100+ *requires* `reference-types` (it looks
   for `__wbindgen_externref_table_dealloc`), so it cannot be built in the

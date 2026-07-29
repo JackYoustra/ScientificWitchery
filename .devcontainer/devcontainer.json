@@ -3,13 +3,16 @@
   "hostRequirements": {
     "memory": "8gb"
   },
+  "features": {
+    "ghcr.io/shyim/devcontainers-features/bun:0": {}
+  },
   "waitFor": "onCreateCommand",
-  "updateContentCommand": "yarn",
+  "updateContentCommand": "bun install",
   "postCreateCommand": "",
-  "postAttachCommand": "yarn dev",
+  "postAttachCommand": "bun run dev",
   "customizations": {
     "codespaces": {
-      "openFiles": ["data/blog/code-sample.mdx"]
+      "openFiles": ["README.md"]
     },
     "vscode": {
       "settings": {
