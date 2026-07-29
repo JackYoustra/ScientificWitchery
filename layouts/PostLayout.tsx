@@ -11,8 +11,8 @@ import siteMetadata from '@/data/siteMetadata'
 import ScrollTopAndComment from '@/components/ScrollTopAndComment'
 import { formatDate, isoDate, postDateTemplate } from '../lib/formatDate'
 
-const editUrl = (path) => `${siteMetadata.siteRepo}/blob/main/data/${path}`
-const discussUrl = (path) =>
+const editUrl = (path: string) => `${siteMetadata.siteRepo}/blob/main/data/${path}`
+const discussUrl = (path: string) =>
   `https://mobile.twitter.com/search?q=${encodeURIComponent(`${siteMetadata.siteUrl}/${path}`)}`
 
 interface LayoutProps {

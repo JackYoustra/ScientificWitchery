@@ -1,14 +1,12 @@
 import _ from 'lodash'
 import dynamic from 'next/dynamic'
 import prettyBytes from 'pretty-bytes'
-import type { TooltipFormatterCallback, TopLevelFormatterParams } from 'echarts/types/dist/shared'
-import {
-  FileChartDataShape,
-  SectionData,
-  firstValue,
-  firstValueNaNHandled,
-  firstValueOr,
-} from './parser'
+import type {
+  CallbackDataParams,
+  TooltipFormatterCallback,
+  TopLevelFormatterParams,
+} from 'echarts/types/dist/shared'
+import { FileChartDataShape, SectionData, firstValue, firstValueNaNHandled } from './parser'
 import { useTheme } from 'next-themes'
 import { useEffect } from 'react'
 // eslint-disable-next-line @typescript-eslint/no-explicit-any
@@ -33,26 +31,45 @@ const EChart = dynamic(() => import('@kbox-labs/react-echarts').then((mod) => mo
 //   ssr: false,
 // })
 
+/**
+ * A treemap tooltip is only ever fired for one node, but echarts types the
+ * callback as "one param or many" because axis-triggered tooltips get an array.
+ */
+function singleParam(info: TopLevelFormatterParams): CallbackDataParams {
+  return Array.isArray(info) ? info[0] : info
+}
+
+/**
+ * Every node we feed the series carries a numeric `value` (or a tuple whose
+ * first entry is the size), but echarts widens it to its whole option-value
+ * union on the way back out.
+ */
+function paramValue(info: CallbackDataParams): number | number[] {
+  return info.value as number | number[]
+}
+
 function getTooltipFormatter(
   data: LoadedTableDataProps
 ): TooltipFormatterCallback<TopLevelFormatterParams> {
-  return (info) => {
+  return (params) => {
+    const info = singleParam(params)
+    const item = info.data as FileChartDataShape | undefined
     const stuff: string[] = []
     let cols: number
     // add our specifics
     // idk which are needed
     // so I added all of them lol
     const common = ' overflow-hidden text-wrap break-all max-w-md '
-    if (info.data?.sectionData) {
-      const data: SectionData = info.data.sectionData
+    if (item?.sectionData) {
+      const data: SectionData = item.sectionData
       if (_.isNumber(data)) {
         const overallSize = data
         stuff.push(
           `<div class="${common} tooltip-subtitle text-left">${prettyBytes(
-            firstValue(info.value)
+            firstValue(paramValue(info))
           )}</div>`
         )
-        const percent = (firstValue(info.value) / overallSize) * 100
+        const percent = (firstValue(paramValue(info)) / overallSize) * 100
         stuff.push(
           `<div class="${common} tooltip-subtitle text-left">(${percent.toFixed(2)}%)</div>`
         )
@@ -81,7 +98,7 @@ function getTooltipFormatter(
     } else {
       stuff.push(
         `<div class="${common} tooltip-subtitle text-left">${prettyBytes(
-          firstValue(info.value)
+          firstValue(paramValue(info))
         )}</div>`
       )
       const totalSize = data.processedFiles.reduce(
@@ -91,7 +108,7 @@ function getTooltipFormatter(
       if (totalSize === 0) {
         cols = 1
       } else {
-        const size = firstValueNaNHandled(info.value)
+        const size = firstValueNaNHandled(paramValue(info))
         const sizePct = (size / totalSize) * 100
         stuff.push(`<div class="${common} tooltip-subtitle grow">(${sizePct.toFixed(2)}%)</div>`)
         cols = 2
@@ -148,7 +165,7 @@ export default function Chart(props: { data: LoadedTableDataProps; fullscreen: b
   useEffect(() => {
     load()
   }, [])
-  const { theme, setTheme, resolvedTheme } = useTheme()
+  const { resolvedTheme } = useTheme()
   const { data, fullscreen } = props
   return (
     <EChart

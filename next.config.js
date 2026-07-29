@@ -4,8 +4,6 @@ const withBundleAnalyzer = require('@next/bundle-analyzer')({
   enabled: process.env.ANALYZE === 'true',
 })
 
-const path = require('path')
-
 // You might need to insert additional domains in script-src if you are using external services
 const ContentSecurityPolicy = `
   default-src 'self';
@@ -83,12 +81,9 @@ module.exports = () => {
     output,
     basePath,
     reactStrictMode: true,
-    experimental: {
-      swcPlugins: [['@onlook/nextjs', { root: path.resolve('.') }]],
-    },
     pageExtensions: ['ts', 'tsx', 'js', 'jsx', 'md', 'mdx'],
     eslint: {
-      dirs: ['app', 'components', 'layouts', 'scripts'],
+      dirs: ['app', 'components', 'layouts', 'lib', 'scripts'],
     },
     images: {
       remotePatterns: [

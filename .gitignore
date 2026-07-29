@@ -37,3 +37,6 @@ npm-debug.log*
 
 # Contentlayer
 .contentlayer
+
+# TypeScript incremental build state (tsc --noEmit still writes this)
+*.tsbuildinfo

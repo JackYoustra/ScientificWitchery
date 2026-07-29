@@ -9,9 +9,7 @@
 
 import {
   ChangeEventHandler,
-  LegacyRef,
   MouseEventHandler,
-  MutableRefObject,
   useCallback,
   useEffect,
   useRef,

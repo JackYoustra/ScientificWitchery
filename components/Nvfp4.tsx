@@ -2,7 +2,7 @@
 import React, { useState, useMemo } from 'react'
 
 // Color interpolation for smooth gradients
-const getErrorColor = (error, maxError) => {
+const getErrorColor = (error: number, maxError: number): string => {
   const normalized = Math.min(error / maxError, 1)
 
   // Interpolate from green (0) to yellow (0.5) to red (1)
@@ -46,7 +46,7 @@ const FP4_VALUES = {
 }
 
 // Get binary representation
-const toBinary = (fp4Value) => {
+const toBinary = (fp4Value: number): string => {
   for (const [binary, value] of Object.entries(FP4_VALUES)) {
     if (Math.abs(value - fp4Value) < 0.001) return binary
   }
@@ -54,7 +54,7 @@ const toBinary = (fp4Value) => {
 }
 
 // Quantize to nearest FP4 value
-const quantizeToFP4 = (value) => {
+const quantizeToFP4 = (value: number): number => {
   // NVFP4 representable values: 0, ±0.5, ±1, ±1.5, ±2, ±3, ±4, ±6
   const fp4Values = [0, 0.5, 1.0, 1.5, 2.0, 3.0, 4.0, 6.0]
   const sign = value < 0 ? -1 : 1
@@ -75,7 +75,7 @@ const quantizeToFP4 = (value) => {
 }
 
 // Component 2: Bit representation with value and calculation
-const BitRepresentation = ({ value }) => {
+const BitRepresentation = ({ value }: { value: number }) => {
   const binary = toBinary(value)
   const sign = binary[0] === '0' ? 1 : -1
   const exp = binary.substring(1, 3)

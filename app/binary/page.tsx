@@ -1,10 +1,7 @@
 'use client'
 
-import { DragEvent, FC, useCallback, useEffect, useRef, useState } from 'react'
-import dynamic from 'next/dynamic'
+import { DragEvent, useCallback, useEffect, useRef, useState } from 'react'
 import Link from 'next/link'
-// async import
-// eslint-disable-next-line @typescript-eslint/no-explicit-any
 import _ from 'lodash'
 import Chart, { LoadedTableDataProps } from './chart'
 import { AnalysisEngine, ChartDataEntry, parseBuffer } from './parser'
@@ -188,9 +185,8 @@ export default function Binary(): JSX.Element {
           })
         })
         .catch((err) => {
-          console.log(err)
           setTableData({
-            error: err.toString(),
+            error: String(err),
           })
         })
     },

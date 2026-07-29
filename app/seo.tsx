@@ -1,12 +1,15 @@
 import { Metadata } from 'next'
 import siteMetadata from '@/data/siteMetadata'
 
-interface PageSEOProps {
+/**
+ * `title` is required and `image` is a convenience shorthand for the OG/Twitter
+ * card; everything else is passed straight through to Next's `Metadata`, and is
+ * spread last so callers can override the defaults built below.
+ */
+interface PageSEOProps extends Omit<Metadata, 'title' | 'description'> {
   title: string
   description?: string
   image?: string
-  // eslint-disable-next-line @typescript-eslint/no-explicit-any
-  [key: string]: any
 }
 
 export function genPageMetadata({ title, description, image, ...rest }: PageSEOProps): Metadata {

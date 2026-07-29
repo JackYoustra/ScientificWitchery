@@ -21,7 +21,7 @@ import rehypeKatex from 'rehype-katex'
 import rehypePrismPlus from 'rehype-prism-plus'
 import rehypePresetMinify from 'rehype-preset-minify'
 import siteMetadata from './data/siteMetadata'
-import { allCoreContent, sortPosts } from 'pliny/utils/contentlayer.js'
+import { allCoreContent, sortPosts, type MDXBlog } from 'pliny/utils/contentlayer.js'
 import { isoDate } from './lib/formatDate'
 
 const isProduction = process.env.NODE_ENV === 'production'
@@ -63,8 +63,14 @@ function deriveSocialImage(body: string): string {
   return siteMetadata.socialBanner
 }
 
+/** The slice of a raw contentlayer document that `cardImage` reads. */
+interface CardImageDocument {
+  images?: string | string[] | null
+  body: { raw: string }
+}
+
 /** Author-declared `images:` wins, then the first body image, then the banner. */
-function cardImage(doc): string {
+function cardImage(doc: CardImageDocument): string {
   if (doc.images) {
     const declared = typeof doc.images === 'string' ? doc.images : doc.images[0]
     if (declared) return declared
@@ -105,7 +111,7 @@ const computedFields: ComputedFields = {
 /**
  * Count the occurrences of all tags across blog posts and write to json file
  */
-function createTagCount(allBlogs) {
+function createTagCount(allBlogs: MDXBlog[]) {
   const tagCount: Record<string, number> = {}
   allBlogs.forEach((file) => {
     if (file.tags && (!isProduction || file.draft !== true)) {
@@ -126,7 +132,7 @@ function createTagCount(allBlogs) {
   writeFileSync('./app/tag-data.json', JSON.stringify(sortedTagCount))
 }
 
-function createSearchIndex(allBlogs) {
+function createSearchIndex(allBlogs: MDXBlog[]) {
   if (
     siteMetadata?.search?.provider === 'kbar' &&
     siteMetadata.search.kbarConfig.searchDocumentsPath

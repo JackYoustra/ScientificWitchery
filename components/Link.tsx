@@ -1,9 +1,10 @@
 /* eslint-disable jsx-a11y/anchor-has-content */
 import Link from 'next/link'
-import type { LinkProps } from 'next/link'
 import { AnchorHTMLAttributes } from 'react'
 
-const CustomLink = ({ href, ...rest }: LinkProps & AnchorHTMLAttributes<HTMLAnchorElement>) => {
+// Plain anchor props rather than next/link's `LinkProps`: this doubles as the
+// MDX `a` override, and MDX hands us `href?: string` rather than a `Url`.
+const CustomLink = ({ href, ...rest }: AnchorHTMLAttributes<HTMLAnchorElement>) => {
   const isInternalLink = href && href.startsWith('/')
   const isAnchorLink = href && href.startsWith('#')
 

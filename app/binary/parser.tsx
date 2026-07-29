@@ -1,4 +1,5 @@
 import createBloatyModule from 'public/static/emscripten/bloaty'
+import type { BloatyModule } from 'public/static/emscripten/bloaty'
 import Papa from 'papaparse'
 import type { WasmBinaryResult } from 'rust-wasm'
 import _ from 'lodash'
@@ -40,30 +41,28 @@ interface ParseWasmBinary {
 }
 
 function parseResultFromRust(result: WasmBinaryResult): ParseWasmBinary {
-  const retval = {
-    dominators: JSON.parse(result.dominators),
-    garbage: JSON.parse(result.garbage),
-  }
+  const dominators = JSON.parse(result.dominators) as ParseWasmBinary['dominators']
+  const garbage = JSON.parse(result.garbage) as GarbageItem[]
+
   // strip out from garbage the last entry with a sigma at the start of the name
-  for (let i = retval.garbage.length - 1; i >= 0; i--) {
-    if (retval.garbage[i].name.startsWith('Σ')) {
-      retval.garbage.splice(i, 1)
+  for (let i = garbage.length - 1; i >= 0; i--) {
+    if (garbage[i].name.startsWith('Σ')) {
+      garbage.splice(i, 1)
       break
     }
   }
 
-  // if the last entry talks about false positives, remove
-  if (retval.garbage[retval.garbage.length - 1].name.includes('potential false-positive')) {
-    retval.garbage.splice(retval.garbage.length - 1, 1)
-  }
-
-  if (retval.garbage.length === 0) {
-    delete retval.garbage
+  // if the last entry talks about false positives, remove it.
+  // The emptiness check has to come first: twiggy can report no garbage at all,
+  // and the sigma strip above can empty the array on its own.
+  const last = garbage[garbage.length - 1]
+  if (last && last.name.includes('potential false-positive')) {
+    garbage.pop()
   }
 
   // free the memory
   result.free()
-  return retval
+  return garbage.length > 0 ? { dominators, garbage } : { dominators }
 }
 
 interface GarbageItem {
@@ -75,13 +74,11 @@ interface GarbageItem {
 interface DominatorItem {
   name: string
   shallow_size: number
-  shallow_size_percent: ShallowSizePercent
+  shallow_size_percent: number
   retained_size: number
   retained_size_percent: number
   children?: DominatorItem[]
 }
-
-type ShallowSizePercent = number | number
 
 interface Summary {
   name: string
@@ -145,7 +142,31 @@ function garbage2Chart(garbage: GarbageItem, overallSize: OverallSize): FileChar
   return entry
 }
 
-function makeTreeFromCSV(csv: object[], fields: string[], path: string): ChartDataEntry[] {
+/**
+ * A single cell of bloaty's `--csv` output as papaparse hands it back with
+ * `dynamicTyping: true`: numeric columns come through as numbers, the rest as
+ * strings, and a missing trailing field as null.
+ */
+type CsvCell = string | number | boolean | null | undefined
+
+/** One `--csv` row, keyed by the header names in `parsed.meta.fields`. */
+type CsvRow = Record<string, CsvCell>
+
+/** Label cells are free-form strings; blank ones become unnamed nodes. */
+function cellAsName(cell: CsvCell): string | undefined {
+  if (cell === null || cell === undefined || cell === '') {
+    return undefined
+  }
+  return String(cell)
+}
+
+/** Size cells should already be numbers; coerce defensively rather than NaN out. */
+function cellAsSize(cell: CsvCell): number {
+  const size = typeof cell === 'number' ? cell : Number(cell)
+  return Number.isFinite(size) ? size : 0
+}
+
+function makeTreeFromCSV(csv: CsvRow[], fields: string[], path: string): ChartDataEntry[] {
   // algorithm:
   // fields are grouped by left to right, except for the last two arguments (vmsize and filesize)
   // group by all rows and create a tree, with one node per group
@@ -161,10 +182,11 @@ function makeTreeFromCSV(csv: object[], fields: string[], path: string): ChartDa
   if (fields.length === 1) {
     // implicitly grouped by the last field
     return csv.map((row) => {
+      const name = cellAsName(row[fields[0]])
       const entry: ChartDataEntry = {
-        name: row[fields[0]],
-        value: row['filesize'],
-        path: path + '/' + row[fields[0]],
+        name,
+        value: cellAsSize(row['filesize']),
+        path: path + '/' + name,
       }
       return entry
     })
@@ -189,9 +211,7 @@ function makeTreeFromCSV(csv: object[], fields: string[], path: string): ChartDa
 }
 function convertProgramArgumentsToC(
   args: string[],
-  // emscripten doesn't have types that I know of
-  // eslint-disable-next-line @typescript-eslint/no-explicit-any
-  module: any
+  module: BloatyModule
 ): { argc: number; argv: Uint8Array } {
   const encodedArgsPointers = args.map((arg) => module.stringToNewUTF8(arg))
   // take the pointers and put them into a buffer
@@ -207,9 +227,7 @@ function convertProgramArgumentsToC(
   }
 }
 
-// emscripten doesn't have types that I know of
-// eslint-disable-next-line @typescript-eslint/no-explicit-any
-function freeCArguments(argv: Uint8Array, module: any) {
+function freeCArguments(argv: Uint8Array, module: BloatyModule) {
   // free the memory
   const pointersBuffer = new Uint32Array(argv.buffer)
   pointersBuffer.forEach((pointer) => {
@@ -239,7 +257,6 @@ async function parseWithBloaty(
     },
   })
 
-  console.log(bloatyModule)
   bloatyModule.FS.writeFile('dummy', new Uint8Array(buffer))
 
   const bloatyMain = bloatyModule.cwrap('main', 'number', ['number', 'array'])
@@ -249,25 +266,25 @@ async function parseWithBloaty(
     bloatyModule
   )
   // call the function
-  // check argv
-  console.log(pack.argc)
-  console.log(pack.argv)
   const result = bloatyMain(pack.argc, pack.argv)
-  console.log(result)
   if (strict && result !== 0) {
     throw new Error(`Bloaty failed with error code ${result}`)
   }
-  console.log('output:')
-  console.log(stdout)
   freeCArguments(pack.argv, bloatyModule)
 
   // papaparse output
-  const parsed = Papa.parse(stdout, {
+  const parsed = Papa.parse<CsvRow>(stdout, {
     header: true,
     dynamicTyping: true,
   })
+  // The last two columns are vmsize and filesize; everything before them is a
+  // grouping level. papaparse only populates `meta.fields` when it saw a header
+  // row, so bail loudly rather than tripping over `undefined` further down.
   const fields = parsed.meta.fields
-  const children = makeTreeFromCSV(parsed.data, fields.slice(0, -2), file.name) ?? []
+  if (!fields || fields.length < 3) {
+    throw new Error(`Bloaty produced no usable CSV columns for ${file.name}`)
+  }
+  const children = makeTreeFromCSV(parsed.data, fields.slice(0, -2), file.name)
   // sum up all the sizes and take the difference from the file size to find the unaccounted for size
   const unaccountedSize =
     file.size - children.reduce((acc, item) => acc + firstValue(item.value), 0)
@@ -344,7 +361,7 @@ export function parseBuffer(file: File, engine?: AnalysisEngine): Promise<ParseR
                 data: await parseWithBloaty(file, buffer, 'compileunits,symbols,sections', true),
                 engine: AnalysisEngine.Bloaty,
               }
-            } catch (error) {
+            } catch {
               console.warn('Bloaty failed, trying bloaty without compileunits')
               return {
                 data: await parseWithBloaty(file, buffer, 'symbols,sections', false),
