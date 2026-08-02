@@ -1,0 +1,72 @@
+{
+  "title": "The case against uFeature architectures",
+  "date": "2023-12-21T00:00:00.000Z",
+  "tags": [
+    "swift",
+    "ios"
+  ],
+  "draft": false,
+  "summary": "uFeatures offer lower compile times, better modularity, better testability, stronger isolation, and more! Why wouldn't I use them?",
+  "body": {
+    "raw": "\nMerry Christmas, everyone!\n\nSo, everyone is moving to a uFeatures architecture, and everyone is loving it!\nI've seen no dissent that it's the correct thing to do as your codebase scales,\nas it gets around walls of compile times and really allows for good testability.\n\nMy experience adopting it was far more mixed, so I just wanted to provide something of a case against it.\n\n# The case for it\n\nBut first, a summary of the case for. \n\n# The case against it\n## The tooling\nThe tooling, oh my god the tooling. This deserves a few subsections.\n### The bugs\nThe tooling, as is, doesn't even work that well! There are many, many incremental compile errors.\nThese will exhibit themselves as false negatives (huh? why is it saying typecheck failed? I changed the type in this file).\nto false positives (generally a cr)\n\n\n### The shortcomings\nThese things are not \"bugs\" in the sense that they don't affect correctness, but they are really not desirable behavior.\nYou'd hope that, in the presence of an overly-aggressive compiler, you'd at least get performance - surely a compiler which is too aggressive\nalso isn't too conservative. Nope! While most REPL-like flows are fine, if you find yourself changing targets, you can\nend up recompiling an arbitrary number of files, and if, god forbid, you toggle between previews and not previews,\nyou force essentially a whole-project recompilation, as every included package has to be marked stale and recompiled in a preview configuration.\nI wonder if there's a way to patch the build system to have xcode maintain three target caches (Debug, Release, Canvas)\ninstead of the current two (Debug, Release). Alas, even if we found a way, [we couldn't implement it](/laggy-spm-refresh).\n\nAdditionally, while your compile time is admittedly pretty good when dealing with REPL flows, xcode still freezes (on m-series chips)\nfor a solid 10-30 seconds while relaunching tests, so it may as well actually just have a bad compile time as far as your velocity is concerned!\nThe exception here is swift packages - if you somehow manage to isolate your logic (and package dependencies) to the point where you can\nrun test binaries exclusively for macOS or, even better, pure swift targets, you can use vscode's spm tooling instead\nand have much quicker velocity 🎉. Perhaps one day we'll do this, but for now xcode is sufficient.",
+    "code": "var Component=(()=>{var g=Object.create;var s=Object.defineProperty;var m=Object.getOwnPropertyDescriptor;var p=Object.getOwnPropertyNames;var u=Object.getPrototypeOf,w=Object.prototype.hasOwnProperty;var f=(t,e)=>()=>(e||t((e={exports:{}}).exports,e),e.exports),y=(t,e)=>{for(var i in e)s(t,i,{get:e[i],enumerable:!0})},r=(t,e,i,l)=>{if(e&&typeof e==\"object\"||typeof e==\"function\")for(let n of p(e))!w.call(t,n)&&n!==i&&s(t,n,{get:()=>e[n],enumerable:!(l=m(e,n))||l.enumerable});return t};var v=(t,e,i)=>(i=t!=null?g(u(t)):{},r(e||!t||!t.__esModule?s(i,\"default\",{value:t,enumerable:!0}):i,t)),x=t=>r(s({},\"__esModule\",{value:!0}),t);var h=f((M,o)=>{o.exports=_jsx_runtime});var k={};y(k,{default:()=>d,frontmatter:()=>b});var a=v(h()),b={title:\"The case against uFeature architectures\",date:\"2023-12-21\",tags:[\"swift\",\"ios\"],draft:!1,summary:\"uFeatures offer lower compile times, better modularity, better testability, stronger isolation, and more! Why wouldn't I use them?\"};function c(t){let e={a:\"a\",h1:\"h1\",h2:\"h2\",h3:\"h3\",p:\"p\",path:\"path\",span:\"span\",svg:\"svg\",...t.components};return(0,a.jsxs)(a.Fragment,{children:[(0,a.jsx)(e.p,{children:\"Merry Christmas, everyone!\"}),(0,a.jsx)(e.p,{children:\"So, everyone is moving to a uFeatures architecture, and everyone is loving it! I've seen no dissent that it's the correct thing to do as your codebase scales, as it gets around walls of compile times and really allows for good testability.\"}),(0,a.jsx)(e.p,{children:\"My experience adopting it was far more mixed, so I just wanted to provide something of a case against it.\"}),(0,a.jsxs)(e.h1,{className:\"content-header\",id:\"the-case-for-it\",children:[(0,a.jsx)(e.a,{href:\"#the-case-for-it\",\"aria-hidden\":\"true\",tabIndex:\"-1\",children:(0,a.jsx)(a.Fragment,{children:(0,a.jsx)(e.span,{className:\"content-header-link\",children:(0,a.jsxs)(e.svg,{className:\"h-5 linkicon w-5\",fill:\"currentColor\",viewBox:\"0 0 20 20\",xmlns:\"http://www.w3.org/2000/svg\",children:[(0,a.jsx)(e.path,{d:\"M12.232 4.232a2.5 2.5 0 0 1 3.536 3.536l-1.225 1.224a.75.75 0 0 0 1.061 1.06l1.224-1.224a4 4 0 0 0-5.656-5.656l-3 3a4 4 0 0 0 .225 5.865.75.75 0 0 0 .977-1.138 2.5 2.5 0 0 1-.142-3.667l3-3Z\"}),(0,a.jsx)(e.path,{d:\"M11.603 7.963a.75.75 0 0 0-.977 1.138 2.5 2.5 0 0 1 .142 3.667l-3 3a2.5 2.5 0 0 1-3.536-3.536l1.225-1.224a.75.75 0 0 0-1.061-1.06l-1.224 1.224a4 4 0 1 0 5.656 5.656l3-3a4 4 0 0 0-.225-5.865Z\"})]})})})}),\"The case for it\"]}),(0,a.jsx)(e.p,{children:\"But first, a summary of the case for.\"}),(0,a.jsxs)(e.h1,{className:\"content-header\",id:\"the-case-against-it\",children:[(0,a.jsx)(e.a,{href:\"#the-case-against-it\",\"aria-hidden\":\"true\",tabIndex:\"-1\",children:(0,a.jsx)(a.Fragment,{children:(0,a.jsx)(e.span,{className:\"content-header-link\",children:(0,a.jsxs)(e.svg,{className:\"h-5 linkicon w-5\",fill:\"currentColor\",viewBox:\"0 0 20 20\",xmlns:\"http://www.w3.org/2000/svg\",children:[(0,a.jsx)(e.path,{d:\"M12.232 4.232a2.5 2.5 0 0 1 3.536 3.536l-1.225 1.224a.75.75 0 0 0 1.061 1.06l1.224-1.224a4 4 0 0 0-5.656-5.656l-3 3a4 4 0 0 0 .225 5.865.75.75 0 0 0 .977-1.138 2.5 2.5 0 0 1-.142-3.667l3-3Z\"}),(0,a.jsx)(e.path,{d:\"M11.603 7.963a.75.75 0 0 0-.977 1.138 2.5 2.5 0 0 1 .142 3.667l-3 3a2.5 2.5 0 0 1-3.536-3.536l1.225-1.224a.75.75 0 0 0-1.061-1.06l-1.224 1.224a4 4 0 1 0 5.656 5.656l3-3a4 4 0 0 0-.225-5.865Z\"})]})})})}),\"The case against it\"]}),(0,a.jsxs)(e.h2,{className:\"content-header\",id:\"the-tooling\",children:[(0,a.jsx)(e.a,{href:\"#the-tooling\",\"aria-hidden\":\"true\",tabIndex:\"-1\",children:(0,a.jsx)(a.Fragment,{children:(0,a.jsx)(e.span,{className:\"content-header-link\",children:(0,a.jsxs)(e.svg,{className:\"h-5 linkicon w-5\",fill:\"currentColor\",viewBox:\"0 0 20 20\",xmlns:\"http://www.w3.org/2000/svg\",children:[(0,a.jsx)(e.path,{d:\"M12.232 4.232a2.5 2.5 0 0 1 3.536 3.536l-1.225 1.224a.75.75 0 0 0 1.061 1.06l1.224-1.224a4 4 0 0 0-5.656-5.656l-3 3a4 4 0 0 0 .225 5.865.75.75 0 0 0 .977-1.138 2.5 2.5 0 0 1-.142-3.667l3-3Z\"}),(0,a.jsx)(e.path,{d:\"M11.603 7.963a.75.75 0 0 0-.977 1.138 2.5 2.5 0 0 1 .142 3.667l-3 3a2.5 2.5 0 0 1-3.536-3.536l1.225-1.224a.75.75 0 0 0-1.061-1.06l-1.224 1.224a4 4 0 1 0 5.656 5.656l3-3a4 4 0 0 0-.225-5.865Z\"})]})})})}),\"The tooling\"]}),(0,a.jsx)(e.p,{children:\"The tooling, oh my god the tooling. This deserves a few subsections.\"}),(0,a.jsxs)(e.h3,{className:\"content-header\",id:\"the-bugs\",children:[(0,a.jsx)(e.a,{href:\"#the-bugs\",\"aria-hidden\":\"true\",tabIndex:\"-1\",children:(0,a.jsx)(a.Fragment,{children:(0,a.jsx)(e.span,{className:\"content-header-link\",children:(0,a.jsxs)(e.svg,{className:\"h-5 linkicon w-5\",fill:\"currentColor\",viewBox:\"0 0 20 20\",xmlns:\"http://www.w3.org/2000/svg\",children:[(0,a.jsx)(e.path,{d:\"M12.232 4.232a2.5 2.5 0 0 1 3.536 3.536l-1.225 1.224a.75.75 0 0 0 1.061 1.06l1.224-1.224a4 4 0 0 0-5.656-5.656l-3 3a4 4 0 0 0 .225 5.865.75.75 0 0 0 .977-1.138 2.5 2.5 0 0 1-.142-3.667l3-3Z\"}),(0,a.jsx)(e.path,{d:\"M11.603 7.963a.75.75 0 0 0-.977 1.138 2.5 2.5 0 0 1 .142 3.667l-3 3a2.5 2.5 0 0 1-3.536-3.536l1.225-1.224a.75.75 0 0 0-1.061-1.06l-1.224 1.224a4 4 0 1 0 5.656 5.656l3-3a4 4 0 0 0-.225-5.865Z\"})]})})})}),\"The bugs\"]}),(0,a.jsx)(e.p,{children:\"The tooling, as is, doesn't even work that well! There are many, many incremental compile errors. These will exhibit themselves as false negatives (huh? why is it saying typecheck failed? I changed the type in this file). to false positives (generally a cr)\"}),(0,a.jsxs)(e.h3,{className:\"content-header\",id:\"the-shortcomings\",children:[(0,a.jsx)(e.a,{href:\"#the-shortcomings\",\"aria-hidden\":\"true\",tabIndex:\"-1\",children:(0,a.jsx)(a.Fragment,{children:(0,a.jsx)(e.span,{className:\"content-header-link\",children:(0,a.jsxs)(e.svg,{className:\"h-5 linkicon w-5\",fill:\"currentColor\",viewBox:\"0 0 20 20\",xmlns:\"http://www.w3.org/2000/svg\",children:[(0,a.jsx)(e.path,{d:\"M12.232 4.232a2.5 2.5 0 0 1 3.536 3.536l-1.225 1.224a.75.75 0 0 0 1.061 1.06l1.224-1.224a4 4 0 0 0-5.656-5.656l-3 3a4 4 0 0 0 .225 5.865.75.75 0 0 0 .977-1.138 2.5 2.5 0 0 1-.142-3.667l3-3Z\"}),(0,a.jsx)(e.path,{d:\"M11.603 7.963a.75.75 0 0 0-.977 1.138 2.5 2.5 0 0 1 .142 3.667l-3 3a2.5 2.5 0 0 1-3.536-3.536l1.225-1.224a.75.75 0 0 0-1.061-1.06l-1.224 1.224a4 4 0 1 0 5.656 5.656l3-3a4 4 0 0 0-.225-5.865Z\"})]})})})}),\"The shortcomings\"]}),(0,a.jsxs)(e.p,{children:[`These things are not \"bugs\" in the sense that they don't affect correctness, but they are really not desirable behavior. You'd hope that, in the presence of an overly-aggressive compiler, you'd at least get performance - surely a compiler which is too aggressive also isn't too conservative. Nope! While most REPL-like flows are fine, if you find yourself changing targets, you can end up recompiling an arbitrary number of files, and if, god forbid, you toggle between previews and not previews, you force essentially a whole-project recompilation, as every included package has to be marked stale and recompiled in a preview configuration. I wonder if there's a way to patch the build system to have xcode maintain three target caches (Debug, Release, Canvas) instead of the current two (Debug, Release). Alas, even if we found a way, `,(0,a.jsx)(e.a,{href:\"/laggy-spm-refresh\",children:\"we couldn't implement it\"}),\".\"]}),(0,a.jsx)(e.p,{children:\"Additionally, while your compile time is admittedly pretty good when dealing with REPL flows, xcode still freezes (on m-series chips) for a solid 10-30 seconds while relaunching tests, so it may as well actually just have a bad compile time as far as your velocity is concerned! The exception here is swift packages - if you somehow manage to isolate your logic (and package dependencies) to the point where you can run test binaries exclusively for macOS or, even better, pure swift targets, you can use vscode's spm tooling instead and have much quicker velocity \\u{1F389}. Perhaps one day we'll do this, but for now xcode is sufficient.\"})]})}function d(t={}){let{wrapper:e}=t.components||{};return e?(0,a.jsx)(e,{...t,children:(0,a.jsx)(c,{...t})}):c(t)}return x(k);})();\n;return Component;"
+  },
+  "_id": "blog/anti-ufeatures.mdx",
+  "_raw": {
+    "sourceFilePath": "blog/anti-ufeatures.mdx",
+    "sourceFileName": "anti-ufeatures.mdx",
+    "sourceFileDir": "blog",
+    "contentType": "mdx",
+    "flattenedPath": "blog/anti-ufeatures"
+  },
+  "type": "Blog",
+  "readingTime": {
+    "text": "2 min read",
+    "minutes": 1.98,
+    "time": 118800,
+    "words": 396
+  },
+  "slug": "anti-ufeatures",
+  "path": "blog/anti-ufeatures",
+  "filePath": "blog/anti-ufeatures.mdx",
+  "toc": [
+    {
+      "value": "The case for it",
+      "url": "#the-case-for-it",
+      "depth": 1
+    },
+    {
+      "value": "The case against it",
+      "url": "#the-case-against-it",
+      "depth": 1
+    },
+    {
+      "value": "The tooling",
+      "url": "#the-tooling",
+      "depth": 2
+    },
+    {
+      "value": "The bugs",
+      "url": "#the-bugs",
+      "depth": 3
+    },
+    {
+      "value": "The shortcomings",
+      "url": "#the-shortcomings",
+      "depth": 3
+    }
+  ],
+  "socialImage": "/static/images/twitter-card.webp",
+  "readingMinutes": 2,
+  "readingMinutesWithCode": 2,
+  "structuredData": {
+    "@context": "https://schema.org",
+    "@type": "BlogPosting",
+    "headline": "The case against uFeature architectures",
+    "datePublished": "2023-12-21",
+    "dateModified": "2023-12-21",
+    "description": "uFeatures offer lower compile times, better modularity, better testability, stronger isolation, and more! Why wouldn't I use them?",
+    "image": "/static/images/twitter-card.webp",
+    "url": "https://jackyoustra.com/blog/anti-ufeatures"
+  }
+}

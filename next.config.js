@@ -1,5 +1,3 @@
-const { withContentlayer } = require('next-contentlayer2')
-
 const withBundleAnalyzer = require('@next/bundle-analyzer')({
   enabled: process.env.ANALYZE === 'true',
 })
@@ -76,7 +74,7 @@ const unoptimized = process.env.UNOPTIMIZED ? true : undefined
  * @type {import('next/dist/next-server/server/config').NextConfig}
  **/
 module.exports = () => {
-  const plugins = [withContentlayer, withBundleAnalyzer]
+  const plugins = [withBundleAnalyzer]
   return plugins.reduce((acc, next) => next(acc), {
     output,
     basePath,
@@ -102,14 +100,12 @@ module.exports = () => {
         },
       ]
     },
+    // Only needed on the webpack path. Turbopack handles the wasm-pack bundler
+    // output (`import * as wasm from './rust_wasm_bg.wasm'`) with no config at
+    // all, so on Next 16 + Turbopack this whole hook can go.
     webpack: (config, options) => {
       config.module.rules = [
         ...config.module.rules,
-        {
-          test: /\.svg$/,
-          // exclude: [__dirname + '/rust-wasm'],
-          use: ['@svgr/webpack'],
-        },
         {
           test: /\.wasm$/,
           type: 'webassembly/async',

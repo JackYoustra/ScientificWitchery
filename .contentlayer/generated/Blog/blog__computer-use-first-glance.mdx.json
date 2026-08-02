@@ -1,0 +1,56 @@
+{
+  "title": "A quick trial of claude's new computer use",
+  "date": "2024-10-23T00:00:00.000Z",
+  "tags": [
+    "ai"
+  ],
+  "draft": false,
+  "summary": "A quick trial of Claude's new computer use feature.",
+  "body": {
+    "raw": "\nYesterday, [Anthropic released](https://www.anthropic.com/news/3-5-models-and-computer-use) a new feature for their Claude AI chatbot: the [ability to use a computer](https://platform.claude.com/docs/en/agents-and-tools/tool-use/computer-use-tool). This is a big step for AI assistants, and I thought I'd quickly try it out and see what it's like.\n\nAll of the computer use is via [tools](https://platform.claude.com/docs/en/agents-and-tools/tool-use/overview): you prompt Claude and it calls agentic computer-specific tools: moving the mouse, typing, creating a file, taking a screenshot, and running bash commands. However, this is just the API surface. Their client [reference implementation](https://github.com/anthropics/claude-quickstarts/tree/main/computer-use-demo) isolates the system in a docker container, but because it's all API calls, you could just as easily run it on your own machine. Someone, of course, already has with [agent.exe](https://github.com/corbt/agent.exe).\n\nFor now, we'll just use the docker version to get a feel for things.\n\n## Browsing\n\nThe example that it gave was asking it to book flight tickets. It opened up firefox (the only browser provided in the docker container) and went to google flights and had an OK time selecting flights. However, this was a bit slow. I wonder if it'd be faster on more complicated browsing tasks if we did [beam search](https://en.wikipedia.org/wiki/Beam_search): looking at a few options and then selecting the best one over and over again. While I may be able to serially select flights faster than it, I'm not sure I could do better than it on something that required looking at multiple sites with different filters, such as finding flights and activities and everything else needed for a trip and jointly optimizing, whereas Claude could perform hundreds of queries in parallel and have sync operations.\n\nThis is, of course, a programming blog, so the last thing I did today with it was ask it some questions.\n\n## Can you solve my [earlier blog post](/edit-bars)?\n\nYES! It solved that whole blog post with only a hint as to where the xcode project directory was mounted in the docker container and instrucitons to use [ripgrep](https://github.com/BurntSushi/ripgrep) instead of grep.\nIt has a bit of a problem submitting commands without a sensible timeout or checking for senses of scale, but if you ensure that it either checks or the datasets and tools you're working with will\nrespond properly, it can blitz out commands and iterate quickly enough to turn my half day of work into a few minutes of mind-bending binary mining.\n\n",
+    "code": "var Component=(()=>{var u=Object.create;var n=Object.defineProperty;var m=Object.getOwnPropertyDescriptor;var p=Object.getOwnPropertyNames;var g=Object.getPrototypeOf,f=Object.prototype.hasOwnProperty;var w=(a,e)=>()=>(e||a((e={exports:{}}).exports,e),e.exports),b=(a,e)=>{for(var o in e)n(a,o,{get:e[o],enumerable:!0})},r=(a,e,o,s)=>{if(e&&typeof e==\"object\"||typeof e==\"function\")for(let i of p(e))!f.call(a,i)&&i!==o&&n(a,i,{get:()=>e[i],enumerable:!(s=m(e,i))||s.enumerable});return a};var y=(a,e,o)=>(o=a!=null?u(g(a)):{},r(e||!a||!a.__esModule?n(o,\"default\",{value:a,enumerable:!0}):o,a)),k=a=>r(n({},\"__esModule\",{value:!0}),a);var h=w((j,l)=>{l.exports=_jsx_runtime});var x={};b(x,{default:()=>d,frontmatter:()=>v});var t=y(h()),v={title:\"A quick trial of claude's new computer use\",date:\"2024-10-23\",tags:[\"ai\"],draft:!1,summary:\"A quick trial of Claude's new computer use feature.\"};function c(a){let e={a:\"a\",h2:\"h2\",p:\"p\",path:\"path\",span:\"span\",svg:\"svg\",...a.components};return(0,t.jsxs)(t.Fragment,{children:[(0,t.jsxs)(e.p,{children:[\"Yesterday, \",(0,t.jsx)(e.a,{href:\"https://www.anthropic.com/news/3-5-models-and-computer-use\",children:\"Anthropic released\"}),\" a new feature for their Claude AI chatbot: the \",(0,t.jsx)(e.a,{href:\"https://platform.claude.com/docs/en/agents-and-tools/tool-use/computer-use-tool\",children:\"ability to use a computer\"}),\". This is a big step for AI assistants, and I thought I'd quickly try it out and see what it's like.\"]}),(0,t.jsxs)(e.p,{children:[\"All of the computer use is via \",(0,t.jsx)(e.a,{href:\"https://platform.claude.com/docs/en/agents-and-tools/tool-use/overview\",children:\"tools\"}),\": you prompt Claude and it calls agentic computer-specific tools: moving the mouse, typing, creating a file, taking a screenshot, and running bash commands. However, this is just the API surface. Their client \",(0,t.jsx)(e.a,{href:\"https://github.com/anthropics/claude-quickstarts/tree/main/computer-use-demo\",children:\"reference implementation\"}),\" isolates the system in a docker container, but because it's all API calls, you could just as easily run it on your own machine. Someone, of course, already has with \",(0,t.jsx)(e.a,{href:\"https://github.com/corbt/agent.exe\",children:\"agent.exe\"}),\".\"]}),(0,t.jsx)(e.p,{children:\"For now, we'll just use the docker version to get a feel for things.\"}),(0,t.jsxs)(e.h2,{className:\"content-header\",id:\"browsing\",children:[(0,t.jsx)(e.a,{href:\"#browsing\",\"aria-hidden\":\"true\",tabIndex:\"-1\",children:(0,t.jsx)(t.Fragment,{children:(0,t.jsx)(e.span,{className:\"content-header-link\",children:(0,t.jsxs)(e.svg,{className:\"h-5 linkicon w-5\",fill:\"currentColor\",viewBox:\"0 0 20 20\",xmlns:\"http://www.w3.org/2000/svg\",children:[(0,t.jsx)(e.path,{d:\"M12.232 4.232a2.5 2.5 0 0 1 3.536 3.536l-1.225 1.224a.75.75 0 0 0 1.061 1.06l1.224-1.224a4 4 0 0 0-5.656-5.656l-3 3a4 4 0 0 0 .225 5.865.75.75 0 0 0 .977-1.138 2.5 2.5 0 0 1-.142-3.667l3-3Z\"}),(0,t.jsx)(e.path,{d:\"M11.603 7.963a.75.75 0 0 0-.977 1.138 2.5 2.5 0 0 1 .142 3.667l-3 3a2.5 2.5 0 0 1-3.536-3.536l1.225-1.224a.75.75 0 0 0-1.061-1.06l-1.224 1.224a4 4 0 1 0 5.656 5.656l3-3a4 4 0 0 0-.225-5.865Z\"})]})})})}),\"Browsing\"]}),(0,t.jsxs)(e.p,{children:[\"The example that it gave was asking it to book flight tickets. It opened up firefox (the only browser provided in the docker container) and went to google flights and had an OK time selecting flights. However, this was a bit slow. I wonder if it'd be faster on more complicated browsing tasks if we did \",(0,t.jsx)(e.a,{href:\"https://en.wikipedia.org/wiki/Beam_search\",children:\"beam search\"}),\": looking at a few options and then selecting the best one over and over again. While I may be able to serially select flights faster than it, I'm not sure I could do better than it on something that required looking at multiple sites with different filters, such as finding flights and activities and everything else needed for a trip and jointly optimizing, whereas Claude could perform hundreds of queries in parallel and have sync operations.\"]}),(0,t.jsx)(e.p,{children:\"This is, of course, a programming blog, so the last thing I did today with it was ask it some questions.\"}),(0,t.jsxs)(e.h2,{className:\"content-header\",id:\"can-you-solve-my-earlier-blog-post\",children:[(0,t.jsx)(e.a,{href:\"#can-you-solve-my-earlier-blog-post\",\"aria-hidden\":\"true\",tabIndex:\"-1\",children:(0,t.jsx)(t.Fragment,{children:(0,t.jsx)(e.span,{className:\"content-header-link\",children:(0,t.jsxs)(e.svg,{className:\"h-5 linkicon w-5\",fill:\"currentColor\",viewBox:\"0 0 20 20\",xmlns:\"http://www.w3.org/2000/svg\",children:[(0,t.jsx)(e.path,{d:\"M12.232 4.232a2.5 2.5 0 0 1 3.536 3.536l-1.225 1.224a.75.75 0 0 0 1.061 1.06l1.224-1.224a4 4 0 0 0-5.656-5.656l-3 3a4 4 0 0 0 .225 5.865.75.75 0 0 0 .977-1.138 2.5 2.5 0 0 1-.142-3.667l3-3Z\"}),(0,t.jsx)(e.path,{d:\"M11.603 7.963a.75.75 0 0 0-.977 1.138 2.5 2.5 0 0 1 .142 3.667l-3 3a2.5 2.5 0 0 1-3.536-3.536l1.225-1.224a.75.75 0 0 0-1.061-1.06l-1.224 1.224a4 4 0 1 0 5.656 5.656l3-3a4 4 0 0 0-.225-5.865Z\"})]})})})}),\"Can you solve my \",(0,t.jsx)(e.a,{href:\"/edit-bars\",children:\"earlier blog post\"}),\"?\"]}),(0,t.jsxs)(e.p,{children:[\"YES! It solved that whole blog post with only a hint as to where the xcode project directory was mounted in the docker container and instrucitons to use \",(0,t.jsx)(e.a,{href:\"https://github.com/BurntSushi/ripgrep\",children:\"ripgrep\"}),\" instead of grep. It has a bit of a problem submitting commands without a sensible timeout or checking for senses of scale, but if you ensure that it either checks or the datasets and tools you're working with will respond properly, it can blitz out commands and iterate quickly enough to turn my half day of work into a few minutes of mind-bending binary mining.\"]})]})}function d(a={}){let{wrapper:e}=a.components||{};return e?(0,t.jsx)(e,{...a,children:(0,t.jsx)(c,{...a})}):c(a)}return k(x);})();\n;return Component;"
+  },
+  "_id": "blog/computer-use-first-glance.mdx",
+  "_raw": {
+    "sourceFilePath": "blog/computer-use-first-glance.mdx",
+    "sourceFileName": "computer-use-first-glance.mdx",
+    "sourceFileDir": "blog",
+    "contentType": "mdx",
+    "flattenedPath": "blog/computer-use-first-glance"
+  },
+  "type": "Blog",
+  "readingTime": {
+    "text": "2 min read",
+    "minutes": 1.92,
+    "time": 115200,
+    "words": 384
+  },
+  "slug": "computer-use-first-glance",
+  "path": "blog/computer-use-first-glance",
+  "filePath": "blog/computer-use-first-glance.mdx",
+  "toc": [
+    {
+      "value": "Browsing",
+      "url": "#browsing",
+      "depth": 2
+    },
+    {
+      "value": "Can you solve my earlier blog post?",
+      "url": "#can-you-solve-my-earlier-blog-post",
+      "depth": 2
+    }
+  ],
+  "socialImage": "/static/images/twitter-card.webp",
+  "readingMinutes": 2,
+  "readingMinutesWithCode": 2,
+  "structuredData": {
+    "@context": "https://schema.org",
+    "@type": "BlogPosting",
+    "headline": "A quick trial of claude's new computer use",
+    "datePublished": "2024-10-23",
+    "dateModified": "2024-10-23",
+    "description": "A quick trial of Claude's new computer use feature.",
+    "image": "/static/images/twitter-card.webp",
+    "url": "https://jackyoustra.com/blog/computer-use-first-glance"
+  }
+}

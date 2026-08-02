@@ -34,8 +34,8 @@ npm-debug.log*
 .env.test.local
 .env.production.local
 
-# Contentlayer
-.contentlayer
+# Velite (generated content layer)
+.velite
 
 # TypeScript incremental build state (tsc --noEmit still writes this)
 *.tsbuildinfo

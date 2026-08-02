@@ -13,10 +13,23 @@ bun run build
 vercel deploy --prebuilt
 ```
 
-`bun run build` is the fast local check — it produces `.next`, and regenerates
-`public/feed.xml` plus the per-tag feeds under `public/tags/` (via
-`scripts/postbuild.mjs`) and `public/search.json` plus `app/tag-data.json` (via
-Contentlayer's `onSuccess`). The sitemap is *not* a file: `app/sitemap.ts` serves
+`bun run build` is the fast local check. It runs three things in order:
+
+1. `velite build` — compiles `data/**/*.mdx` into `.velite/` (typed JSON plus
+   the compiled MDX), and its `complete` hook writes `public/search.json` and
+   `app/tag-data.json`.
+2. `next build` — produces `.next`. Velite is **not** a bundler plugin, so
+   nothing about the content pipeline constrains which bundler Next uses.
+3. `scripts/postbuild.mjs` — regenerates `public/feed.xml` and the per-tag feeds
+   under `public/tags/` by reading `.velite/blog.json`.
+
+Because step 1 is a separate process, `.velite/` must exist before `next build`
+runs; if you invoke `next build` directly you will get "Cannot find module
+'../.velite'" — run `bun run content` first. `bun run dev` already runs
+`velite build --watch` alongside `next dev`, so editing a post still
+hot-reloads.
+
+The sitemap is *not* a file: `app/sitemap.ts` serves
 `/sitemap.xml` as a route, so nothing should ever sit at `public/sitemap.xml` —
 a file there would shadow the route and freeze the sitemap at whatever it said
 the day it was written. The artifact `vercel deploy --prebuilt` actually uploads

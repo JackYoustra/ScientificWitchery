@@ -1,0 +1,45 @@
+{
+  "title": "Stable Diffusion on iOS native",
+  "date": "2022-11-30T00:00:00.000Z",
+  "tags": [
+    "swift"
+  ],
+  "draft": true,
+  "summary": "The surprisingly non-straightforward port of Stable Diffusion to iOS",
+  "body": {
+    "raw": "\n_Author's note: This was one of the first posts I wrote for this blog, but I didn't take the time to actually publish my blog until now.\nI finished the project on September 9th, making it, to my best knowledge, the first port of Stable Diffusion to iOS.\nThere are multiple ports now, but I'm still proud to do a truly original port._\n\n// Under construction",
+    "code": "var Component=(()=>{var c=Object.create;var i=Object.defineProperty;var h=Object.getOwnPropertyDescriptor;var p=Object.getOwnPropertyNames;var d=Object.getPrototypeOf,b=Object.prototype.hasOwnProperty;var g=(t,e)=>()=>(e||t((e={exports:{}}).exports,e),e.exports),x=(t,e)=>{for(var n in e)i(t,n,{get:e[n],enumerable:!0})},a=(t,e,n,s)=>{if(e&&typeof e==\"object\"||typeof e==\"function\")for(let r of p(e))!b.call(t,r)&&r!==n&&i(t,r,{get:()=>e[r],enumerable:!(s=h(e,r))||s.enumerable});return t};var w=(t,e,n)=>(n=t!=null?c(d(t)):{},a(e||!t||!t.__esModule?i(n,\"default\",{value:t,enumerable:!0}):n,t)),y=t=>a(i({},\"__esModule\",{value:!0}),t);var u=g((D,l)=>{l.exports=_jsx_runtime});var _={};x(_,{default:()=>m,frontmatter:()=>S});var o=w(u()),S={title:\"Stable Diffusion on iOS native\",date:\"2022-11-30\",tags:[\"swift\"],draft:!0,summary:\"The surprisingly non-straightforward port of Stable Diffusion to iOS\"};function f(t){let e={em:\"em\",p:\"p\",...t.components};return(0,o.jsxs)(o.Fragment,{children:[(0,o.jsx)(e.p,{children:(0,o.jsx)(e.em,{children:\"Author's note: This was one of the first posts I wrote for this blog, but I didn't take the time to actually publish my blog until now. I finished the project on September 9th, making it, to my best knowledge, the first port of Stable Diffusion to iOS. There are multiple ports now, but I'm still proud to do a truly original port.\"})}),(0,o.jsx)(e.p,{children:\"// Under construction\"})]})}function m(t={}){let{wrapper:e}=t.components||{};return e?(0,o.jsx)(e,{...t,children:(0,o.jsx)(f,{...t})}):f(t)}return y(_);})();\n;return Component;"
+  },
+  "_id": "blog/ios-stable-diffusion.mdx",
+  "_raw": {
+    "sourceFilePath": "blog/ios-stable-diffusion.mdx",
+    "sourceFileName": "ios-stable-diffusion.mdx",
+    "sourceFileDir": "blog",
+    "contentType": "mdx",
+    "flattenedPath": "blog/ios-stable-diffusion"
+  },
+  "type": "Blog",
+  "readingTime": {
+    "text": "1 min read",
+    "minutes": 0.33,
+    "time": 19800,
+    "words": 66
+  },
+  "slug": "ios-stable-diffusion",
+  "path": "blog/ios-stable-diffusion",
+  "filePath": "blog/ios-stable-diffusion.mdx",
+  "toc": [],
+  "socialImage": "/static/images/twitter-card.webp",
+  "readingMinutes": 1,
+  "readingMinutesWithCode": 1,
+  "structuredData": {
+    "@context": "https://schema.org",
+    "@type": "BlogPosting",
+    "headline": "Stable Diffusion on iOS native",
+    "datePublished": "2022-11-30",
+    "dateModified": "2022-11-30",
+    "description": "The surprisingly non-straightforward port of Stable Diffusion to iOS",
+    "image": "/static/images/twitter-card.webp",
+    "url": "https://jackyoustra.com/blog/ios-stable-diffusion"
+  }
+}
