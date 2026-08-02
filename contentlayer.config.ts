@@ -2,6 +2,7 @@ import { defineDocumentType, ComputedFields, makeSource } from 'contentlayer2/so
 import { writeFileSync } from 'fs'
 import readingTime from 'reading-time'
 import { slug } from 'github-slugger'
+import { minutes, proseMinutes } from './lib/readingTime'
 import path from 'path'
 import { fromHtmlIsomorphic } from 'hast-util-from-html-isomorphic'
 // Remark packages
@@ -171,10 +172,22 @@ export const Blog = defineDocumentType(() => ({
      * fall back to the post's first usable body image, then the site banner.
      */
     socialImage: { type: 'string', resolve: cardImage },
-    /** Whole minutes at 200wpm. The raw word count stays internal to `readingTime`. */
+    /**
+     * Two estimates, because these posts are code-heavy and counting a
+     * traceback as prose is misleading — `road-to-petaflop` is 47% fenced
+     * code, which doubles its naive estimate.
+     *
+     * `readingMinutes` is prose only. `readingMinutesWithCode` counts
+     * everything. Display shows the second only when it differs enough to
+     * matter; see `readingLabel` in lib/readingTime.ts.
+     */
     readingMinutes: {
       type: 'number',
-      resolve: (doc) => Math.max(1, Math.ceil(readingTime(doc.body.raw).words / 200)),
+      resolve: (doc) => proseMinutes(doc.body.raw),
+    },
+    readingMinutesWithCode: {
+      type: 'number',
+      resolve: (doc) => minutes(readingTime(doc.body.raw).words),
     },
     structuredData: {
       type: 'json',
