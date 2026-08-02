@@ -25,8 +25,9 @@ vercel deploy --prebuilt
 
 Because step 1 is a separate process, `.velite/` must exist before `next build`
 runs; if you invoke `next build` directly you will get "Cannot find module
-'../.velite'". Run `bun run content` first, or use `bun run content:watch`
-alongside `next dev`.
+'../.velite'" — run `bun run content` first. `bun run dev` already runs
+`velite build --watch` alongside `next dev`, so editing a post still
+hot-reloads.
 
 The sitemap is *not* a file: `app/sitemap.ts` serves
 `/sitemap.xml` as a route, so nothing should ever sit at `public/sitemap.xml` —
