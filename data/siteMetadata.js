@@ -1,9 +1,16 @@
 /** @type {import("pliny/config").PlinyConfig } */
 const siteMetadata = {
   title: 'Scientific Witchery',
-  author: 'Jack Youstra',
   headerTitle: 'Scientific Witchery',
   description: 'Writings on my projects and cool language features.',
+  // Single source of truth for who I am. The /about page renders these rather
+  // than re-declaring them in `data/authors/default.mdx` frontmatter, which is
+  // how the page came to display a two-year-old job title above a current bio.
+  // Update here and every surface follows.
+  author: 'Jack Youstra',
+  occupation: 'Software Engineer',
+  company: 'Google',
+  avatar: '/static/images/avatar.webp',
   language: 'en-us',
   theme: 'system', // system, dark or light
   siteUrl: 'https://jackyoustra.com',

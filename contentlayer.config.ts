@@ -211,15 +211,12 @@ export const Authors = defineDocumentType(() => ({
   name: 'Authors',
   filePathPattern: 'authors/**/*.mdx',
   contentType: 'mdx',
+  // Identity lives in `data/siteMetadata.js` and is read there by
+  // AuthorLayout. Only `name` stays, because contentlayer needs a required
+  // field and pliny's Authors type expects it — everything else was a second
+  // copy of facts that then drifted out of sync with the prose.
   fields: {
     name: { type: 'string', required: true },
-    avatar: { type: 'string' },
-    occupation: { type: 'string' },
-    company: { type: 'string' },
-    email: { type: 'string' },
-    twitter: { type: 'string' },
-    linkedin: { type: 'string' },
-    github: { type: 'string' },
   },
   computedFields,
 }))
