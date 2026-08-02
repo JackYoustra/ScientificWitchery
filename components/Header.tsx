@@ -25,17 +25,20 @@ const Header = () => {
           </div>
         </Link>
       </div>
-      <div className="flex items-center space-x-4 leading-5 sm:space-x-2">
+      <div className="flex flex-wrap items-center gap-x-4 gap-y-1 leading-5">
         {headerNavLinks
           .filter((link) => link.href !== '/')
           .map((link) => (
             <Link
               key={link.title}
               href={link.href}
-              className="hidden font-medium text-gray-900 hover:text-primary-500 dark:text-gray-100 dark:hover:text-primary-400
-              sm:block"
+              // Separators used to be part of the link text (`title + ' • '`),
+              // which left an orphan bullet after the last item and wrapped
+              // badly on narrow widths. An underline on hover does the same job
+              // without occupying layout.
+              className="hidden border-b border-transparent pb-0.5 font-medium text-gray-900 hover:border-primary-500 hover:text-primary-500 dark:text-gray-100 dark:hover:border-primary-400 dark:hover:text-primary-400 sm:block"
             >
-              {link.title + ' • '}
+              {link.title}
             </Link>
           ))}
         <SearchButton />
