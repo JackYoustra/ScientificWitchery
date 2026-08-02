@@ -1,10 +1,9 @@
+// The tools live on /projects rather than in the nav, and tags are already a
+// sidebar on /blog — so the nav carries only the three real destinations.
 const headerNavLinks = [
-  { href: '/binary', title: 'WASM 🔬' },
-  { href: '/converter', title: 'Converter' },
   { href: '/blog', title: 'Blog' },
-  { href: '/tags', title: 'Tags' },
   { href: '/projects', title: 'Projects' },
-  { href: '/about', title: 'About' },
+  { href: '/about', title: 'Me' },
 ]
 
 export default headerNavLinks

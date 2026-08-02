@@ -7,6 +7,13 @@ interface Project {
 
 const projectsData: Project[] = [
   {
+    title: 'Binary Size Viewer',
+    description: `Drop in a .wasm, Mach-O or ELF binary and see where the bytes went.
+    Twiggy handles wasm, Bloaty handles everything else, and both run entirely in your
+    browser — nothing is uploaded.`,
+    href: '/binary',
+  },
+  {
     title: 'NanoFlick',
     description: `My main pursuit for the last few years or so. Check it out!`,
     imgSrc: '/static/images/nanoflick.webp',
