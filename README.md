@@ -58,7 +58,7 @@ is optional for local development.
 ## Writing
 
 Posts are MDX files in `data/blog/`. Frontmatter fields are declared in
-`contentlayer.config.ts` — `title`, `date` and `summary` are required, the rest
+`velite.config.ts` — `title`, `date` and `summary` are required, the rest
 (`tags`, `lastmod`, `draft`, `images`, `authors`, `series`, `part`) are not.
 Tags are lowercased and slugified (`github-slugger`) before they become
 `/tags/<tag>` routes, so write them lowercase in frontmatter. Site configuration

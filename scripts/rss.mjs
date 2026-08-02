@@ -7,8 +7,10 @@ import siteMetadata from '../data/siteMetadata.js'
 // Add this line to read the JSON file
 const tagData = JSON.parse(readFileSync(new URL('../app/tag-data.json', import.meta.url), 'utf8'))
 
-import { allBlogs } from '../.contentlayer/generated/index.mjs'
-import { sortPosts } from 'pliny/utils/contentlayer.js'
+const allBlogs = JSON.parse(readFileSync(new URL('../.velite/blog.json', import.meta.url), 'utf8'))
+
+const sortPosts = (posts) =>
+  [...posts].sort((a, b) => (a.date > b.date ? -1 : a.date < b.date ? 1 : 0))
 
 const generateRssItem = (config, post) => `
   <item>
