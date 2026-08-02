@@ -100,14 +100,12 @@ module.exports = () => {
         },
       ]
     },
+    // Only needed on the webpack path. Turbopack handles the wasm-pack bundler
+    // output (`import * as wasm from './rust_wasm_bg.wasm'`) with no config at
+    // all, so on Next 16 + Turbopack this whole hook can go.
     webpack: (config, options) => {
       config.module.rules = [
         ...config.module.rules,
-        {
-          test: /\.svg$/,
-          // exclude: [__dirname + '/rust-wasm'],
-          use: ['@svgr/webpack'],
-        },
         {
           test: /\.wasm$/,
           type: 'webassembly/async',
