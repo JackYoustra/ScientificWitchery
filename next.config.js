@@ -10,7 +10,7 @@ const ContentSecurityPolicy = `
   script-src 'self' 'unsafe-eval' 'unsafe-inline' giscus.app analytics.umami.is va.vercel-scripts.com claude.ai;
   style-src 'self' 'unsafe-inline' giscus.app claude.ai;
   img-src * blob: data:;
-  media-src 'self' *.s3.amazonaws.com https://img.buzzfeed.com/;
+  media-src 'self' *.s3.amazonaws.com;
   connect-src *;
   font-src 'self';
   frame-src giscus.app gcc.godbolt.org gist.github.com claude.ai;
