@@ -13,10 +13,15 @@ bun run build
 vercel deploy --prebuilt
 ```
 
-`bun run build` is the fast local check — it produces `.next` and regenerates the
-RSS/sitemap in `public/`. The artifact `vercel deploy --prebuilt` actually
-uploads is `.vercel/output`, which only `vercel build` writes, so the full
-production sequence is:
+`bun run build` is the fast local check — it produces `.next`, and regenerates
+`public/feed.xml` plus the per-tag feeds under `public/tags/` (via
+`scripts/postbuild.mjs`) and `public/search.json` plus `app/tag-data.json` (via
+Contentlayer's `onSuccess`). The sitemap is *not* a file: `app/sitemap.ts` serves
+`/sitemap.xml` as a route, so nothing should ever sit at `public/sitemap.xml` —
+a file there would shadow the route and freeze the sitemap at whatever it said
+the day it was written. The artifact `vercel deploy --prebuilt` actually uploads
+is `.vercel/output`, which only `vercel build` writes, so the full production
+sequence is:
 
 ```bash
 bun run wasm            # only when rust-wasm/ changed

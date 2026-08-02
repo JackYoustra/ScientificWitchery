@@ -9,7 +9,6 @@
 # next.js
 /.next/
 /out/
-public/sitemap.xml
 .vercel
 
 # production
@@ -40,3 +39,6 @@ npm-debug.log*
 
 # TypeScript incremental build state (tsc --noEmit still writes this)
 *.tsbuildinfo
+
+# agent worktrees and local session state
+.claude/

@@ -1,9 +1,9 @@
 {
-  "name": "",
-  "short_name": "",
+  "name": "Scientific Witchery",
+  "short_name": "Scientific Witchery",
   "icons": [
     {
-      "src": "/android-chrome-96x96.png",
+      "src": "/static/favicons/android-chrome-96x96.png",
       "sizes": "96x96",
       "type": "image/png"
     }

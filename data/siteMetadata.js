@@ -8,9 +8,7 @@ const siteMetadata = {
   theme: 'system', // system, dark or light
   siteUrl: 'https://jackyoustra.com',
   siteRepo: 'https://github.com/JackYoustra/ScientificWitchery',
-  siteLogo: `${process.env.BASE_PATH || ''}/static/images/logo.png`,
   twitter: 'https://twitter.com/jackyoustra',
-  image: '/static/images/avatar.webp',
   socialBanner: `${process.env.BASE_PATH || ''}/static/images/twitter-card.webp`,
   // mastodon: 'https://mastodon.social/@mastodonuser',
   email: 'jack@youstra.com',
@@ -48,9 +46,13 @@ const siteMetadata = {
     // Please add your .env file and modify it according to your selection
     provider: 'buttondown',
   },
+  // NOTE: nothing reads this block today. The comment section was removed, and
+  // this config (plus the NEXT_PUBLIC_GISCUS_* vars in `.env.example` and the
+  // giscus.app entries in the `next.config.js` CSP) is kept deliberately so a
+  // later restore is a one-component job rather than a re-derivation.
   comments: {
-    // If you want to use an analytics provider you have to add it to the
-    // content security policy in the `next.config.js` file.
+    // If you restore comments, the provider has to be in the content security
+    // policy in the `next.config.js` file.
     // Select a provider and use the environment variables associated to it
     // https://vercel.com/docs/environment-variables
     provider: 'giscus', // supported providers: giscus, utterances, disqus
