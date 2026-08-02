@@ -57,7 +57,7 @@ revealed that I could. All You have to do is add a
 data asset to your asset catalog and select the attributes inspector in xcode. Then, you can choose from memory and graphics
 to discriminate based on. There's only one problem: llama.cpp uses a folder path, not a data reference, while the API for
 getting data from the xcode bundle is only based on atomic data loading. There's a few options to fix this:
- - Rewrite llama.cpp to use the `NSDataAsset`, the way that the [apple docs](https://developer.apple.com/documentation/foundation/nsdataasset) suggest to do it. This is probably the right thing to do, but it's a lot of work.
+ - Rewrite llama.cpp to use the `NSDataAsset`, the way that the [apple docs](https://developer.apple.com/documentation/uikit/nsdataasset) suggest to do it. This is probably the right thing to do, but it's a lot of work.
  - [fishhook](https://github.com/Concoction/fishhook) the `llama_file` methods in llama.cpp to use the atomic data loading API if we're reading from an asset catalog
 Keeping in line with my attempt to never touch llama.cpp, I'm probably going to do the second one.
 

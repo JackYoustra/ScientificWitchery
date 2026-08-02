@@ -48,7 +48,7 @@ and million+ lines, something which is very far off for NanoFlick
 ## Result of Tuist port
 
 Sadly, the port didn't go as straightforward as I'd hoped!
-The documentation is [basically nonexisent](https://tuist.github.io/tuist/main/documentation/projectdescription/project) and, when it is existent, [not very clear](https://docs.tuist.io/commands/clean), especially for external dependencies. Getting metalpetal to work took a whole day, and, a couple months on, there's no ability to build the [leading crop component or database plugin](https://github.com/tuist/tuist/issues/5400). I tried to patch this, but there were a few problems:
+The documentation is [basically nonexisent](https://tuist.github.io/tuist/main/documentation/projectdescription/project) and, when it is existent, [not very clear](https://tuist.dev/en/docs/cli/clean), especially for external dependencies. Getting metalpetal to work took a whole day, and, a couple months on, there's no ability to build the [leading crop component or database plugin](https://github.com/tuist/tuist/issues/5400). I tried to patch this, but there were a few problems:
  - I couldn't run it locally! It just said that it couldn't find `PackageDescription`
  - It's really, really dense code with enough documentation to see why decisions were made, but not
  enough to see potential caveats that might be relevant to my use case.

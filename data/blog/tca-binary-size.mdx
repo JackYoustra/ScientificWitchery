@@ -77,7 +77,7 @@ bloaty /Users/jack/Library/Developer/Xcode/DerivedData/NanoFlick-ccweukbolvpvhhb
 ```
 
 So, the first thing to notice is that the `__LINKEDIT` section is much larger in NanoFlickTCA.
-One of the big things we did in TCA was rewrite to a [uFeatures](https://docs.tuist.io/building-at-scale/microfeatures/) architecture to save on compile times.
+One of the big things we did in TCA was rewrite to a [uFeatures](https://tuist.dev/en/docs/guides/features/projects/tma-architecture) architecture to save on compile times.
 A consequence is we have a lot more modules, and therefore a lot more linking to do.
 The `__LINKEDIT` section is where the linker puts all of the symbols that it needs to link to, so it makes sense that it's larger.
 I tried [my normal trick](https://forums.swift.org/t/no-resilience-just-go-fast-compiler-flag/34758?page=2) of adding `-cross-module-optimization` and `-Xllvm -sil-cross-module-serialize-all`, but

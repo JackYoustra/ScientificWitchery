@@ -6,9 +6,9 @@ draft: false
 summary: "A quick trial of Claude's new computer use feature."
 ---
 
-Yesterday, [Anthropic released](https://www.anthropic.com/news/3-5-models-and-computer-use) a new feature for their Claude AI chatbot: the [ability to use a computer](https://docs.anthropic.com/en/docs/build-with-claude/computer-use). This is a big step for AI assistants, and I thought I'd quickly try it out and see what it's like.
+Yesterday, [Anthropic released](https://www.anthropic.com/news/3-5-models-and-computer-use) a new feature for their Claude AI chatbot: the [ability to use a computer](https://platform.claude.com/docs/en/agents-and-tools/tool-use/computer-use-tool). This is a big step for AI assistants, and I thought I'd quickly try it out and see what it's like.
 
-All of the computer use is via [tools](https://docs.anthropic.com/en/docs/build-with-claude/tool-use): you prompt Claude and it calls agentic computer-specific tools: moving the mouse, typing, creating a file, taking a screenshot, and running bash commands. However, this is just the API surface. Their client [reference implementation](https://github.com/anthropics/anthropic-quickstarts/tree/main/computer-use-demo) isolates the system in a docker container, but because it's all API calls, you could just as easily run it on your own machine. Someone, of course, already has with [agent.exe](https://github.com/corbt/agent.exe).
+All of the computer use is via [tools](https://platform.claude.com/docs/en/agents-and-tools/tool-use/overview): you prompt Claude and it calls agentic computer-specific tools: moving the mouse, typing, creating a file, taking a screenshot, and running bash commands. However, this is just the API surface. Their client [reference implementation](https://github.com/anthropics/claude-quickstarts/tree/main/computer-use-demo) isolates the system in a docker container, but because it's all API calls, you could just as easily run it on your own machine. Someone, of course, already has with [agent.exe](https://github.com/corbt/agent.exe).
 
 For now, we'll just use the docker version to get a feel for things.
 

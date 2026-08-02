@@ -51,11 +51,11 @@ Frustratingly, I can't find a really good systems-based approach to the above. M
 - [LLaMA-Factory](https://github.com/hiyouga/LLaMA-Factory) - Runner-up to Axolotl. Has a lot of the same features, but a little more difficulty with custom datasets and FSDP. I found their documentation a little easier to understand, though.
 - [Torchtune](https://github.com/pytorch/torchtune) - Spent some time trying to use this and found the documentation lacking and somewhat out of date. It lacks all of the nice autotemplating of the above for unclear gain. After doing some botched fine-tunes, abandoned it.
 - [LLaMA-Recipies](https://github.com/meta-llama/llama-recipes) - Intended specifically for the LLaMA series, it provides a lot of the basics when it comes to fine-tuning. Has some llama-specific setups. Haven't really used it.
-- [Unsloth](https://github.com/unsloth-ai/unsloth) - Quite fast and quite efficient! Has a paid tier for super fast and multi-GPU. Integrates with Axolotl, so you can just set some config stuff instead of switching your whole harness.
+- [Unsloth](https://github.com/unslothai/unsloth) - Quite fast and quite efficient! Has a paid tier for super fast and multi-GPU. Integrates with Axolotl, so you can just set some config stuff instead of switching your whole harness.
 
 ### Manual:
 
-- [Huggingface](https://huggingface.co/docs/transformers/main/en/tasks/fine-tuning)
+- [Huggingface](https://huggingface.co/docs/transformers/en/training)
 - [Lightning](https://lightning.ai/docs/pytorch/stable/common/trainer.html)
 
 Like most pytorch / huggingface code, there's a lightning equivalent. This is the most modular and fine-grained control you can get.

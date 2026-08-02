@@ -32,7 +32,7 @@ If you want to be able to put in classic algorithmic programs in the middle of a
 No amount of prompt engineering or finetuning will help you here.
 
 Right now, most services allow you to output JSON, but that's not enough. You need to be able to specify the types of the JSON you want to output, and you need to be able to do so in a way that the model can understand.
-You can do that now with [llama.cpp](https://github.com/ggerganov/llama.cpp) (and, thus, [Ollama](https://ollama.com/)),
+You can do that now with [llama.cpp](https://github.com/ggml-org/llama.cpp) (and, thus, [Ollama](https://ollama.com/)),
 [sglang](https://lmsys.org/blog/2024-02-05-compressed-fsm/)[^2],
 and with [huggingface](https://github.com/epfl-dlab/transformers-GCD-PR).[^1]
 Today, I'll show you how to do that with Ollama.
@@ -72,7 +72,7 @@ We just add one more step to the process after the logits are generated and elim
 Fortunately, there are a plethora of tools to turn a typescript type into a different form called GBNF which *does* model a token-level validator.
 
 ## Theory - GBNF
-*authoritative source: [the GBNF readme](https://github.com/ggerganov/llama.cpp/blob/master/grammars/README.md)*
+*authoritative source: [the GBNF readme](https://github.com/ggml-org/llama.cpp/blob/master/grammars/README.md)*
 
 GBNF is a type of grammar that is used to specify the syntax of a programming language.
 Unlike typescript, which specifies the structure of a data type, GBNF specifies the structure of a language.
@@ -96,7 +96,7 @@ So, bringing it all together: we can convert a typescript type into a GBNF gramm
 
 # Implementation
 ## Step 1: Convert TypeScript to GBNF
-Llama.cpp has [a tool](https://github.com/ggerganov/llama.cpp/blob/master/examples/ts-type-to-grammar.sh) called `ts-type-to-grammar.sh` which implements this whole pipeline.
+Llama.cpp has [a tool](https://github.com/ggml-org/llama.cpp/blob/master/examples/ts-type-to-grammar.sh) called `ts-type-to-grammar.sh` which implements this whole pipeline.
 Just clone and run!
 
 ## Step 2: Use the GBNF to validate the next token

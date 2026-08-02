@@ -21,7 +21,7 @@ So, for our toolchain, we'll be using
 # Building
 ## Getting llama.cpp to run on a mac
 
-This was really straightforward. Cloning [llama.cpp](https://github.com/ggerganov/llama.cpp),
+This was really straightforward. Cloning [llama.cpp](https://github.com/ggml-org/llama.cpp),
 quantizing the 70b model to a byte, and building and running the examples with the LLAMA_METAL flag set
 worked out of the box. Hopefully, it's similarly straightforward to run on iOS?
 
@@ -104,7 +104,7 @@ You should be able to just use a local package dependency, but I was unable to g
 
 From this, we can rename the server's `main` function to something like `doMain` and call that from our swift code, and see if that works. Unfortunately, it doesn't! You [can't open raw http ports on iOS](https://developer.apple.com/forums/thread/653072), so we have to make some changes.
 
-We could refactor the entire thing to just pass around structs instead of serialized strings, but I'd like to change the source as little as possible because ~I'm lazy~ I want to be able to easily update the code and avoid mistakes if upstream changes the server example. We'll just change the http socket callback to a provided function. I couldn't figure out how to bridge Swift closures to Cxx `std::function` types (and, looking at the [Swift protocol type parameter or result types](https://github.com/apple/swift/blob/main/docs/CppInteroperability/CppInteroperabilityStatus.md) section of the docs, I don't think it's possible right now).
+We could refactor the entire thing to just pass around structs instead of serialized strings, but I'd like to change the source as little as possible because ~I'm lazy~ I want to be able to easily update the code and avoid mistakes if upstream changes the server example. We'll just change the http socket callback to a provided function. I couldn't figure out how to bridge Swift closures to Cxx `std::function` types (and, looking at the [Swift protocol type parameter or result types](https://github.com/swiftlang/swift/blob/main/docs/CppInteroperability/CppInteroperabilityStatus.md) section of the docs, I don't think it's possible right now).
 Instead, I'll just use our [old, trusty Objective-C block types](https://developer.apple.com/library/archive/documentation/Cocoa/Conceptual/ProgrammingWithObjectiveC/WorkingwithBlocks/WorkingwithBlocks.html), which act like a convenient function pointer to C and a closure to Swift. The hidden context block pointer is
 very conveniently automatically allocated, packed, and deallocated for you.
 

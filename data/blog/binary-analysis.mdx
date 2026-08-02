@@ -25,7 +25,7 @@ what the output should be. To list a few surprising things that some binary[^1] 
  - [Monomophization](https://rustc-dev-guide.rust-lang.org/backend/monomorph.html) leads to a lot of code duplication from a single function, so changing the size of a function can change the size of the binary by a lot.
  - [Inlining](https://en.wikipedia.org/wiki/Inline_expansion) can cause a function to be duplicated into another function, so any 
  changes to an inlining decision can cause a large change of a binary size.
- - Versions of the [toolchain](https://releases.llvm.org/17.0.1/docs/ReleaseNotes.html) and [language](https://forums.swift.org/t/swift-5-7-regression-in-async-call-performance/58420), [module visibility / compatibility](https://github.com/apple/swift/blob/main/docs/LibraryEvolutionManifesto.md), and [link-time optimization](https://llvm.org/docs/LinkTimeOptimization.html) can cause a lot of unnecessary virtualization and copying to be elided across module and function boundaries.
+ - Versions of the [toolchain](https://releases.llvm.org/17.0.1/docs/ReleaseNotes.html) and [language](https://forums.swift.org/t/swift-5-7-regression-in-async-call-performance/58420), [module visibility / compatibility](https://github.com/swiftlang/swift/blob/main/docs/LibraryEvolutionManifesto.md), and [link-time optimization](https://llvm.org/docs/LinkTimeOptimization.html) can cause a lot of unnecessary virtualization and copying to be elided across module and function boundaries.
  - In the other direction, [deferring linking to runtime](https://en.wikipedia.org/wiki/Dynamic_linker) can bloat your binary with just symbols needed to perform the linking - not even counting unnecessary protocol, such as calling convention.
 
 Looking at a binary and saying "it's too big / too small / should be bigger / smaller" is usually possible.
@@ -35,7 +35,7 @@ Actually trying to figure out why, though, is a lot harder.
 In [my post on TCA binary sizes](/blog/tca-binary-size) I did it by hand, but I want it to be easier.
 This is where binary size viewers come in. There are a couple we are concerned with:
  - [Bloaty McBloatface](https://github.com/google/bloaty) - A binary size viewer from Google. It's written in C++ and uses the LLVM toolchain, and is very good.
- - [Twiggy](https://github.com/rust-wasm/twiggy) - A binary size viewer from the Rust WebAssembly Working Group. It's written in Rust and uses the Rust toolchain, but only supports wasm and partially DWARF binaries. It provides good support to wasm but can't be used for other binaries.
+ - [Twiggy](https://github.com/rustwasm/twiggy) - A binary size viewer from the Rust WebAssembly Working Group. It's written in Rust and uses the Rust toolchain, but only supports wasm and partially DWARF binaries. It provides good support to wasm but can't be used for other binaries.
 
 You can run either of these tools on your binary and get a breakdown of the binary size by function, module, and other metrics - I do so in [my post on TCA binary sizes](/blog/tca-binary-size). However, I had to install a tool, read some CLI output, and some other stuff that, while not very hard, would really benefit from a pretty non-cli visualization and no download and everything nice.
 

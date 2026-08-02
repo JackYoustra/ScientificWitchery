@@ -96,7 +96,7 @@ Swift does this pointer creation via unsafeBitCast to a function pointer. This i
 3. We call the function to make sure it works in our ad-hoc test. You can set a breakpoint in our `MySecItemAdd` to verify 
 that it's actually being called.
 
-4. The `@convention(thin)` attribute specifies a function's SIL type. You can look at the [SIL documentation](https://github.com/apple/swift/blob/7a1829f601daa5a2b6d9ac252ba607a890848a13/docs/SIL.rst?plain=1#L414)
+4. The `@convention(thin)` attribute specifies a function's SIL type. You can look at the [SIL documentation](https://github.com/swiftlang/swift/blob/7a1829f601daa5a2b6d9ac252ba607a890848a13/docs/SIL.rst?plain=1#L414)
 for more details, but the important part is that it's a raw function pointer without context.
 This is necessary because the `rebinding` struct expects a function pointer, but Swift's default calling convention contains a hidden context argument that's passed along with the function pointer.
 We just want the function pointer, so we use `@convention(thin)` and verify that no context is needed.
@@ -257,8 +257,8 @@ extension Interpose: Interposable {
 }
 ```
 
-would get rid of that, but the cast to the thin function type [isn't implemented](https://github.com/apple/swift/blob/f6ceec73b7781cb9281010de6b30fafac3e3855b/lib/SILGen/SILGenExpr.cpp#L1933).
-Just moving the `@convention(thin)` to the `targetFunction` declaration no longer yields an error, although it [does crash the compiler.](https://github.com/apple/swift/issues/65280)
+would get rid of that, but the cast to the thin function type [isn't implemented](https://github.com/swiftlang/swift/blob/f6ceec73b7781cb9281010de6b30fafac3e3855b/lib/SILGen/SILGenExpr.cpp#L1933).
+Just moving the `@convention(thin)` to the `targetFunction` declaration no longer yields an error, although it [does crash the compiler.](https://github.com/swiftlang/swift/issues/65280)
 For now, we're stuck with writing the `unsafeBitCast` and the thinning ourselves.
 
 Anyway, this leads us to the end of our journey. We've successfully rebinding the `SecItemAdd` function to our own implementation, and we've done it in a way that's safe and easy to understand.

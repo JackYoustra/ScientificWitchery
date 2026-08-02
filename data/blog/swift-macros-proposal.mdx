@@ -264,9 +264,9 @@ struct PowerAssertMacro: ExpressionMacro {
   }
 ```
 
-The metadata fields are defined in the [SwiftSyntaxMacros package](https://github.com/apple/swift-syntax/blob/3b7d3ad1afccd53f1e2aaeb1b22437910f80fd2e/Sources/_SwiftSyntaxMacros/Macro.swift#L21).
+The metadata fields are defined in the [SwiftSyntaxMacros package](https://github.com/swiftlang/swift-syntax/blob/3b7d3ad1afccd53f1e2aaeb1b22437910f80fd2e/Sources/_SwiftSyntaxMacros/Macro.swift#L21).
 For the less-straightforward fields...
- - `genericSignature` is the generic signature of the macro. This is given as a string, but does not have a string value, it's parsed by [swift-syntax](https://github.com/apple/swift-syntax/commit/ae619cacb4580d2928503f43e91d0ce4393062b5).
+ - `genericSignature` is the generic signature of the macro. This is given as a string, but does not have a string value, it's parsed by [swift-syntax](https://github.com/swiftlang/swift-syntax/commit/ae619cacb4580d2928503f43e91d0ce4393062b5).
  - `signature` is the signature of the macro. This is given as a string and parsed much like the generic signature.
  Disambiguation between value macros and function macros happen here: if the signature is a function type, it's a function macro (e.g. `#imageLiteral`), otherwise it's a value macro (e.g. `#line`).
  - `owningModule` is module that must be imported to use the macro, and `supplementalSignatureModules` are modules that must be imported by the macro to function.

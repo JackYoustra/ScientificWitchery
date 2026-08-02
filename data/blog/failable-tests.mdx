@@ -14,7 +14,7 @@ SwiftTrace, SwiftInjection, and, something that caught my eye, Fortify!
 [^1]: Far superior to the [ratchet fishhooking code introduced earlier](/dylib-swizzling.mdx).
 
 It only has a few stars, but it's a great idea. It uses [fishhooking](/dylib-swizzling.mdx) to
-wrap the fatal error / assertion failure calls with [setjmp/longjmp](google.com), so
+wrap the fatal error / assertion failure calls with [setjmp/longjmp](https://en.cppreference.com/c/header/setjmp), so
 that you can catch these hitherto unrecoverable errors and do something with them.
 Note that at this point most of the application state is undefined, so it's not very useful for much!
 
