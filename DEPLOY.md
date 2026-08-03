@@ -63,19 +63,7 @@ verified on 0.15.0). The toolchain itself is pinned in
 `rust-wasm/rust-toolchain.toml` (rustup installs it, and the
 `wasm32-unknown-unknown` target, automatically on first build).
 
-Three things that are load-bearing and easy to undo by accident:
-
-- The `wasm` script sets `RUSTFLAGS='-C target-feature=-reference-types'`, and
-  it has to. Rust 1.82+ enables the wasm `reference-types` proposal by default,
-  but the webpack 5 vendored inside Next 14 still parses wasm with the old
-  `@webassemblyjs` decoder, which cannot read such a module — `next build` dies
-  with `Module parse failed: Internal failure: parseVec could not cast the
-  value`. The same flag is in `rust-wasm/.cargo/config.toml` for bare `cargo`
-  invocations, but an exported `RUSTFLAGS` in your shell overrides that table
-  entirely, so the script sets it explicitly. (A global
-  `RUSTFLAGS="-C target-cpu=native"` was masking this: on wasm the CPU name is
-  unrecognized, which happened to reset the feature set and switch
-  `reference-types` back off.)
+Two things are load-bearing and easy to undo by accident:
 
 - `rust-wasm/Cargo.lock` is committed. The `twiggy-*` dependencies are git deps
   on a floating `branch = "master"` of `github.com/jackyoustra/twiggy`, so
@@ -84,16 +72,36 @@ Three things that are load-bearing and easy to undo by accident:
   `wasm` script deletes it; if you invoke `wasm-pack` directly, delete it
   yourself or the freshly built package will be invisible to git again.
 
+### Do not reintroduce `-C target-feature=-reference-types`
+
+Under Next 14 the `wasm` script and `rust-wasm/.cargo/config.toml` both forced
+`RUSTFLAGS='-C target-feature=-reference-types'`, because the webpack 5 vendored
+in Next 14 parsed wasm with the old `@webassemblyjs` decoder and died on a module
+using the reference-types proposal (`Module parse failed: Internal failure:
+parseVec could not cast the value`). That flag in turn capped `wasm-bindgen` at
+`0.2.63`/`0.2.89`, since 0.2.100+ *requires* reference-types and fails to link
+without it (`failed to find the __wbindgen_externref_table_dealloc function`).
+
+Both constraints died with Next 14. Turbopack builds this crate's output with no
+configuration at all, reference-types included, and executes it during prerender.
+The flag is gone from both places and `wasm-bindgen` now floats at current
+(`0.2.126`, with `js-sys` `0.3.103` and `wasm-bindgen-test` `0.3.76`). Putting the
+flag back would silently pin the crate to a 2024 wasm-bindgen again — and on a
+current toolchain it does not merely produce a worse build, it fails outright.
+
+One trap survives the change: **a `RUSTFLAGS` exported in your shell replaces
+`.cargo/config.toml`'s `rustflags` wholesale.** A global
+`RUSTFLAGS="-C target-cpu=native"` leaks into the wasm cross-compile, where the
+CPU name is meaningless. Scope such things to `[target.aarch64-apple-darwin]` in
+`~/.cargo/config.toml` instead of exporting them.
+
 Rust tests run in a browser, not on the host: `cd rust-wasm && wasm-pack test
 --headless --firefox`.
 
 ## Notes
 
-- The bundled wasm is loaded asynchronously (`next.config.js` sets
-  `asyncWebAssembly`), so the pages that use it do **not** survive `EXPORT=1`
-  static export. Deploy as a normal Vercel serverless build.
-- `bun` is the package manager. There is one lockfile, `bun.lockb`.
-- `wasm-bindgen` is held at the `0.2.63` requirement (`0.2.89` in the lockfile)
-  for the same webpack reason: 0.2.100+ *requires* `reference-types` (it looks
-  for `__wbindgen_externref_table_dealloc`), so it cannot be built in the
-  dialect Next 14's bundler can parse. Bumping it means upgrading Next first.
+- Turbopack handles the bundled wasm with no `next.config.ts` entry — the
+  `asyncWebAssembly` webpack flag this file used to describe is gone, along with
+  the `EXPORT=1` static-export switch it warned about. Deploy as a normal Vercel
+  serverless build.
+- `bun` is the package manager. There is one lockfile, `bun.lock`.
