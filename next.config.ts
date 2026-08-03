@@ -14,6 +14,10 @@ import type { NextConfig } from 'next'
 // giscus is kept only because the comment config is kept for a later restore.
 // Dropped from the old list: claude.ai and *.s3.amazonaws.com (zero references),
 // and img.buzzfeed.com (an <img>, so img-src already covers it).
+// `worker-src` matters more than it looks: /binary's Emscripten build spawns
+// its worker pool from blob: URLs, and with no worker-src the browser falls
+// back to default-src 'self', which blocks blob: and hangs that page forever on
+// "loading-workers".
 const contentSecurityPolicy = `
   default-src 'self';
   script-src 'self' 'unsafe-eval' 'unsafe-inline' giscus.app analytics.umami.is va.vercel-scripts.com;
@@ -22,6 +26,7 @@ const contentSecurityPolicy = `
   media-src 'self';
   connect-src *;
   font-src 'self';
+  worker-src 'self' blob:;
   frame-src giscus.app gcc.godbolt.org gist.github.com;
 `
 
@@ -46,7 +51,26 @@ const nextConfig: NextConfig = {
 
   // Deviation: the scaffold sets no headers.
   async headers() {
-    return [{ source: '/(.*)', headers: securityHeaders }]
+    return [
+      { source: '/(.*)', headers: securityHeaders },
+      {
+        // /binary runs Bloaty compiled to Emscripten, which needs
+        // SharedArrayBuffer, which the browser only exposes to a
+        // cross-origin-isolated document. Without these two headers the Bloaty
+        // engine cannot initialise at all and the page silently falls back —
+        // which it has been doing everywhere, not just locally.
+        //
+        // Scoped to this route on purpose: site-wide `require-corp` would block
+        // every cross-origin resource that lacks CORP, i.e. the hotlinked post
+        // images and the godbolt and gist embeds. This page loads only
+        // same-origin assets, so it pays no such cost.
+        source: '/binary',
+        headers: [
+          { key: 'Cross-Origin-Opener-Policy', value: 'same-origin' },
+          { key: 'Cross-Origin-Embedder-Policy', value: 'require-corp' },
+        ],
+      },
+    ]
   },
 }
 

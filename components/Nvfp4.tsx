@@ -77,9 +77,12 @@ const quantizeToFP4 = (value: number): number => {
 // Component 2: Bit representation with value and calculation
 const BitRepresentation = ({ value }: { value: number }) => {
   const binary = toBinary(value)
-  const sign = binary[0] === '0' ? 1 : -1
+  // `substring` rather than `binary[0]` / `binary[3]`: it is total, so a short
+  // string yields '' instead of `undefined` leaking into `parseInt`.
+  const signBit = binary.substring(0, 1)
+  const sign = signBit === '0' ? 1 : -1
   const exp = binary.substring(1, 3)
-  const mantissa = binary[3]
+  const mantissa = binary.substring(3, 4)
 
   // NVFP4 special encoding explanation
   let calculation
@@ -101,11 +104,11 @@ const BitRepresentation = ({ value }: { value: number }) => {
       <div className="flex items-center gap-1">
         <div
           className={`rounded-sm px-2 py-1 font-mono text-xs ${
-            binary[0] === '0' ? 'bg-green-500' : 'bg-red-500'
+            signBit === '0' ? 'bg-green-500' : 'bg-red-500'
           }`}
           title="Sign bit"
         >
-          {binary[0]}
+          {signBit}
         </div>
         <div className="rounded-sm bg-blue-500 px-2 py-1 font-mono text-xs" title="Exponent">
           {exp}
@@ -118,6 +121,27 @@ const BitRepresentation = ({ value }: { value: number }) => {
       <div className="font-mono text-[11px] text-gray-500">{calculation}</div>
     </div>
   )
+}
+
+/** Total absolute reconstruction error for one micro-block at a given pair of scales. */
+const blockError = (values: number[], blockScale: number, tensorScale: number): number =>
+  values.reduce((total, val) => {
+    const reconstructed = quantizeToFP4(val / blockScale / tensorScale) * blockScale * tensorScale
+    return total + Math.abs(val - reconstructed)
+  }, 0)
+
+/** Coarse sweep over block scales, for a tensor scale that's held fixed. */
+const bestBlockScale = (values: number[], tensorScale: number): number => {
+  let best = 1.0
+  let minError = Infinity
+  for (let bs = 0.5; bs <= 5.0; bs += 0.2) {
+    const error = blockError(values, bs, tensorScale)
+    if (error < minError) {
+      minError = error
+      best = bs
+    }
+  }
+  return best
 }
 
 // Main scaling demonstration with multiple micro-blocks
@@ -145,56 +169,31 @@ const NVFP4ScalingDemo = () => {
   const [tensorScale, setTensorScale] = useState(0.8)
   const [hoveredSlider, setHoveredSlider] = useState<string | null>(null)
 
-  const selectedValue = microBlocks[selectedBlock][selectedIndex]
-  const scaledValue = selectedValue / blockScales[selectedBlock] / tensorScale
-  const quantizedValue = quantizeToFP4(scaledValue)
-  const reconstructedValue = quantizedValue * blockScales[selectedBlock] * tensorScale
-  const error = Math.abs(selectedValue - reconstructedValue)
-
   // Calculate globally optimal scales (joint optimization)
   const globalOptimalScales = useMemo(() => {
-    let bestBlockScales = [1.0, 1.0, 1.0, 1.0]
+    let bestBlockScales = microBlocks.map(() => 1.0)
     let bestTensorScale = 1.0
     let minTotalError = Infinity
 
     // Coarse grid search for initial values
     for (let ts = 0.2; ts <= 2.0; ts += 0.2) {
-      // For each tensor scale, find optimal block scales
-      const tempBlockScales = microBlocks.map((block) => {
-        let bestBS = 1.0
-        let minBlockError = Infinity
-
-        for (let bs = 0.5; bs <= 5.0; bs += 0.2) {
-          let blockError = 0
-          for (const val of block) {
-            const scaled = val / bs / ts
-            const quantized = quantizeToFP4(scaled)
-            const reconstructed = quantized * bs * ts
-            blockError += Math.abs(val - reconstructed)
-          }
-
-          if (blockError < minBlockError) {
-            minBlockError = blockError
-            bestBS = bs
-          }
-        }
-        return bestBS
-      })
+      // For each tensor scale, find optimal block scales. Keeping each block
+      // next to its own candidate scale means the total below never has to
+      // index two arrays by the same loop variable and hope they line up.
+      const candidates = microBlocks.map((values) => ({
+        values,
+        scale: bestBlockScale(values, ts),
+      }))
 
       // Calculate total error with these scales
-      let totalError = 0
-      for (let b = 0; b < 4; b++) {
-        for (const val of microBlocks[b]) {
-          const scaled = val / tempBlockScales[b] / ts
-          const quantized = quantizeToFP4(scaled)
-          const reconstructed = quantized * tempBlockScales[b] * ts
-          totalError += Math.abs(val - reconstructed)
-        }
-      }
+      const totalError = candidates.reduce(
+        (total, candidate) => total + blockError(candidate.values, candidate.scale, ts),
+        0
+      )
 
       if (totalError < minTotalError) {
         minTotalError = totalError
-        bestBlockScales = tempBlockScales
+        bestBlockScales = candidates.map((candidate) => candidate.scale)
         bestTensorScale = ts
       }
     }
@@ -206,22 +205,41 @@ const NVFP4ScalingDemo = () => {
     }
   }, [microBlocks])
 
-  // Calculate all errors for heatmap
-  const allErrors = microBlocks.map((block, blockIdx) =>
-    block.map((val) => {
-      const scaled = val / blockScales[blockIdx] / tensorScale
+  /**
+   * Each micro-block joined to the two scales that apply to it and to the
+   * quantization those scales produce. Zipping the parallel arrays once, here,
+   * is what lets the render tree below walk the data instead of indexing three
+   * arrays by the same loop variable.
+   */
+  const blocks = microBlocks.map((values, blockIdx) => {
+    // Both scale arrays are built with exactly one entry per micro-block and are
+    // only ever replaced wholesale, so these fallbacks are unreachable; 1 is the
+    // identity scale, so a future edit that broke the invariant would show the
+    // raw values rather than a wall of NaN.
+    const scale = blockScales[blockIdx] ?? 1
+    const optimalScale = globalOptimalScales.blockScales[blockIdx] ?? scale
+    // Calculate all errors for heatmap
+    const cells = values.map((value) => {
+      const scaled = value / scale / tensorScale
       const quantized = quantizeToFP4(scaled)
-      return Math.abs(val - quantized * blockScales[blockIdx] * tensorScale)
+      const reconstructed = quantized * scale * tensorScale
+      return { value, scaled, quantized, reconstructed, error: Math.abs(value - reconstructed) }
     })
-  )
-  const maxError = Math.max(...allErrors.flat(), 2.0)
+    return { scale, optimalScale, cells }
+  })
+
+  const allErrors = blocks.flatMap((block) => block.cells.map((cell) => cell.error))
+  const maxError = Math.max(...allErrors, 2.0)
+
+  const selectedBlockData = blocks[selectedBlock]
+  const selectedCell = selectedBlockData?.cells[selectedIndex]
 
   return (
     <div className="mb-6 rounded-lg bg-gray-900 p-4">
       <h3 className="mb-3 text-lg font-semibold text-white">Dual-Scaling Mechanism</h3>
 
       <div className="mb-4 grid grid-cols-2 gap-2">
-        {microBlocks.map((block, blockIdx) => (
+        {blocks.map((block, blockIdx) => (
           <div
             key={blockIdx}
             className={`rounded-sm bg-gray-800 p-2 transition-all ${
@@ -234,13 +252,12 @@ const NVFP4ScalingDemo = () => {
           >
             <div className="mb-1 flex items-center justify-between">
               <div className="text-xs text-gray-400">Block {blockIdx + 1}</div>
-              <div className="text-xs text-blue-400">Scale: {blockScales[blockIdx].toFixed(2)}</div>
+              <div className="text-xs text-blue-400">Scale: {block.scale.toFixed(2)}</div>
             </div>
             <div className="grid grid-cols-4 gap-0.5">
-              {block.map((val, idx) => {
+              {block.cells.map((cell, idx) => {
                 const isSelected = blockIdx === selectedBlock && idx === selectedIndex
-                const error = allErrors[blockIdx][idx]
-                const color = getErrorColor(error, maxError)
+                const color = getErrorColor(cell.error, maxError)
 
                 return (
                   <button
@@ -254,20 +271,19 @@ const NVFP4ScalingDemo = () => {
                     }`}
                     style={{ backgroundColor: color }}
                   >
-                    <div className="font-semibold text-white">{val.toFixed(1)}</div>
-                    <div className="text-[8px] text-gray-200">
-                      {quantizeToFP4(val / blockScales[blockIdx] / tensorScale).toFixed(1)}
-                    </div>
+                    <div className="font-semibold text-white">{cell.value.toFixed(1)}</div>
+                    <div className="text-[8px] text-gray-200">{cell.quantized.toFixed(1)}</div>
                   </button>
                 )
               })}
             </div>
             <div className="mt-1 text-[10px] text-gray-500">
-              Avg Error: {(allErrors[blockIdx].reduce((a, b) => a + b) / 16).toFixed(3)}
-              {globalOptimalScales.blockScales[blockIdx] !== blockScales[blockIdx] && (
-                <span className="ml-1 text-blue-400">
-                  (Optimal: {globalOptimalScales.blockScales[blockIdx]})
-                </span>
+              Avg Error:{' '}
+              {(
+                block.cells.reduce((total, cell) => total + cell.error, 0) / block.cells.length
+              ).toFixed(3)}
+              {block.optimalScale !== block.scale && (
+                <span className="ml-1 text-blue-400">(Optimal: {block.optimalScale})</span>
               )}
             </div>
           </div>
@@ -282,111 +298,122 @@ const NVFP4ScalingDemo = () => {
         <div className="h-px flex-1 bg-green-600"></div>
       </div>
 
-      <div className="space-y-3 rounded-sm bg-gray-800 p-4">
-        <div className="flex items-center justify-between">
-          <div className="text-sm text-gray-400">
-            Selected: Block {selectedBlock + 1}, Value #{selectedIndex + 1}
+      {/*
+        The selection always points at a real cell — both indices only ever come
+        from the grid above — so this renders unconditionally in practice. It is
+        a guard rather than an assertion because "no cell selected" has an
+        obvious right answer: don't draw a panel about it.
+      */}
+      {selectedBlockData && selectedCell && (
+        <div className="space-y-3 rounded-sm bg-gray-800 p-4">
+          <div className="flex items-center justify-between">
+            <div className="text-sm text-gray-400">
+              Selected: Block {selectedBlock + 1}, Value #{selectedIndex + 1}
+            </div>
+            <div className="flex items-center gap-3 text-xs">
+              <div className="flex items-center gap-1">
+                <div
+                  className="h-3 w-3 rounded-sm"
+                  style={{ backgroundColor: getErrorColor(0, maxError) }}
+                ></div>
+                <span className="text-gray-500">0</span>
+              </div>
+              <div className="text-gray-600">→</div>
+              <div className="flex items-center gap-1">
+                <div
+                  className="h-3 w-3 rounded-sm"
+                  style={{ backgroundColor: getErrorColor(maxError / 2, maxError) }}
+                ></div>
+                <span className="text-gray-500">{(maxError / 2).toFixed(1)}</span>
+              </div>
+              <div className="text-gray-600">→</div>
+              <div className="flex items-center gap-1">
+                <div
+                  className="h-3 w-3 rounded-sm"
+                  style={{ backgroundColor: getErrorColor(maxError, maxError) }}
+                ></div>
+                <span className="text-gray-500">{maxError.toFixed(1)}</span>
+              </div>
+              <span className="ml-1 text-gray-600">error</span>
+            </div>
           </div>
-          <div className="flex items-center gap-3 text-xs">
-            <div className="flex items-center gap-1">
-              <div
-                className="h-3 w-3 rounded-sm"
-                style={{ backgroundColor: getErrorColor(0, maxError) }}
-              ></div>
-              <span className="text-gray-500">0</span>
+
+          <div className="grid grid-cols-2 gap-4">
+            <div>
+              <div className="mb-1 text-xs text-gray-500">Original → Scaled</div>
+              <div className="font-mono text-white">
+                {selectedCell.value.toFixed(3)} → {selectedCell.scaled.toFixed(3)}
+              </div>
             </div>
-            <div className="text-gray-600">→</div>
-            <div className="flex items-center gap-1">
-              <div
-                className="h-3 w-3 rounded-sm"
-                style={{ backgroundColor: getErrorColor(maxError / 2, maxError) }}
-              ></div>
-              <span className="text-gray-500">{(maxError / 2).toFixed(1)}</span>
+
+            <div>
+              <div className="mb-1 text-xs text-gray-500">Quantized (FP4)</div>
+              <div className="font-mono text-yellow-400">{selectedCell.quantized.toFixed(1)}</div>
+              <BitRepresentation value={selectedCell.quantized} />
             </div>
-            <div className="text-gray-600">→</div>
-            <div className="flex items-center gap-1">
-              <div
-                className="h-3 w-3 rounded-sm"
-                style={{ backgroundColor: getErrorColor(maxError, maxError) }}
-              ></div>
-              <span className="text-gray-500">{maxError.toFixed(1)}</span>
+          </div>
+
+          <div className="border-t border-gray-700 pt-3">
+            <div className="mb-1 text-xs text-gray-500">Reconstruction</div>
+            <div className="font-mono text-sm text-white">
+              {selectedCell.quantized.toFixed(1)} × {selectedBlockData.scale.toFixed(2)} ×{' '}
+              {tensorScale.toFixed(2)} = {selectedCell.reconstructed.toFixed(3)}
             </div>
-            <span className="ml-1 text-gray-600">error</span>
+            <div
+              className={`mt-1 text-sm ${selectedCell.error < 0.5 ? 'text-green-400' : 'text-red-400'}`}
+            >
+              Error: {selectedCell.error.toFixed(3)} (
+              {((selectedCell.error / Math.abs(selectedCell.value)) * 100).toFixed(1)}%)
+            </div>
           </div>
         </div>
-
-        <div className="grid grid-cols-2 gap-4">
-          <div>
-            <div className="mb-1 text-xs text-gray-500">Original → Scaled</div>
-            <div className="font-mono text-white">
-              {selectedValue.toFixed(3)} → {scaledValue.toFixed(3)}
-            </div>
-          </div>
-
-          <div>
-            <div className="mb-1 text-xs text-gray-500">Quantized (FP4)</div>
-            <div className="font-mono text-yellow-400">{quantizedValue.toFixed(1)}</div>
-            <BitRepresentation value={quantizedValue} />
-          </div>
-        </div>
-
-        <div className="border-t border-gray-700 pt-3">
-          <div className="mb-1 text-xs text-gray-500">Reconstruction</div>
-          <div className="font-mono text-sm text-white">
-            {quantizedValue.toFixed(1)} × {blockScales[selectedBlock].toFixed(2)} ×{' '}
-            {tensorScale.toFixed(2)} = {reconstructedValue.toFixed(3)}
-          </div>
-          <div className={`mt-1 text-sm ${error < 0.5 ? 'text-green-400' : 'text-red-400'}`}>
-            Error: {error.toFixed(3)} ({((error / Math.abs(selectedValue)) * 100).toFixed(1)}%)
-          </div>
-        </div>
-      </div>
+      )}
 
       <div className="mt-4 space-y-3">
-        <div>
-          <label className="flex items-center justify-between text-sm text-gray-400">
-            <span>
-              Block {selectedBlock + 1} Scale (FP8): {blockScales[selectedBlock].toFixed(2)}
-            </span>
-            <button
-              onClick={() => {
-                setBlockScales(globalOptimalScales.blockScales)
-                setTensorScale(globalOptimalScales.tensorScale)
-              }}
-              className="rounded-sm bg-gray-700 px-2 py-0.5 text-xs text-white transition-colors hover:bg-gray-600"
-            >
-              Reset to Optimal
-            </button>
-          </label>
-          <div className="text-xs text-blue-400">
-            Optimal: {globalOptimalScales.blockScales[selectedBlock]}
+        {selectedBlockData && (
+          <div>
+            <label className="flex items-center justify-between text-sm text-gray-400">
+              <span>
+                Block {selectedBlock + 1} Scale (FP8): {selectedBlockData.scale.toFixed(2)}
+              </span>
+              <button
+                onClick={() => {
+                  setBlockScales(globalOptimalScales.blockScales)
+                  setTensorScale(globalOptimalScales.tensorScale)
+                }}
+                className="rounded-sm bg-gray-700 px-2 py-0.5 text-xs text-white transition-colors hover:bg-gray-600"
+              >
+                Reset to Optimal
+              </button>
+            </label>
+            <div className="text-xs text-blue-400">Optimal: {selectedBlockData.optimalScale}</div>
+            <div className="relative">
+              <input
+                type="range"
+                min="0.5"
+                max="5"
+                step="0.1"
+                value={selectedBlockData.scale}
+                onChange={(e) => {
+                  const newScales = [...blockScales]
+                  newScales[selectedBlock] = parseFloat(e.target.value)
+                  setBlockScales(newScales)
+                }}
+                onMouseEnter={() => setHoveredSlider('block')}
+                onMouseLeave={() => setHoveredSlider(null)}
+                className="w-full"
+              />
+              <div
+                className="pointer-events-none absolute bottom-0 top-0 w-1 bg-blue-400"
+                style={{
+                  left: `${((selectedBlockData.optimalScale - 0.5) / (5 - 0.5)) * 100}%`,
+                  transform: 'translateX(-50%)',
+                }}
+                title={`Optimal: ${selectedBlockData.optimalScale}`}
+              />
+            </div>
           </div>
-          <div className="relative">
-            <input
-              type="range"
-              min="0.5"
-              max="5"
-              step="0.1"
-              value={blockScales[selectedBlock]}
-              onChange={(e) => {
-                const newScales = [...blockScales]
-                newScales[selectedBlock] = parseFloat(e.target.value)
-                setBlockScales(newScales)
-              }}
-              onMouseEnter={() => setHoveredSlider('block')}
-              onMouseLeave={() => setHoveredSlider(null)}
-              className="w-full"
-            />
-            <div
-              className="pointer-events-none absolute bottom-0 top-0 w-1 bg-blue-400"
-              style={{
-                left: `${((globalOptimalScales.blockScales[selectedBlock] - 0.5) / (5 - 0.5)) * 100}%`,
-                transform: 'translateX(-50%)',
-              }}
-              title={`Optimal: ${globalOptimalScales.blockScales[selectedBlock]}`}
-            />
-          </div>
-        </div>
+        )}
 
         <div className="mt-6">
           <label className="text-sm text-gray-400">
@@ -423,15 +450,11 @@ const NVFP4ScalingDemo = () => {
         <div className="mt-3 rounded-sm bg-gray-700 p-3">
           <div className="text-xs text-gray-400">
             <span className="font-mono text-white">
-              Total Error:{' '}
-              {allErrors
-                .flat()
-                .reduce((a, b) => a + b)
-                .toFixed(2)}
+              Total Error: {allErrors.reduce((a, b) => a + b, 0).toFixed(2)}
             </span>
             <span className="mx-2 text-gray-500">|</span>
             <span className="font-mono text-white">
-              Avg: {(allErrors.flat().reduce((a, b) => a + b) / 64).toFixed(3)}
+              Avg: {(allErrors.reduce((a, b) => a + b, 0) / allErrors.length).toFixed(3)}
             </span>
           </div>
         </div>

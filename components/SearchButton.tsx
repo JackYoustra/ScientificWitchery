@@ -30,6 +30,12 @@ const SearchButton = () => {
       </SearchButtonWrapper>
     )
   }
+
+  // No search provider configured: the header simply has no search button.
+  // Explicit `null` rather than an implicit `undefined` — `undefined` is React's
+  // "I forgot to return" sentinel, and it leaks into the component's type as
+  // `Element | undefined`, which `React.FC` and friends reject.
+  return null
 }
 
 export default SearchButton

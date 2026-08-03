@@ -53,7 +53,9 @@ function deriveSocialImage(body: string): string {
   const prose = body.replace(FENCED_CODE, '')
   for (const match of prose.matchAll(IMAGE_REFERENCE)) {
     const url = (match[1] || match[2] || '').trim()
-    if (url.startsWith('/') && CARD_IMAGE_EXTENSIONS.test(url.split(/[?#]/)[0])) {
+    // Test the extension against the path only — `/static/a.png?v=2` is still art.
+    const pathname = url.replace(/[?#].*$/, '')
+    if (url.startsWith('/') && CARD_IMAGE_EXTENSIONS.test(pathname)) {
       return url
     }
   }

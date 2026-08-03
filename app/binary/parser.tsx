@@ -4,7 +4,12 @@ import Papa from 'papaparse'
 import type { WasmBinaryResult } from 'rust-wasm'
 import _ from 'lodash'
 
-export function firstValue<T>(arr: T[] | T): T {
+/**
+ * Echarts node values are `number | number[]`, where the first entry is the size
+ * and the rest are rendering hints. An empty array carries no size at all, so
+ * this is honestly partial — callers decide what "no value" means for them.
+ */
+export function firstValue<T>(arr: T[] | T): T | undefined {
   if (Array.isArray(arr)) {
     return arr[0]
   } else {
@@ -22,14 +27,15 @@ export function firstValueOr<T>(arr: T[] | T | null | undefined, def: T): T {
   }
 }
 
+/**
+ * `firstValue` for sizes we are about to do arithmetic on: a missing or NaN
+ * value becomes 0 so it contributes nothing to a running total instead of
+ * poisoning it. Note the NaN check now covers the array case too — it only
+ * guarded the bare-number branch before, so `[NaN]` used to sum to NaN.
+ */
 export function firstValueNaNHandled(arr: number[] | number): number {
-  if (Array.isArray(arr)) {
-    return arr[0]
-  } else if (_.isNaN(arr)) {
-    return 0
-  } else {
-    return arr
-  }
+  const value = firstValue(arr)
+  return value === undefined || _.isNaN(value) ? 0 : value
 }
 
 interface ParseWasmBinary {
@@ -45,11 +51,9 @@ function parseResultFromRust(result: WasmBinaryResult): ParseWasmBinary {
   const garbage = JSON.parse(result.garbage) as GarbageItem[]
 
   // strip out from garbage the last entry with a sigma at the start of the name
-  for (let i = garbage.length - 1; i >= 0; i--) {
-    if (garbage[i].name.startsWith('Σ')) {
-      garbage.splice(i, 1)
-      break
-    }
+  const sigmaIndex = garbage.findLastIndex((item) => item.name.startsWith('Σ'))
+  if (sigmaIndex !== -1) {
+    garbage.splice(sigmaIndex, 1)
   }
 
   // if the last entry talks about false positives, remove it.
@@ -112,7 +116,8 @@ export type FileChartDataShape = EchartDataShape & {
 function convertToChartData(item: DominatorItem, path: string): FileChartDataShape {
   // TODO: Escape the slashes in item name
   const children = item.children?.map((child) => convertToChartData(child, `${path}/${item.name}`))
-  const childrenSize = children?.reduce((acc, child) => acc + firstValue(child.value), 0) ?? 0
+  const childrenSize =
+    children?.reduce((acc, child) => acc + firstValueNaNHandled(child.value), 0) ?? 0
   const entry: FileChartDataShape = {
     name: item.name,
     value: item.shallow_size + childrenSize,
@@ -179,10 +184,15 @@ function makeTreeFromCSV(csv: CsvRow[], fields: string[], path: string): ChartDa
 
   // Sometimes, there's no label for the current field
   // In that case, skip it (return the children) or, if there are no children, return empty
-  if (fields.length === 1) {
+  const [field, ...rest] = fields
+  if (field === undefined) {
+    // No grouping levels left to spend, so there is nothing to build.
+    return []
+  }
+  if (rest.length === 0) {
     // implicitly grouped by the last field
     return csv.map((row) => {
-      const name = cellAsName(row[fields[0]])
+      const name = cellAsName(row[field])
       const entry: ChartDataEntry = {
         name,
         value: cellAsSize(row['filesize']),
@@ -192,16 +202,16 @@ function makeTreeFromCSV(csv: CsvRow[], fields: string[], path: string): ChartDa
     })
   } else {
     // group by the first field
-    const grouped = _.groupBy(csv, fields[0])
+    const grouped = _.groupBy(csv, field)
     // recurse
     return Object.entries(grouped).flatMap(([key, value]) => {
-      const children = makeTreeFromCSV(value, fields.slice(1), path + '/' + key)
+      const children = makeTreeFromCSV(value, rest, path + '/' + key)
       if (key === null || key === undefined) {
         return children
       }
       const entry: ChartDataEntry = {
         name: key,
-        value: children.reduce((acc, item) => acc + firstValue(item.value), 0),
+        value: children.reduce((acc, item) => acc + firstValueNaNHandled(item.value), 0),
         children: children.filter((child) => child.name !== undefined && child.name !== null),
         path: path + '/' + key,
       }
@@ -287,7 +297,7 @@ async function parseWithBloaty(
   const children = makeTreeFromCSV(parsed.data, fields.slice(0, -2), file.name)
   // sum up all the sizes and take the difference from the file size to find the unaccounted for size
   const unaccountedSize =
-    file.size - children.reduce((acc, item) => acc + firstValue(item.value), 0)
+    file.size - children.reduce((acc, item) => acc + firstValueNaNHandled(item.value), 0)
   if (unaccountedSize > 0) {
     children.push({
       name: 'Unaccounted for',

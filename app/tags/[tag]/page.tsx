@@ -31,8 +31,10 @@ export const generateStaticParams = async () => {
 
 export default async function TagPage({ params }: { params: Promise<{ tag: string }> }) {
   const tag = decodeURI((await params).tag)
-  // Capitalize first letter and convert space to dash
-  const title = tag[0].toUpperCase() + tag.split(' ').join('-').slice(1)
+  // Capitalize first letter and convert space to dash. `charAt` rather than
+  // `tag[0]` so an empty tag yields an empty title instead of a crash.
+  const dashed = tag.split(' ').join('-')
+  const title = dashed.charAt(0).toUpperCase() + dashed.slice(1)
   const filteredPosts = allCoreContent(
     sortPosts(allBlogs.filter((post) => post.tags && post.tags.map((t) => slug(t)).includes(tag)))
   )

@@ -6,7 +6,7 @@ import type {
   TooltipFormatterCallback,
   TopLevelFormatterParams,
 } from 'echarts/types/dist/shared'
-import { FileChartDataShape, SectionData, firstValue, firstValueNaNHandled } from './parser'
+import { FileChartDataShape, SectionData, firstValueNaNHandled } from './parser'
 import { useTheme } from 'next-themes'
 import { useEffect } from 'react'
 // eslint-disable-next-line @typescript-eslint/no-explicit-any
@@ -34,8 +34,9 @@ const EChart = dynamic(() => import('@kbox-labs/react-echarts').then((mod) => mo
 /**
  * A treemap tooltip is only ever fired for one node, but echarts types the
  * callback as "one param or many" because axis-triggered tooltips get an array.
+ * An empty array would mean "a tooltip about nothing", hence the `undefined`.
  */
-function singleParam(info: TopLevelFormatterParams): CallbackDataParams {
+function singleParam(info: TopLevelFormatterParams): CallbackDataParams | undefined {
   return Array.isArray(info) ? info[0] : info
 }
 
@@ -53,6 +54,9 @@ function getTooltipFormatter(
 ): TooltipFormatterCallback<TopLevelFormatterParams> {
   return (params) => {
     const info = singleParam(params)
+    // Echarts renders an empty formatter result as no tooltip at all, which is
+    // the right answer when it handed us no node to describe.
+    if (!info) return ''
     const item = info.data as FileChartDataShape | undefined
     const stuff: string[] = []
     let cols: number
@@ -66,10 +70,10 @@ function getTooltipFormatter(
         const overallSize = data
         stuff.push(
           `<div class="${common} tooltip-subtitle text-left">${prettyBytes(
-            firstValue(paramValue(info))
+            firstValueNaNHandled(paramValue(info))
           )}</div>`
         )
-        const percent = (firstValue(paramValue(info)) / overallSize) * 100
+        const percent = (firstValueNaNHandled(paramValue(info)) / overallSize) * 100
         stuff.push(
           `<div class="${common} tooltip-subtitle text-left">(${percent.toFixed(2)}%)</div>`
         )
@@ -98,7 +102,7 @@ function getTooltipFormatter(
     } else {
       stuff.push(
         `<div class="${common} tooltip-subtitle text-left">${prettyBytes(
-          firstValue(paramValue(info))
+          firstValueNaNHandled(paramValue(info))
         )}</div>`
       )
       const totalSize = data.processedFiles.reduce(
@@ -187,7 +191,7 @@ export default function Chart(props: { data: LoadedTableDataProps; fullscreen: b
       }}
       series={[
         {
-          name: data.processedFiles[0].name ?? 'Binary size breakdown',
+          name: data.processedFiles[0]?.name ?? 'Binary size breakdown',
           type: 'treemap',
           visibleMin: 300,
           label: {

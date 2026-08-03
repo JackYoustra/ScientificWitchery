@@ -50,10 +50,16 @@ type TableDataProps = {
   fullscreen: boolean
 }
 
+// Drill past wrapper levels that have exactly one child: they add a row to the
+// treemap without telling you anything. Stops at a self-referential `children`
+// so a cyclic tree can't spin forever.
 function unboxUntilFirstProlific(data: ChartDataEntry[]): ChartDataEntry[] {
   let current = data
-  while (current.length === 1 && current[0].children && current[0].children !== current) {
-    current = current[0].children
+  while (current.length === 1) {
+    const [only] = current
+    const children = only?.children
+    if (!children || children === current) break
+    current = children
   }
   return current
 }
