@@ -2,7 +2,6 @@ import { ReactNode } from 'react'
 import type { CoreContent, Blog } from '@/lib/content'
 import Link from '@/components/Link'
 import PageTitle from '@/components/PageTitle'
-import Image from '@/components/Image'
 import PostContents from '@/components/PostContents'
 import Tag from '@/components/Tag'
 import siteMetadata from '@/data/siteMetadata'
@@ -70,38 +69,14 @@ export default function PostLayout({ content, next, prev, series, children }: La
             <PageTitle>{title}</PageTitle>
           </div>
           {summary && (
-            <p className="text-ink-muted mt-5 max-w-[54ch] text-xl italic leading-relaxed">
+            <p className="text-ink-muted mt-5 max-w-[var(--measure)] text-xl italic leading-relaxed">
               {summary}
             </p>
           )}
-          {/* One author, read from siteMetadata rather than per-post frontmatter,
-              so there is a single place to update. A byline, not a column: it is
-              the same name on all 38 posts. */}
-          <div className="mt-6 flex items-center gap-3">
-            {siteMetadata.avatar && (
-              <Image
-                src={siteMetadata.avatar}
-                width={32}
-                height={32}
-                alt=""
-                className="h-8 w-8 rounded-full"
-              />
-            )}
-            <p className="text-ink-muted text-sm">
-              <span className="text-ink-strong">{siteMetadata.author}</span>
-              {siteMetadata.occupation && (
-                <span className="hidden sm:inline">
-                  {' — '}
-                  {siteMetadata.occupation}
-                  {siteMetadata.company && `, ${siteMetadata.company}`}
-                </span>
-              )}
-            </p>
-          </div>
         </header>
 
         {inSeries && series && (
-          <nav aria-label="Series" className="bg-sunken mb-8 max-w-[54ch] rounded-lg p-4">
+          <nav aria-label="Series" className="bg-sunken mb-8 max-w-[var(--measure)] rounded-lg p-4">
             <p className={META}>Series</p>
             <p className="text-ink-strong mt-1 text-sm">{content.series}</p>
             <ol className="mt-3 space-y-1.5">

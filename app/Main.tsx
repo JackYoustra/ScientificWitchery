@@ -41,7 +41,7 @@ export default function Home({ posts }: HomeProps) {
   return (
     <>
       <div className="pb-10 pt-6 md:pt-10">
-        <h1 className="text-ink-strong max-w-[20ch] text-balance text-4xl font-bold leading-[1.1] sm:text-5xl">
+        <h1 className="text-ink-strong max-w-[26ch] text-balance text-4xl font-bold leading-[1.1] sm:text-5xl">
           {siteMetadata.description}
         </h1>
       </div>

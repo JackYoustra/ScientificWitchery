@@ -120,13 +120,13 @@
      characters to the line, half again the width it sounds like. 50ch is 540px,
      which measures 70-72 characters. Kept in `ch` rather than `rem` so it still
      tracks the font if the font changes; the number is calibration, not taste. */
-  --measure: 50ch;
+  --measure: 62ch;
 
   /* How far a code block or table may extend past the measure. Prose stays at
      the measure; the things that are read by scanning, not by line, get the
      slack. The `xl` content column is ~784px and the measure is ~540px, so 10rem
      spends most of the difference and still leaves a margin. */
-  --bleed: 10rem;
+  --bleed: 5rem;
 
   /* Where the contents rail parks once the page scrolls under it, and the room
      an anchored heading leaves above itself so it does not land against the
