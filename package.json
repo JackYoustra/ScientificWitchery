@@ -7,7 +7,7 @@
     "build": "NODE_ENV=production velite build && next build && node ./scripts/postbuild.mjs",
     "start": "next start",
     "content": "NODE_ENV=production velite build",
-    "wasm": "cd rust-wasm && RUSTFLAGS='-C target-feature=-reference-types' wasm-pack build --target bundler --out-dir pkg && rm -f pkg/.gitignore",
+    "wasm": "cd rust-wasm && wasm-pack build --target bundler --out-dir pkg && rm -f pkg/.gitignore",
     "lint": "eslint",
     "lint:fix": "eslint --fix",
     "spell": "cspell data/blog/**/*.mdx"
