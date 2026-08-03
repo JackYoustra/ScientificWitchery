@@ -1,6 +1,45 @@
 'use client'
 import React, { useState, useMemo } from 'react'
 
+/**
+ * mulberry32: a 32-bit PRNG in four lines, seeded explicitly.
+ *
+ * The sample below used to come from `Math.random()` inside a `useState`
+ * initializer, which is evaluated once on the server while prerendering and
+ * again in the browser while hydrating. The two never agreed, so every load of
+ * /blog/road-to-petaflop logged React error #418 and threw away the server's
+ * markup for this subtree. It also meant the numbers the post talks about were
+ * different noise on every visit, which is not what a worked example is for.
+ */
+function mulberry32(seed: number): () => number {
+  let state = seed >>> 0
+  return () => {
+    state = (state + 0x6d2b79f5) >>> 0
+    let t = state
+    t = Math.imul(t ^ (t >>> 15), t | 1)
+    t ^= t + Math.imul(t ^ (t >>> 7), t | 61)
+    return ((t ^ (t >>> 14)) >>> 0) / 4294967296
+  }
+}
+
+/**
+ * Four micro-blocks of sixteen values, each block deliberately given a
+ * different range and offset — that spread is the whole reason per-block scales
+ * exist, and it is what the demo is showing. Fixed seed, so this is one sample
+ * rather than a new one per mount.
+ */
+const MICRO_BLOCKS: number[][] = (() => {
+  const random = mulberry32(0x4e56_4650)
+  return Array.from({ length: 4 }, (_unused, b) => {
+    const baseRange = 2 + b * 1.5
+    const offset = (b - 1.5) * 2
+    return Array.from(
+      { length: 16 },
+      (_value, i) => (random() - 0.5) * baseRange + offset + Math.sin(i * 0.3 + b) * 1.5
+    )
+  })
+})()
+
 // Color interpolation for smooth gradients
 const getErrorColor = (error: number, maxError: number): string => {
   const normalized = Math.min(error / maxError, 1)
@@ -103,22 +142,28 @@ const BitRepresentation = ({ value }: { value: number }) => {
     <div className="space-y-1">
       <div className="flex items-center gap-1">
         <div
-          className={`rounded-sm px-2 py-1 font-mono text-xs ${
+          className={`rounded-sm px-2 py-1 font-mono text-xs text-white ${
             signBit === '0' ? 'bg-green-500' : 'bg-red-500'
           }`}
           title="Sign bit"
         >
           {signBit}
         </div>
-        <div className="rounded-sm bg-blue-500 px-2 py-1 font-mono text-xs" title="Exponent">
+        <div
+          className="rounded-sm bg-blue-500 px-2 py-1 font-mono text-xs text-white"
+          title="Exponent"
+        >
           {exp}
         </div>
-        <div className="rounded-sm bg-purple-500 px-2 py-1 font-mono text-xs" title="Mantissa">
+        <div
+          className="rounded-sm bg-purple-500 px-2 py-1 font-mono text-xs text-white"
+          title="Mantissa"
+        >
           {mantissa}
         </div>
-        <div className="ml-2 text-xs text-gray-400">= {value}</div>
+        <div className="text-ink-muted ml-2 text-xs">= {value}</div>
       </div>
-      <div className="font-mono text-[11px] text-gray-500">{calculation}</div>
+      <div className="text-ink-faint font-mono text-[11px]">{calculation}</div>
     </div>
   )
 }
@@ -146,22 +191,7 @@ const bestBlockScale = (values: number[], tensorScale: number): number => {
 
 // Main scaling demonstration with multiple micro-blocks
 const NVFP4ScalingDemo = () => {
-  // Generate 4 micro-blocks of 16 values each
-  const [microBlocks] = useState<number[][]>(() => {
-    const blocks: number[][] = []
-    for (let b = 0; b < 4; b++) {
-      const values: number[] = []
-      // Create different value ranges for each block to show why we need per-block scales
-      const baseRange = 2 + b * 1.5
-      const offset = (b - 1.5) * 2
-      for (let i = 0; i < 16; i++) {
-        const v = (Math.random() - 0.5) * baseRange + offset + Math.sin(i * 0.3 + b) * 1.5
-        values.push(v)
-      }
-      blocks.push(values)
-    }
-    return blocks
-  })
+  const microBlocks = MICRO_BLOCKS
 
   const [selectedBlock, setSelectedBlock] = useState(0)
   const [selectedIndex, setSelectedIndex] = useState(0)
@@ -235,14 +265,14 @@ const NVFP4ScalingDemo = () => {
   const selectedCell = selectedBlockData?.cells[selectedIndex]
 
   return (
-    <div className="mb-6 rounded-lg bg-gray-900 p-4">
-      <h3 className="mb-3 text-lg font-semibold text-white">Dual-Scaling Mechanism</h3>
+    <div className="border-rule bg-sunken mb-6 rounded-lg border p-4">
+      <h3 className="text-ink-strong mb-3 text-lg font-bold">Dual-Scaling Mechanism</h3>
 
       <div className="mb-4 grid grid-cols-2 gap-2">
         {blocks.map((block, blockIdx) => (
           <div
             key={blockIdx}
-            className={`rounded-sm bg-gray-800 p-2 transition-all ${
+            className={`bg-raised rounded-sm p-2 transition-all ${
               hoveredSlider === 'tensor'
                 ? 'ring-2 ring-green-500 ring-opacity-50'
                 : hoveredSlider === 'block' && blockIdx === selectedBlock
@@ -251,8 +281,10 @@ const NVFP4ScalingDemo = () => {
             }`}
           >
             <div className="mb-1 flex items-center justify-between">
-              <div className="text-xs text-gray-400">Block {blockIdx + 1}</div>
-              <div className="text-xs text-blue-400">Scale: {block.scale.toFixed(2)}</div>
+              <div className="text-ink-muted text-xs">Block {blockIdx + 1}</div>
+              <div className="text-xs text-blue-700 dark:text-blue-400">
+                Scale: {block.scale.toFixed(2)}
+              </div>
             </div>
             <div className="grid grid-cols-4 gap-0.5">
               {block.cells.map((cell, idx) => {
@@ -267,35 +299,37 @@ const NVFP4ScalingDemo = () => {
                       setSelectedIndex(idx)
                     }}
                     className={`rounded-sm p-1 font-mono text-[10px] transition-all hover:scale-105 ${
-                      isSelected ? 'ring-2 ring-white' : ''
+                      isSelected ? 'ring-ink-strong ring-2' : ''
                     }`}
                     style={{ backgroundColor: color }}
                   >
                     <div className="font-semibold text-white">{cell.value.toFixed(1)}</div>
-                    <div className="text-[8px] text-gray-200">{cell.quantized.toFixed(1)}</div>
+                    <div className="text-[8px] text-white/80">{cell.quantized.toFixed(1)}</div>
                   </button>
                 )
               })}
             </div>
-            <div className="mt-1 text-[10px] text-gray-500">
+            <div className="text-ink-faint mt-1 text-[10px]">
               Avg Error:{' '}
               {(
                 block.cells.reduce((total, cell) => total + cell.error, 0) / block.cells.length
               ).toFixed(3)}
               {block.optimalScale !== block.scale && (
-                <span className="ml-1 text-blue-400">(Optimal: {block.optimalScale})</span>
+                <span className="ml-1 text-blue-700 dark:text-blue-400">
+                  (Optimal: {block.optimalScale})
+                </span>
               )}
             </div>
           </div>
         ))}
       </div>
 
-      <div className="mb-3 flex items-center gap-2 text-center text-xs text-green-400">
-        <div className="h-px flex-1 bg-green-600"></div>
-        <div className="rounded-sm bg-green-900 px-3 py-1">
+      <div className="mb-3 flex items-center gap-2 text-center text-xs text-green-700 dark:text-green-400">
+        <div className="h-px flex-1 bg-green-600/40"></div>
+        <div className="rounded-sm bg-green-100 px-3 py-1 text-green-900 dark:bg-green-950 dark:text-green-200">
           Tensor Scale: {tensorScale.toFixed(2)} (applies to all blocks)
         </div>
-        <div className="h-px flex-1 bg-green-600"></div>
+        <div className="h-px flex-1 bg-green-600/40"></div>
       </div>
 
       {/*
@@ -305,9 +339,9 @@ const NVFP4ScalingDemo = () => {
         obvious right answer: don't draw a panel about it.
       */}
       {selectedBlockData && selectedCell && (
-        <div className="space-y-3 rounded-sm bg-gray-800 p-4">
+        <div className="bg-raised space-y-3 rounded-sm p-4">
           <div className="flex items-center justify-between">
-            <div className="text-sm text-gray-400">
+            <div className="text-ink-muted text-sm">
               Selected: Block {selectedBlock + 1}, Value #{selectedIndex + 1}
             </div>
             <div className="flex items-center gap-3 text-xs">
@@ -316,51 +350,53 @@ const NVFP4ScalingDemo = () => {
                   className="h-3 w-3 rounded-sm"
                   style={{ backgroundColor: getErrorColor(0, maxError) }}
                 ></div>
-                <span className="text-gray-500">0</span>
+                <span className="text-ink-faint">0</span>
               </div>
-              <div className="text-gray-600">→</div>
+              <div className="text-ink-faint">→</div>
               <div className="flex items-center gap-1">
                 <div
                   className="h-3 w-3 rounded-sm"
                   style={{ backgroundColor: getErrorColor(maxError / 2, maxError) }}
                 ></div>
-                <span className="text-gray-500">{(maxError / 2).toFixed(1)}</span>
+                <span className="text-ink-faint">{(maxError / 2).toFixed(1)}</span>
               </div>
-              <div className="text-gray-600">→</div>
+              <div className="text-ink-faint">→</div>
               <div className="flex items-center gap-1">
                 <div
                   className="h-3 w-3 rounded-sm"
                   style={{ backgroundColor: getErrorColor(maxError, maxError) }}
                 ></div>
-                <span className="text-gray-500">{maxError.toFixed(1)}</span>
+                <span className="text-ink-faint">{maxError.toFixed(1)}</span>
               </div>
-              <span className="ml-1 text-gray-600">error</span>
+              <span className="text-ink-faint ml-1">error</span>
             </div>
           </div>
 
           <div className="grid grid-cols-2 gap-4">
             <div>
-              <div className="mb-1 text-xs text-gray-500">Original → Scaled</div>
-              <div className="font-mono text-white">
+              <div className="text-ink-faint mb-1 text-xs">Original → Scaled</div>
+              <div className="text-ink-strong font-mono">
                 {selectedCell.value.toFixed(3)} → {selectedCell.scaled.toFixed(3)}
               </div>
             </div>
 
             <div>
-              <div className="mb-1 text-xs text-gray-500">Quantized (FP4)</div>
-              <div className="font-mono text-yellow-400">{selectedCell.quantized.toFixed(1)}</div>
+              <div className="text-ink-faint mb-1 text-xs">Quantized (FP4)</div>
+              <div className="font-mono text-yellow-700 dark:text-yellow-400">
+                {selectedCell.quantized.toFixed(1)}
+              </div>
               <BitRepresentation value={selectedCell.quantized} />
             </div>
           </div>
 
-          <div className="border-t border-gray-700 pt-3">
-            <div className="mb-1 text-xs text-gray-500">Reconstruction</div>
-            <div className="font-mono text-sm text-white">
+          <div className="border-rule border-t pt-3">
+            <div className="text-ink-faint mb-1 text-xs">Reconstruction</div>
+            <div className="text-ink-strong font-mono text-sm">
               {selectedCell.quantized.toFixed(1)} × {selectedBlockData.scale.toFixed(2)} ×{' '}
               {tensorScale.toFixed(2)} = {selectedCell.reconstructed.toFixed(3)}
             </div>
             <div
-              className={`mt-1 text-sm ${selectedCell.error < 0.5 ? 'text-green-400' : 'text-red-400'}`}
+              className={`mt-1 text-sm ${selectedCell.error < 0.5 ? 'text-green-700 dark:text-green-400' : 'text-red-700 dark:text-red-400'}`}
             >
               Error: {selectedCell.error.toFixed(3)} (
               {((selectedCell.error / Math.abs(selectedCell.value)) * 100).toFixed(1)}%)
@@ -372,7 +408,7 @@ const NVFP4ScalingDemo = () => {
       <div className="mt-4 space-y-3">
         {selectedBlockData && (
           <div>
-            <label className="flex items-center justify-between text-sm text-gray-400">
+            <label className="text-ink-muted flex items-center justify-between text-sm">
               <span>
                 Block {selectedBlock + 1} Scale (FP8): {selectedBlockData.scale.toFixed(2)}
               </span>
@@ -381,12 +417,14 @@ const NVFP4ScalingDemo = () => {
                   setBlockScales(globalOptimalScales.blockScales)
                   setTensorScale(globalOptimalScales.tensorScale)
                 }}
-                className="rounded-sm bg-gray-700 px-2 py-0.5 text-xs text-white transition-colors hover:bg-gray-600"
+                className="border-rule bg-surface text-ink-strong hover:border-rule-strong rounded-sm border px-2 py-0.5 text-xs transition-colors"
               >
                 Reset to Optimal
               </button>
             </label>
-            <div className="text-xs text-blue-400">Optimal: {selectedBlockData.optimalScale}</div>
+            <div className="text-xs text-blue-700 dark:text-blue-400">
+              Optimal: {selectedBlockData.optimalScale}
+            </div>
             <div className="relative">
               <input
                 type="range"
@@ -404,7 +442,7 @@ const NVFP4ScalingDemo = () => {
                 className="w-full"
               />
               <div
-                className="pointer-events-none absolute bottom-0 top-0 w-1 bg-blue-400"
+                className="pointer-events-none absolute bottom-0 top-0 w-1 bg-blue-600 dark:bg-blue-400"
                 style={{
                   left: `${((selectedBlockData.optimalScale - 0.5) / (5 - 0.5)) * 100}%`,
                   transform: 'translateX(-50%)',
@@ -416,10 +454,12 @@ const NVFP4ScalingDemo = () => {
         )}
 
         <div className="mt-6">
-          <label className="text-sm text-gray-400">
+          <label className="text-ink-muted text-sm">
             Tensor Scale (FP32): {tensorScale.toFixed(2)} - affects all blocks
           </label>
-          <div className="text-xs text-green-400">Optimal: {globalOptimalScales.tensorScale}</div>
+          <div className="text-xs text-green-700 dark:text-green-400">
+            Optimal: {globalOptimalScales.tensorScale}
+          </div>
           <div className="relative">
             <input
               type="range"
@@ -433,7 +473,7 @@ const NVFP4ScalingDemo = () => {
               className="w-full"
             />
             <div
-              className="pointer-events-none absolute bottom-0 top-0 w-1 bg-green-400"
+              className="pointer-events-none absolute bottom-0 top-0 w-1 bg-green-600 dark:bg-green-400"
               style={{
                 left: `${((globalOptimalScales.tensorScale - 0.1) / (2 - 0.1)) * 100}%`,
                 transform: 'translateX(-50%)',
@@ -443,17 +483,17 @@ const NVFP4ScalingDemo = () => {
           </div>
         </div>
 
-        <div className="mt-3 rounded-sm bg-gray-700 p-2 text-xs text-gray-500">
+        <div className="bg-surface text-ink-faint mt-3 rounded-sm p-2 text-xs">
           💡 Block scales handle local variations, tensor scale normalizes globally
         </div>
 
-        <div className="mt-3 rounded-sm bg-gray-700 p-3">
-          <div className="text-xs text-gray-400">
-            <span className="font-mono text-white">
+        <div className="bg-surface mt-3 rounded-sm p-3">
+          <div className="text-ink-muted text-xs">
+            <span className="text-ink-strong font-mono">
               Total Error: {allErrors.reduce((a, b) => a + b, 0).toFixed(2)}
             </span>
-            <span className="mx-2 text-gray-500">|</span>
-            <span className="font-mono text-white">
+            <span className="text-ink-faint mx-2">|</span>
+            <span className="text-ink-strong font-mono">
               Avg: {(allErrors.reduce((a, b) => a + b, 0) / allErrors.length).toFixed(3)}
             </span>
           </div>
@@ -466,20 +506,22 @@ const NVFP4ScalingDemo = () => {
 // Where it's used diagram
 const UsageContext = () => {
   return (
-    <div className="mb-6 rounded-lg bg-gray-900 p-4">
-      <h3 className="mb-3 text-lg font-semibold text-white">NVFP4 in Matrix Multiplication</h3>
-      <div className="rounded-sm bg-gray-800 p-4">
-        <div className="space-y-3 text-sm text-gray-300">
-          <div className="rounded-sm bg-gray-700 p-3 font-mono text-xs">
+    <div className="border-rule bg-sunken mb-6 rounded-lg border p-4">
+      <h3 className="text-ink-strong mb-3 text-lg font-bold">NVFP4 in Matrix Multiplication</h3>
+      <div className="bg-raised rounded-sm p-4">
+        <div className="text-ink-muted space-y-3 text-sm">
+          <div className="bg-surface rounded-sm p-3 font-mono text-xs">
             {/* eslint-disable-next-line */}
-            <div className="text-green-400">// Weight matrix (e.g., 4096×4096)</div>
+            <div className="text-green-700 dark:text-green-400">
+              // Weight matrix (e.g., 4096×4096)
+            </div>
             <div>W_fp16: 32 MB → W_fp4: 8 MB + 1 MB scales</div>
             {/* eslint-disable-next-line */}
-            <div className="text-blue-400">// 3.6× compression</div>
+            <div className="text-blue-700 dark:text-blue-400">// 3.6× compression</div>
           </div>
 
           <p>The GPU&apos;s Blackwell Tensor Cores handle dequantization in hardware:</p>
-          <div className="rounded-sm bg-gray-700 p-2 font-mono text-sm">
+          <div className="bg-surface rounded-sm p-2 font-mono text-sm">
             fp4_weight × block_scale × tensor_scale → fp16_value
           </div>
         </div>
@@ -500,28 +542,28 @@ const ModelSpeedupCalculator = () => {
   const fp4MemoryGB = 5 // 8B params × 0.5 bytes + scales
 
   return (
-    <div className="rounded-lg bg-gray-900 p-4">
-      <h3 className="mb-3 text-lg font-semibold text-white">RTX 5090 Performance Impact</h3>
+    <div className="border-rule bg-sunken rounded-lg border p-4">
+      <h3 className="text-ink-strong mb-3 text-lg font-bold">RTX 5090 Performance Impact</h3>
 
       <div className="grid grid-cols-2 gap-4">
-        <div className="rounded-sm bg-gray-800 p-3">
-          <h4 className="mb-2 text-sm font-semibold text-gray-400">Compute</h4>
-          <div className="font-mono text-2xl text-yellow-400">
+        <div className="bg-raised rounded-sm p-3">
+          <h4 className="text-ink-muted mb-2 text-sm font-bold">Compute</h4>
+          <div className="font-mono text-2xl text-yellow-700 dark:text-yellow-400">
             {(gpuSpecs.fp4Tflops / gpuSpecs.fp16Tflops).toFixed(1)}×
           </div>
-          <div className="text-xs text-gray-500">FP4 vs FP16 TOPS</div>
+          <div className="text-ink-faint text-xs">FP4 vs FP16 TOPS</div>
         </div>
 
-        <div className="rounded-sm bg-gray-800 p-3">
-          <h4 className="mb-2 text-sm font-semibold text-gray-400">Memory</h4>
-          <div className="font-mono text-2xl text-green-400">
+        <div className="bg-raised rounded-sm p-3">
+          <h4 className="text-ink-muted mb-2 text-sm font-bold">Memory</h4>
+          <div className="font-mono text-2xl text-green-700 dark:text-green-400">
             {(fp16MemoryGB / fp4MemoryGB).toFixed(1)}×
           </div>
-          <div className="text-xs text-gray-500">model size reduction</div>
+          <div className="text-ink-faint text-xs">model size reduction</div>
         </div>
       </div>
 
-      <div className="mt-4 text-sm text-gray-400">
+      <div className="text-ink-muted mt-4 text-sm">
         Qwen3-8B: {fp16MemoryGB}GB → {fp4MemoryGB}GB = 3-4× more concurrent users
       </div>
     </div>

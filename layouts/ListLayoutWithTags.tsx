@@ -2,165 +2,89 @@
 
 import { usePathname } from 'next/navigation'
 import { slug } from 'github-slugger'
-import { formatDate, isoDate } from '../lib/formatDate'
 import type { CoreContent, Blog } from '@/lib/content'
 import Link from '@/components/Link'
-import Tag from '@/components/Tag'
-import siteMetadata from '@/data/siteMetadata'
+import PostRow from '@/components/PostRow'
 import tagData from '@/app/tag-data.json'
 
-interface PaginationProps {
-  totalPages: number
-  currentPage: number
-}
 interface ListLayoutProps {
   posts: CoreContent<Blog>[]
   title: string
-  initialDisplayPosts?: CoreContent<Blog>[]
-  pagination?: PaginationProps
 }
 
-function Pagination({ totalPages, currentPage }: PaginationProps) {
-  const pathname = usePathname()
-  const basePath = pathname.split('/')[1]
-  const prevPage = currentPage - 1 > 0
-  const nextPage = currentPage + 1 <= totalPages
-
-  return (
-    <div className="space-y-2 pb-8 pt-6 md:space-y-5">
-      <nav className="flex justify-between">
-        {!prevPage && (
-          <button className="cursor-auto disabled:opacity-50" disabled={!prevPage}>
-            Previous
-          </button>
-        )}
-        {prevPage && (
-          <Link
-            href={currentPage - 1 === 1 ? `/${basePath}/` : `/${basePath}/page/${currentPage - 1}`}
-            rel="prev"
-          >
-            Previous
-          </Link>
-        )}
-        <span>
-          {currentPage} of {totalPages}
-        </span>
-        {!nextPage && (
-          <button className="cursor-auto disabled:opacity-50" disabled={!nextPage}>
-            Next
-          </button>
-        )}
-        {nextPage && (
-          <Link href={`/${basePath}/page/${currentPage + 1}`} rel="next">
-            Next
-          </Link>
-        )}
-      </nav>
-    </div>
-  )
-}
-
-export default function ListLayoutWithTags({
-  posts,
-  title,
-  initialDisplayPosts = [],
-  pagination,
-}: ListLayoutProps) {
+/**
+ * The tag-filtered listing, used by `/blog` and `/tags/[tag]`.
+ *
+ * There is no pagination. There was: the previous version rendered Previous/Next
+ * links to `/blog/page/N`, backed by a real route that prerendered eight pages.
+ * It was removed on purpose — thirty-eight posts is one page, and the tag rail
+ * does the narrowing that pagination only pretended to. The old URLs redirect.
+ */
+export default function ListLayoutWithTags({ posts, title }: ListLayoutProps) {
   const pathname = usePathname()
   const tagCounts = tagData as Record<string, number>
   // Carry the count alongside the tag instead of looking it back up by key:
   // the pair is what gets rendered, and it can't go missing.
   const sortedTags = Object.entries(tagCounts).sort(([, a], [, b]) => b - a)
-
-  const displayPosts = initialDisplayPosts.length > 0 ? initialDisplayPosts : posts
+  const activeTag = pathname.split('/tags/')[1]
 
   return (
-    <>
-      <div>
-        <div className="pb-6 pt-6">
-          <h1 className="text-3xl font-extrabold leading-9 tracking-tight text-gray-900 dark:text-gray-100 sm:hidden sm:text-4xl sm:leading-10 md:text-6xl md:leading-14">
-            {title}
-          </h1>
-        </div>
-        <div className="flex sm:space-x-24">
-          <div className="hidden h-full max-h-screen min-w-[280px] max-w-[280px] flex-wrap overflow-auto rounded-sm bg-gray-50 pt-5 shadow-md dark:bg-gray-900/70 dark:shadow-gray-800/40 sm:flex">
-            <div className="px-6 py-4">
-              {pathname.startsWith('/blog') ? (
-                <h3 className="font-bold uppercase text-primary-500">All Posts</h3>
-              ) : (
-                <Link
-                  href={`/blog`}
-                  className="font-bold uppercase text-gray-700 hover:text-primary-500 dark:text-gray-300 dark:hover:text-primary-500"
-                >
-                  All Posts
-                </Link>
-              )}
-              <ul>
-                {sortedTags.map(([t, count]) => {
-                  return (
-                    <li key={t} className="my-3">
-                      {pathname.split('/tags/')[1] === slug(t) ? (
-                        <h3 className="inline px-3 py-2 text-sm font-bold uppercase text-primary-500">
-                          {`${t} (${count})`}
-                        </h3>
-                      ) : (
-                        <Link
-                          href={`/tags/${slug(t)}`}
-                          className="px-3 py-2 text-sm font-medium uppercase text-gray-500 hover:text-primary-500 dark:text-gray-300 dark:hover:text-primary-500"
-                          aria-label={`View posts tagged ${t}`}
-                        >
-                          {`${t} (${count})`}
-                        </Link>
-                      )}
-                    </li>
-                  )
-                })}
-              </ul>
-            </div>
-          </div>
-          <div>
-            <ul>
-              {displayPosts.map((post) => {
-                const { path, date, title, summary, tags } = post
-                return (
-                  <li key={path} className="py-5">
-                    <article className="flex flex-col space-y-2 xl:space-y-0">
-                      <dl>
-                        <dt className="sr-only">Published on</dt>
-                        <dd className="text-base font-medium leading-6 text-gray-500 dark:text-gray-400">
-                          <time dateTime={isoDate(date)}>
-                            {formatDate(date, siteMetadata.locale)}
-                          </time>
-                        </dd>
-                      </dl>
-                      <div className="space-y-3">
-                        <div>
-                          <h2 className="text-2xl font-bold leading-8 tracking-tight">
-                            <Link href={`/${path}`} className="text-gray-900 dark:text-gray-100">
-                              {title}
-                            </Link>
-                          </h2>
-                          <div className="flex flex-wrap">
-                            {tags?.map((tag) => (
-                              <Tag key={tag} text={tag} />
-                            ))}
-                          </div>
-                        </div>
-                        <div className="prose max-w-none text-gray-500 dark:text-gray-400">
-                          {summary}
-                        </div>
-                      </div>
-                    </article>
-                  </li>
-                )
-              })}
-            </ul>
-            {pagination && pagination.totalPages > 1 && (
-              <Pagination currentPage={pagination.currentPage} totalPages={pagination.totalPages} />
-            )}
-          </div>
+    <div>
+      <div className="pb-8 pt-6 md:pt-10">
+        <h1 className="text-ink-strong text-3xl font-bold leading-tight sm:text-4xl">{title}</h1>
+      </div>
+
+      <div className="border-rule border-t pt-6 lg:grid lg:grid-cols-[12rem_1fr] lg:gap-x-12 lg:pt-8">
+        <nav
+          aria-label="Tags"
+          className="sticky top-[var(--sticky-top)] mb-8 hidden max-h-[calc(100vh-var(--sticky-top)-2rem)] self-start overflow-y-auto pb-2 lg:block"
+        >
+          <Link
+            href="/blog"
+            aria-current={pathname.startsWith('/blog') ? 'page' : undefined}
+            className={`block border-l-2 py-1.5 pl-3 font-mono text-[0.6875rem] uppercase tracking-[0.18em] transition-colors ${
+              pathname.startsWith('/blog')
+                ? 'border-accent text-accent'
+                : 'border-rule text-ink-muted hover:text-ink-strong'
+            }`}
+          >
+            All posts
+          </Link>
+          <ol>
+            {sortedTags.map(([tag, count]) => {
+              const current = activeTag === slug(tag)
+              return (
+                <li key={tag}>
+                  <Link
+                    href={`/tags/${slug(tag)}`}
+                    aria-current={current ? 'page' : undefined}
+                    aria-label={`View posts tagged ${tag}`}
+                    className={`flex items-baseline justify-between gap-3 border-l-2 py-1.5 pl-3 pr-2 font-mono text-[0.6875rem] uppercase tracking-[0.12em] transition-colors ${
+                      current
+                        ? 'border-accent text-accent'
+                        : 'border-rule text-ink-muted hover:text-ink-strong'
+                    }`}
+                  >
+                    <span className="min-w-0 break-words">{tag}</span>
+                    <span className="text-ink-faint shrink-0 tabular-nums">{count}</span>
+                  </Link>
+                </li>
+              )
+            })}
+          </ol>
+        </nav>
+
+        <div className="min-w-0">
+          {posts.length === 0 && <p className="text-ink-muted">No posts found.</p>}
+          <ul>
+            {posts.map((post) => (
+              <li key={post.path} className="border-rule border-b py-6 last:border-b-0">
+                <PostRow post={post} />
+              </li>
+            ))}
+          </ul>
         </div>
       </div>
-    </>
+    </div>
   )
 }

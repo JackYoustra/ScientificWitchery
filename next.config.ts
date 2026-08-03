@@ -14,10 +14,10 @@ import type { NextConfig } from 'next'
 // giscus is kept only because the comment config is kept for a later restore.
 // Dropped from the old list: claude.ai and *.s3.amazonaws.com (zero references),
 // and img.buzzfeed.com (an <img>, so img-src already covers it).
-// `worker-src` matters more than it looks: /binary's Emscripten build spawns
-// its worker pool from blob: URLs, and with no worker-src the browser falls
-// back to default-src 'self', which blocks blob: and hangs that page forever on
-// "loading-workers".
+// `worker-src` is stated rather than inherited on purpose: /binary's Emscripten
+// build spawns a pthread worker pool, and a worker blocked by CSP does not fail
+// loudly — it hangs that page forever on "loading-workers". 'self' is enough
+// because the pool loads bloaty.js from this origin; there is no blob: worker.
 const contentSecurityPolicy = `
   default-src 'self';
   script-src 'self' 'unsafe-eval' 'unsafe-inline' giscus.app analytics.umami.is va.vercel-scripts.com;
@@ -26,7 +26,7 @@ const contentSecurityPolicy = `
   media-src 'self';
   connect-src *;
   font-src 'self';
-  worker-src 'self' blob:;
+  worker-src 'self';
   frame-src giscus.app gcc.godbolt.org gist.github.com;
 `
 
@@ -49,6 +49,13 @@ const nextConfig: NextConfig = {
     remotePatterns: [{ protocol: 'https', hostname: 'pbs.twimg.com' }],
   },
 
+  // Deviation: /blog/page/1..8 were real prerendered routes until the listing
+  // stopped paginating. They were never in the sitemap, but they were reachable
+  // and therefore possibly indexed, so send them to the listing rather than 404.
+  async redirects() {
+    return [{ source: '/blog/page/:page', destination: '/blog', permanent: true }]
+  },
+
   // Deviation: the scaffold sets no headers.
   async headers() {
     return [
@@ -69,6 +76,27 @@ const nextConfig: NextConfig = {
           { key: 'Cross-Origin-Opener-Policy', value: 'same-origin' },
           { key: 'Cross-Origin-Embedder-Policy', value: 'require-corp' },
         ],
+      },
+      {
+        // The other half of the story, and the part that kept Bloaty dead even
+        // after /binary became cross-origin isolated.
+        //
+        // HTML's "check a global object's embedder policy" step says a
+        // dedicated worker fails to load when its *owner* is require-corp but
+        // the worker script's own response carries no COEP. Same origin does
+        // not exempt it. Emscripten spawns its pthread pool with
+        // `new Worker(new URL('bloaty.js', import.meta.url))`, so without this
+        // header every pool worker fires a bare `error` event — no message, not
+        // even an ErrorEvent — none of them answer the `load` handshake, and
+        // the `loading-workers` run dependency never clears. The page then sits
+        // on "Loading Files..." forever while the console repeats
+        // `dependency: loading-workers` every ten seconds.
+        //
+        // Echoing require-corp here makes the worker's policy match its
+        // owner's. It is inert for every other consumer: COEP on a response is
+        // only ever consulted for documents and workers.
+        source: '/static/emscripten/:path*',
+        headers: [{ key: 'Cross-Origin-Embedder-Policy', value: 'require-corp' }],
       },
     ]
   },

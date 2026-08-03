@@ -1,5 +1,8 @@
-import createBloatyModule from '@/public/static/emscripten/bloaty'
-import type { BloatyModule } from '@/public/static/emscripten/bloaty'
+import type {
+  BloatyModule,
+  BloatyModuleArgs,
+  BloatyModuleFactory,
+} from '@/types/emscripten-bloaty'
 import Papa from 'papaparse'
 import type { WasmBinaryResult } from 'rust-wasm'
 import _ from 'lodash'
@@ -219,30 +222,76 @@ function makeTreeFromCSV(csv: CsvRow[], fields: string[], path: string): ChartDa
     })
   }
 }
-function convertProgramArgumentsToC(
-  args: string[],
-  module: BloatyModule
-): { argc: number; argv: Uint8Array } {
-  const encodedArgsPointers = args.map((arg) => module.stringToNewUTF8(arg))
-  // take the pointers and put them into a buffer
-  const pointersBuffer = new Uint32Array(encodedArgsPointers.length)
-  encodedArgsPointers.forEach((pointer, i) => {
-    pointersBuffer[i] = pointer
-  })
-  // create a uint8array buffer holding the pointers
-  const argv = new Uint8Array(pointersBuffer.buffer)
-  return {
-    argc: args.length,
-    argv,
+/**
+ * Where the emscripten build is served from, as a URL for the browser rather
+ * than a specifier for the bundler.
+ *
+ * The distinction is the whole design. bloaty.js resolves its own `.wasm` and
+ * spawns its pthread workers relative to `import.meta.url`, so it has to be
+ * loaded from the directory that actually holds those files. Bundling it into a
+ * `.next` chunk — which is what a static import of `@/public/...` does — moves
+ * `import.meta.url` into `/_next/static/chunks/` and every sibling lookup
+ * misses. Hence the runtime import below, with the bundler told to keep its
+ * hands off.
+ */
+const BLOATY_MODULE_URL = '/static/emscripten/bloaty.js'
+
+/** Path the uploaded bytes get in emscripten's in-memory filesystem. */
+const BLOATY_INPUT_PATH = 'input.bin'
+
+/**
+ * The loaded ES module, shared across parses. Only the *module* is cached — a
+ * fresh instance per parse is deliberate, since bloaty's `main` is a one-shot
+ * program with global state.
+ */
+let bloatyFactory: Promise<BloatyModuleFactory> | undefined
+
+function loadBloatyFactory(): Promise<BloatyModuleFactory> {
+  if (!bloatyFactory) {
+    const pending = (
+      import(/* webpackIgnore: true */ /* turbopackIgnore: true */ BLOATY_MODULE_URL) as Promise<{
+        default: BloatyModuleFactory
+      }>
+    ).then((module) => module.default)
+    // Don't let one failed fetch poison every later attempt.
+    pending.catch(() => {
+      if (bloatyFactory === pending) {
+        bloatyFactory = undefined
+      }
+    })
+    bloatyFactory = pending
   }
+  return bloatyFactory
 }
 
-function freeCArguments(argv: Uint8Array, module: BloatyModule) {
-  // free the memory
-  const pointersBuffer = new Uint32Array(argv.buffer)
-  pointersBuffer.forEach((pointer) => {
-    module._free(pointer)
+/**
+ * Reject with `message` if `promise` has not settled within `ms`.
+ *
+ * Losing the race does not cancel anything — the caller is responsible for any
+ * teardown — but it does turn a hang into an error, which is the whole point.
+ */
+function withTimeout<T>(promise: Promise<T>, ms: number, message: string): Promise<T> {
+  let timer: ReturnType<typeof setTimeout> | undefined
+  const expiry = new Promise<never>((_, reject) => {
+    timer = setTimeout(() => reject(new Error(message)), ms)
   })
+  return Promise.race([promise, expiry]).finally(() => clearTimeout(timer))
+}
+
+/**
+ * How long to wait for emscripten to finish booting before calling it dead.
+ *
+ * Startup is a wasm compile plus a `navigator.hardwareConcurrency`-sized
+ * pthread pool handshake; it takes well under a second when it works at all,
+ * and takes forever when it doesn't. The failure mode this guards is a worker
+ * that never answers, which emscripten reports only as a `still waiting on run
+ * dependencies: loading-workers` line every ten seconds, forever.
+ */
+const BLOATY_STARTUP_TIMEOUT_MS = 30_000
+
+/** Keep the last few stderr lines for error messages; bloaty can be chatty. */
+function tail(lines: string[], count = 5): string {
+  return lines.slice(-count).join(' / ')
 }
 
 async function parseWithBloaty(
@@ -253,66 +302,91 @@ async function parseWithBloaty(
 ): Promise<ChartDataEntry> {
   // string builder for stdout
   let stdout = ''
-  const bloatyModule = await createBloatyModule({
-    locateFile: (file) => {
-      if (file === 'bloaty.worker.mjs') {
-        return '/static/emscripten/bloaty.worker.mjs'
-      } else if (file === 'bloaty.wasm') {
-        return '/static/emscripten/bloaty.wasm'
-      }
-      return file
-    },
+  // ...and a ring of stderr lines. Capturing these rather than letting them
+  // fall through to console.error is what lets a failure say *why* it failed.
+  const stderr: string[] = []
+  const moduleArgs: BloatyModuleArgs = {
     print: (text) => {
       stdout += text + '\n'
     },
-  })
-
-  bloatyModule.FS.writeFile('dummy', new Uint8Array(buffer))
-
-  const bloatyMain = bloatyModule.cwrap('main', 'number', ['number', 'array'])
-  // create a uint8array buffer holding --help as argv
-  const pack = convertProgramArgumentsToC(
-    ['bloaty', '--csv', 'dummy', '-d', analysisTypes, '-n', '100'],
-    bloatyModule
-  )
-  // call the function
-  const result = bloatyMain(pack.argc, pack.argv)
-  if (strict && result !== 0) {
-    throw new Error(`Bloaty failed with error code ${result}`)
+    printErr: (text) => {
+      stderr.push(text)
+    },
   }
-  freeCArguments(pack.argv, bloatyModule)
 
-  // papaparse output
-  const parsed = Papa.parse<CsvRow>(stdout, {
-    header: true,
-    dynamicTyping: true,
-  })
-  // The last two columns are vmsize and filesize; everything before them is a
-  // grouping level. papaparse only populates `meta.fields` when it saw a header
-  // row, so bail loudly rather than tripping over `undefined` further down.
-  const fields = parsed.meta.fields
-  if (!fields || fields.length < 3) {
-    throw new Error(`Bloaty produced no usable CSV columns for ${file.name}`)
+  const createBloatyModule = await loadBloatyFactory()
+  let bloaty: BloatyModule
+  try {
+    bloaty = await withTimeout(
+      createBloatyModule(moduleArgs),
+      BLOATY_STARTUP_TIMEOUT_MS,
+      `Bloaty's emscripten runtime did not start within ${BLOATY_STARTUP_TIMEOUT_MS / 1000}s` +
+        (globalThis.crossOriginIsolated
+          ? '.'
+          : ' — this document is not cross-origin isolated, so SharedArrayBuffer and the pthread pool are unavailable.') +
+        (stderr.length > 0 ? ` Last output: ${tail(stderr)}` : '')
+    )
+  } catch (error) {
+    // The factory keeps running after the race is lost, and its worker pool
+    // with it. Emscripten writes PThread onto the object we passed in, so the
+    // pool can still be shut down even though the module never arrived.
+    moduleArgs.PThread?.terminateAllThreads()
+    throw error
   }
-  const children = makeTreeFromCSV(parsed.data, fields.slice(0, -2), file.name)
-  // sum up all the sizes and take the difference from the file size to find the unaccounted for size
-  const unaccountedSize =
-    file.size - children.reduce((acc, item) => acc + firstValueNaNHandled(item.value), 0)
-  if (unaccountedSize > 0) {
-    children.push({
-      name: 'Unaccounted for',
-      value: unaccountedSize,
-      path: file.name + '/Unaccounted for',
+
+  try {
+    bloaty.FS.writeFile(BLOATY_INPUT_PATH, new Uint8Array(buffer))
+    // callMain supplies argv[0] and owns the argv block, so there is no
+    // pointer arithmetic here and nothing to free on the way out.
+    const status = bloaty.callMain(['--csv', BLOATY_INPUT_PATH, '-d', analysisTypes, '-n', '100'])
+    if (strict && status !== 0) {
+      throw new Error(
+        `bloaty -d ${analysisTypes} exited ${status}` +
+          (stderr.length > 0 ? `: ${tail(stderr)}` : '')
+      )
+    }
+
+    // papaparse output
+    const parsed = Papa.parse<CsvRow>(stdout, {
+      header: true,
+      dynamicTyping: true,
     })
-  }
+    // The last two columns are vmsize and filesize; everything before them is a
+    // grouping level. papaparse only populates `meta.fields` when it saw a header
+    // row, so bail loudly rather than tripping over `undefined` further down.
+    const fields = parsed.meta.fields
+    if (!fields || fields.length < 3) {
+      throw new Error(
+        `Bloaty produced no usable CSV columns for ${file.name}` +
+          (stderr.length > 0 ? `: ${tail(stderr)}` : '')
+      )
+    }
+    const children = makeTreeFromCSV(parsed.data, fields.slice(0, -2), file.name)
+    // sum up all the sizes and take the difference from the file size to find the unaccounted for size
+    const unaccountedSize =
+      file.size - children.reduce((acc, item) => acc + firstValueNaNHandled(item.value), 0)
+    if (unaccountedSize > 0) {
+      children.push({
+        name: 'Unaccounted for',
+        value: unaccountedSize,
+        path: file.name + '/Unaccounted for',
+      })
+    }
 
-  const entry: ChartDataEntry = {
-    name: file.name,
-    value: file.size,
-    children,
-    path: file.name,
+    const entry: ChartDataEntry = {
+      name: file.name,
+      value: file.size,
+      children,
+      path: file.name,
+    }
+    return entry
+  } finally {
+    // One module instance per parse, and each one owns a pool of
+    // `navigator.hardwareConcurrency` workers that nothing else will ever
+    // collect. Dropping the reference is not enough — a live Worker keeps
+    // itself and its shared memory alive.
+    bloaty.PThread.terminateAllThreads()
   }
-  return entry
 }
 
 async function parseWithTwiggy(file: File, buffer: ArrayBuffer): Promise<ChartDataEntry> {
@@ -348,44 +422,60 @@ export interface ParseResult {
   engine: AnalysisEngine
 }
 
+const ENGINE_NAMES: Record<AnalysisEngine, string> = {
+  [AnalysisEngine.Twiggy]: 'Twiggy',
+  [AnalysisEngine.Bloaty]: 'Bloaty',
+}
+
+function describeError(error: unknown): string {
+  return error instanceof Error ? error.message : String(error)
+}
+
+async function runEngine(
+  engine: AnalysisEngine,
+  file: File,
+  buffer: ArrayBuffer
+): Promise<ChartDataEntry> {
+  switch (engine) {
+    case AnalysisEngine.Twiggy:
+      return parseWithTwiggy(file, buffer)
+    case AnalysisEngine.Bloaty:
+      try {
+        // compileunits needs debug info; plenty of binaries have none.
+        return await parseWithBloaty(file, buffer, 'compileunits,symbols,sections', true)
+      } catch (error) {
+        console.warn(
+          `[binary] bloaty -d compileunits,symbols,sections failed on ${file.name}, retrying without compileunits: ${describeError(error)}`
+        )
+        return parseWithBloaty(file, buffer, 'symbols,sections', false)
+      }
+  }
+}
+
 export function parseBuffer(file: File, engine?: AnalysisEngine): Promise<ParseResult> {
   return file.arrayBuffer().then(async (buffer) => {
-    // give twiggy first crack, it has dominator support
-    // which is rly cool to look at
-    const engines = engine ? [engine] : [AnalysisEngine.Twiggy, AnalysisEngine.Bloaty]
-    // try every engine
-    // if it fails, try the next one
-    // if it's the last one, don't handle the error
-    for (let i = 0; i < engines.length; i++) {
-      const engine = engines[i]
+    // Give twiggy first crack: it has dominator support, which is rly cool to
+    // look at. Bloaty is the general-purpose fallback.
+    //
+    // `engine !== undefined`, not `engine`: Twiggy is enum member 0, so the
+    // truthiness test this used to do sent an explicit "use Twiggy" request
+    // down the *both engines* path, and a twiggy failure silently produced a
+    // bloaty chart with the twiggy button lit.
+    const engines = engine !== undefined ? [engine] : [AnalysisEngine.Twiggy, AnalysisEngine.Bloaty]
+
+    // Try each engine in turn. Every failure is reported — the old version
+    // dropped non-final errors on the floor, which is how an engine that had
+    // never once initialised in any browser went unnoticed for two years.
+    const failures: string[] = []
+    for (const candidate of engines) {
       try {
-        switch (engine) {
-          case AnalysisEngine.Twiggy:
-            return {
-              data: await parseWithTwiggy(file, buffer),
-              engine: AnalysisEngine.Twiggy,
-            }
-          case AnalysisEngine.Bloaty:
-            try {
-              return {
-                data: await parseWithBloaty(file, buffer, 'compileunits,symbols,sections', true),
-                engine: AnalysisEngine.Bloaty,
-              }
-            } catch {
-              console.warn('Bloaty failed, trying bloaty without compileunits')
-              return {
-                data: await parseWithBloaty(file, buffer, 'symbols,sections', false),
-                engine: AnalysisEngine.Bloaty,
-              }
-            }
-        }
+        return { data: await runEngine(candidate, file, buffer), engine: candidate }
       } catch (error) {
-        if (i === engines.length - 1) {
-          throw error
-        }
+        const reason = describeError(error)
+        console.warn(`[binary] ${ENGINE_NAMES[candidate]} failed on ${file.name}: ${reason}`, error)
+        failures.push(`${ENGINE_NAMES[candidate]}: ${reason}`)
       }
     }
-    // unreachable
-    throw new Error('Unreachable')
+    throw new Error(`Could not analyse ${file.name}. ${failures.join(' — ')}`)
   })
 }

@@ -199,7 +199,7 @@ export default dynamic(
 
       return (
         <>
-          <h1 className="text-3xl font-extrabold leading-9 tracking-tight text-gray-900 dark:text-gray-100 sm:text-4xl sm:leading-10 md:text-6xl md:leading-14">
+          <h1 className="text-ink-strong text-3xl font-bold leading-tight sm:text-4xl">
             Pdx Converter
           </h1>
           <h2>
@@ -210,20 +210,17 @@ export default dynamic(
           <h2>
             Powered by
             <a
-              className="m-1 font-medium text-blue-600 hover:underline dark:text-blue-500"
+              className="text-accent hover:text-accent-strong m-1"
               href="https://docs.rs/jomini/latest/jomini/"
             >
               Jomini Rust
             </a>
             by
-            <a
-              className="m-1 font-medium text-blue-600 hover:underline dark:text-blue-500"
-              href="https://nickb.dev/"
-            >
+            <a className="text-accent hover:text-accent-strong m-1" href="https://nickb.dev/">
               Nick Babcock
             </a>
             .
-            <div className="flex place-content-around items-center rounded-full bg-slate-200 p-2 dark:bg-slate-800">
+            <div className="bg-sunken border-rule flex place-content-around items-center rounded-full border p-2">
               <div className={childClassName}>
                 <input type="checkbox" checked={checked} onChange={handleChange} />
                 <span className={spanClassName}>⚡️ Fast Refresh ⚡️</span>
@@ -235,7 +232,7 @@ export default dynamic(
               <div className={childClassName}>
                 <select
                   defaultValue={duplicateKeysMode.toString()}
-                  className="focus:shadow-outline-blue items-center rounded-md border border-transparent bg-blue-600 px-4 text-sm font-medium leading-5 text-white transition duration-150 ease-in-out hover:bg-blue-500 focus:border-blue-700 focus:outline-hidden"
+                  className="border-rule bg-surface text-ink-strong hover:border-rule-strong hover:text-accent focus:outline-hidden items-center rounded-md border px-4 text-sm leading-5 transition"
                   onChange={(e) =>
                     setDuplicateKeysMode(
                       DuplicateKeys[e.target.value as keyof typeof DuplicateKeys]
@@ -255,7 +252,7 @@ export default dynamic(
               <div className={childClassName}>
                 <select
                   defaultValue={typeNarrowing.toString()}
-                  className="focus:shadow-outline-blue items-center rounded-md border border-transparent bg-blue-600 px-4 text-sm font-medium leading-5 text-white transition duration-150 ease-in-out hover:bg-blue-500 focus:border-blue-700 focus:outline-hidden"
+                  className="border-rule bg-surface text-ink-strong hover:border-rule-strong hover:text-accent focus:outline-hidden items-center rounded-md border px-4 text-sm leading-5 transition"
                   onChange={(e) =>
                     setTypeNarrowing(TypeNarrowing[e.target.value as keyof typeof TypeNarrowing])
                   }
@@ -275,27 +272,27 @@ export default dynamic(
           <div className="grid h-full grow grid-cols-2 grid-rows-[minmax(0px,_1fr)_3rem] gap-4 pt-2">
             <textarea
               defaultValue={abeLincoln}
-              className="focus:shadow-outline-blue h-full w-full grow grow resize-none appearance-none rounded-md border border-gray-300 bg-white px-4 py-3 pr-12 text-base leading-6 text-gray-900 placeholder-gray-500 transition duration-150 ease-in-out focus:border-blue-300 focus:outline-hidden sm:text-sm sm:leading-5"
+              className="border-rule bg-surface text-ink placeholder-ink-faint focus:border-accent focus:outline-hidden h-full w-full grow resize-none appearance-none rounded-md border px-4 py-3 pr-12 text-base leading-6 transition sm:text-sm sm:leading-5"
               placeholder="Input"
               ref={inputRef}
               onChange={checked ? handleButtonClick : () => {}}
             />
             <textarea
               readOnly
-              className="focus:shadow-outline-blue h-full w-full grow grow resize-none appearance-none rounded-md border border-gray-300 bg-white px-4 py-3 pr-12 text-base leading-6 text-gray-900 placeholder-gray-500 transition duration-150 ease-in-out focus:border-blue-300 focus:outline-hidden sm:text-sm sm:leading-5"
+              className="border-rule bg-surface text-ink placeholder-ink-faint focus:border-accent focus:outline-hidden h-full w-full grow resize-none appearance-none rounded-md border px-4 py-3 pr-12 text-base leading-6 transition sm:text-sm sm:leading-5"
               placeholder="Output"
               value={output}
             />
             <button
               type="button"
-              className="focus:shadow-outline-blue items-center rounded-md border border-transparent bg-blue-600 px-4 text-sm font-medium leading-5 text-white transition duration-150 ease-in-out hover:bg-blue-500 focus:border-blue-700 focus:outline-hidden"
+              className="border-rule text-ink-strong hover:border-rule-strong hover:text-accent focus:outline-hidden items-center rounded-md border px-4 text-sm leading-5 transition"
               onClick={handleButtonClick}
             >
               Submit
             </button>
             <button
               type="button"
-              className="focus:shadow-outline-blue items-center rounded-md border border-transparent bg-blue-600 px-4 text-sm font-medium leading-5 text-white transition duration-150 ease-in-out hover:bg-blue-500 focus:border-blue-700 focus:outline-hidden disabled:cursor-not-allowed disabled:opacity-50"
+              className="border-rule text-ink-strong hover:border-rule-strong hover:text-accent focus:outline-hidden items-center rounded-md border px-4 text-sm leading-5 transition disabled:cursor-not-allowed disabled:opacity-50"
               onClick={handleCopy}
               disabled={!output}
             >

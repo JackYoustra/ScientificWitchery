@@ -1,6 +1,6 @@
-import { defineConfig, globalIgnores } from "eslint/config";
-import nextVitals from "eslint-config-next/core-web-vitals";
-import nextTs from "eslint-config-next/typescript";
+import { defineConfig, globalIgnores } from 'eslint/config'
+import nextVitals from 'eslint-config-next/core-web-vitals'
+import nextTs from 'eslint-config-next/typescript'
 
 const eslintConfig = defineConfig([
   ...nextVitals,
@@ -8,16 +8,19 @@ const eslintConfig = defineConfig([
   // Override default ignores of eslint-config-next.
   globalIgnores([
     // Default ignores of eslint-config-next:
-    ".next/**",
-    "out/**",
-    "build/**",
-    "next-env.d.ts",
+    '.next/**',
+    'out/**',
+    'build/**',
+    'next-env.d.ts',
     // Deviations: generated or vendored trees that are not ours to lint.
-    ".velite/**",           // velite output
-    ".vercel/**",           // vercel CLI build artifacts
-    "rust-wasm/pkg/**",     // wasm-pack output
-    "rust-wasm/target/**",  // cargo build cache
-    "public/static/emscripten/**", // prebuilt emscripten bloaty
+    '.velite/**', // velite output
+    '.vercel/**', // vercel CLI build artifacts
+    'rust-wasm/pkg/**', // wasm-pack output
+    'rust-wasm/target/**', // cargo build cache
+    'public/static/emscripten/**', // prebuilt emscripten bloaty
+    '.claude/**', // agent harness state: local settings and git worktrees,
+    // each of which carries its own built `.next/` that the
+    // `.next/**` entry above — rooted at the repo — cannot reach
   ]),
   {
     // A leading underscore marks a binding that exists only to be destructured
@@ -43,6 +46,6 @@ const eslintConfig = defineConfig([
     files: ['components/MDXRenderer.tsx'],
     rules: { 'react-hooks/static-components': 'off' },
   },
-]);
+])
 
-export default eslintConfig;
+export default eslintConfig

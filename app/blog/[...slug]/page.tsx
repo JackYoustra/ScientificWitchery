@@ -85,6 +85,16 @@ export default async function Page({ params }: { params: Promise<{ slug: string[
   const prev = sortedCoreContents[postIndex + 1]
   const next = sortedCoreContents[postIndex - 1]
   const post = allBlogs.find((p) => p.slug === slug) as Blog
+  // `series` + `part` have been in the schema and on two pairs of posts since
+  // they were written, and nothing has ever rendered them. Ordered by `part`,
+  // with a missing part sorting last rather than to the front as `undefined`
+  // would under a numeric comparator.
+  const series = post.series
+    ? sortedCoreContents
+        .filter((p) => p.series === post.series)
+        .map((p) => ({ path: p.path, title: p.title, part: p.part }))
+        .sort((a, b) => (a.part ?? Infinity) - (b.part ?? Infinity))
+    : undefined
   const authorList = post?.authors || ['default']
   const authorDetails = authorList.map((author) => {
     const authorResults = allAuthors.find((p) => p.slug === author)
@@ -105,7 +115,7 @@ export default async function Page({ params }: { params: Promise<{ slug: string[
         type="application/ld+json"
         dangerouslySetInnerHTML={{ __html: JSON.stringify(jsonLd) }}
       />
-      <PostLayout content={mainContent} next={next} prev={prev}>
+      <PostLayout content={mainContent} next={next} prev={prev} series={series}>
         <MDXRenderer code={post.body.code} components={components} toc={post.toc} />
       </PostLayout>
     </div>

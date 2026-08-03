@@ -43,6 +43,39 @@
   --color-gray-900: var(--color-neutral-900);
   --color-gray-950: var(--color-neutral-950);
 
+  /* ── Semantic token layer ───────────────────────────────────────────────
+     Components had been picking ramp steps by eye — `bg-gray-900` with no dark
+     variant, links at `primary-500` on white (2.3:1, below AA), inline code in
+     a hue of its own. These name the *role* instead, so a component asks for
+     `bg-raised` / `text-ink-muted` / `border-rule` and the theme decides what
+     that is. The values below are the light theme; `.dark` further down
+     redeclares the same names, which is the entire dark theme.
+
+     Literal values rather than `var(--color-neutral-800)` because the dark
+     block is an ordinary rule, not `@theme`, so Tailwind's theme-variable
+     usage analysis cannot see through it and would drop the referents. Both
+     blocks are written the same way to keep them diffable side by side. */
+
+  /* Backgrounds, lightest surface first. */
+  --color-surface: #ffffff; /* page */
+  --color-sunken: #fafafa; /* neutral-50  — rails, quiet panels */
+  --color-raised: #f5f5f5; /* neutral-100 — inline code, chips, hovers */
+
+  /* Text, strongest first. */
+  --color-ink-strong: #171717; /* neutral-900 — headings, titles */
+  --color-ink: #262626; /* neutral-800 — body copy */
+  --color-ink-muted: #525252; /* neutral-600 — summaries, secondary nav */
+  --color-ink-faint: #737373; /* neutral-500 — dates, labels, counts */
+
+  /* Hairlines. */
+  --color-rule: #e5e5e5; /* neutral-200 */
+  --color-rule-strong: #d4d4d4; /* neutral-300 */
+
+  /* The one hue. teal-700/teal-800 in light rather than the teal-500 the site
+     used everywhere, which was 2.3:1 on white — this is 5.0:1. */
+  --color-accent: #0f766e; /* teal-700 */
+  --color-accent-strong: #115e59; /* teal-800 */
+
   --leading-11: 2.75rem;
   --leading-12: 3rem;
   --leading-13: 3.25rem;
@@ -60,35 +93,141 @@
   --text-9xl--tracking: -0.028em;
 }
 
-/* Typography plugin overrides. These were a JS callback under v3; as plain CSS
-   they are shorter and cost one less config file. */
+/* The dark half of the token layer. Unlayered on purpose: `@theme` emits into
+   `@layer theme`, and unlayered rules beat layered ones regardless of source
+   order, so this cannot be undone by where Tailwind decides to put its output. */
+.dark {
+  --color-surface: #0a0a0a; /* neutral-950 */
+  --color-sunken: #171717; /* neutral-900 */
+  --color-raised: #262626; /* neutral-800 */
+
+  --color-ink-strong: #fafafa; /* neutral-50 */
+  --color-ink: #d4d4d4; /* neutral-300 */
+  --color-ink-muted: #a3a3a3; /* neutral-400 */
+  --color-ink-faint: #737373; /* neutral-500 — 4.9:1 here, 4.8:1 on white */
+
+  --color-rule: #262626; /* neutral-800 */
+  --color-rule-strong: #404040; /* neutral-700 */
+
+  --color-accent: #2dd4bf; /* teal-400 */
+  --color-accent-strong: #5eead4; /* teal-300 */
+}
+
+:root {
+  /* Reading measure, in characters actually rendered rather than in `ch`.
+     Measured: Cantarell's "0" is 10.8px at 17px while its average glyph over
+     this site's prose is 7.6px, a ratio of 1.4 — so a literal `68ch` sets 96
+     characters to the line, half again the width it sounds like. 50ch is 540px,
+     which measures 70-72 characters. Kept in `ch` rather than `rem` so it still
+     tracks the font if the font changes; the number is calibration, not taste. */
+  --measure: 50ch;
+
+  /* How far a code block or table may extend past the measure. Prose stays at
+     the measure; the things that are read by scanning, not by line, get the
+     slack. The `xl` content column is ~784px and the measure is ~540px, so 10rem
+     spends most of the difference and still leaves a margin. */
+  --bleed: 10rem;
+
+  /* Where the contents rail parks once the page scrolls under it, and the room
+     an anchored heading leaves above itself so it does not land against the
+     top edge of the window. */
+  --sticky-top: 4rem;
+}
+
+/* `scroll-smooth` is set on <html> in app/layout.tsx for in-page anchors. */
+@media (prefers-reduced-motion: reduce) {
+  html {
+    scroll-behavior: auto;
+  }
+  *,
+  *::before,
+  *::after {
+    animation-duration: 0.01ms !important;
+    animation-iteration-count: 1 !important;
+    transition-duration: 0.01ms !important;
+  }
+}
+
+/* ── Prose ─────────────────────────────────────────────────────────────────
+   The typography plugin is configured through its own custom properties rather
+   than by overriding its selectors, so every colour in a post body resolves
+   through the token layer above. That is also why there is no `prose-invert`
+   anywhere: the tokens already flipped. */
 .prose {
-  a {
-    color: var(--color-primary-500);
-    &:hover {
-      color: var(--color-primary-600);
-    }
-    code {
-      color: var(--color-primary-400);
-    }
+  --tw-prose-body: var(--color-ink);
+  --tw-prose-headings: var(--color-ink-strong);
+  --tw-prose-lead: var(--color-ink-muted);
+  --tw-prose-links: var(--color-accent);
+  --tw-prose-bold: var(--color-ink-strong);
+  --tw-prose-counters: var(--color-ink-faint);
+  --tw-prose-bullets: var(--color-rule-strong);
+  --tw-prose-hr: var(--color-rule);
+  --tw-prose-quotes: var(--color-ink-strong);
+  --tw-prose-quote-borders: var(--color-rule-strong);
+  --tw-prose-captions: var(--color-ink-faint);
+  --tw-prose-kbd: var(--color-ink-strong);
+  --tw-prose-kbd-shadows: var(--color-rule-strong);
+  --tw-prose-code: var(--color-ink-strong);
+  --tw-prose-th-borders: var(--color-rule-strong);
+  --tw-prose-td-borders: var(--color-rule);
+  /* Code blocks stay dark in both themes: the highlighting is Night Owl, whose
+     token colours are only legible on a dark ground. See css/prism.css. */
+  --tw-prose-pre-bg: #171717;
+  --tw-prose-pre-code: #d6deeb;
+
+  max-width: var(--measure);
+  /* 17px. Cantarell runs small for its em size, and the extra leading buys back
+     the tracking it loses at text sizes. */
+  font-size: 1.0625rem;
+  line-height: 1.7;
+}
+
+/* Hierarchy without weight steps. Cantarell ships 400 and 700 and nothing
+   between, so `font-weight: 600` silently rounded up to 700 and h3 came out
+   indistinguishable from h2. Size and tracking carry h2/h3; h4 drops to regular
+   and takes a spaced, uppercased treatment instead of a weight it does not have. */
+.prose {
+  h1,
+  h2,
+  h3 {
+    font-weight: 700;
   }
 
-  h1,
   h2 {
-    font-weight: 700;
-    letter-spacing: var(--tracking-tight);
+    font-size: 1.5em;
+    letter-spacing: -0.018em;
+    line-height: 1.25;
   }
 
   h3 {
-    font-weight: 600;
+    font-size: 1.15em;
+    letter-spacing: -0.008em;
+  }
+
+  h4 {
+    font-weight: 400;
+    font-size: 0.875em;
+    letter-spacing: 0.08em;
+    text-transform: uppercase;
+    color: var(--color-ink-muted);
+  }
+
+  /* Headings anchor to `#slug`, from the contents rail and from their own link. */
+  :is(h1, h2, h3, h4, h5, h6) {
+    scroll-margin-top: var(--sticky-top);
+  }
+
+  a code {
+    color: inherit;
   }
 
   /* Inline code sits on a tinted surface rather than taking a hue of its own.
      It used to be indigo in light and teal in dark, so it clashed with links
-     and changed colour between themes. */
+     and changed colour between themes. Same `raised` surface as every other
+     chip on the site now. */
   :not(pre) > code {
-    color: inherit;
-    background: var(--color-gray-100);
+    color: var(--tw-prose-code);
+    background: var(--color-raised);
     padding: 0.125em 0.35em;
     border-radius: 3px;
     font-weight: inherit;
@@ -98,27 +237,22 @@
   :not(pre) > code::after {
     content: none;
   }
+
+  /* Standfirst-style emphasis: Cantarell has a real italic, so use it. */
+  em {
+    font-style: italic;
+  }
 }
 
-.dark .prose {
-  a {
-    color: var(--color-primary-500);
-    &:hover {
-      color: var(--color-primary-400);
-    }
-  }
-
-  h1,
-  h2,
-  h3,
-  h4,
-  h5,
-  h6 {
-    color: var(--color-gray-100);
-  }
-
-  :not(pre) > code {
-    background: var(--color-gray-800);
+/* Code, tables and figures are scanned rather than read, so they may run past
+   the measure into the column's slack. Prose never does. */
+@media (width >= 80rem) {
+  .prose > div:has(> pre),
+  .prose > pre,
+  .prose > figure,
+  .prose > .table-wrapper,
+  .prose > .remark-code-title {
+    margin-right: calc(-1 * var(--bleed));
   }
 }
 
@@ -131,7 +265,7 @@
 }
 
 .footnotes {
-  @apply mt-12 border-t border-gray-200 pt-8 dark:border-gray-700;
+  @apply border-rule mt-12 border-t pt-8;
 }
 .data-footnote-backref {
   @apply no-underline;

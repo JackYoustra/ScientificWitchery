@@ -12,7 +12,7 @@ const Header = () => {
         <Link href="/" aria-label={siteMetadata.headerTitle}>
           <div className="flex items-center justify-between">
             {typeof siteMetadata.headerTitle === 'string' ? (
-              <div className="hidden h-6 text-2xl font-semibold sm:block">
+              <div className="text-ink-strong text-lg font-bold tracking-[-0.012em] sm:text-2xl">
                 {siteMetadata.headerTitle}
               </div>
             ) : (
@@ -32,7 +32,7 @@ const Header = () => {
               // which left an orphan bullet after the last item and wrapped
               // badly on narrow widths. An underline on hover does the same job
               // without occupying layout.
-              className="hidden border-b border-transparent pb-0.5 font-medium text-gray-900 hover:border-primary-500 hover:text-primary-500 dark:text-gray-100 dark:hover:border-primary-400 dark:hover:text-primary-400 sm:block"
+              className="text-ink-strong hover:border-accent hover:text-accent hidden border-b border-transparent pb-0.5 sm:block"
             >
               {link.title}
             </Link>

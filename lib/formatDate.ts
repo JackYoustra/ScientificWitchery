@@ -33,6 +33,15 @@ export const listDateTemplate: Intl.DateTimeFormatOptions = {
 }
 
 /**
+ * `Jun 27` — the homepage index, where posts are grouped under a year heading
+ * and repeating the year on every row is noise.
+ */
+export const indexDateTemplate: Intl.DateTimeFormatOptions = {
+  month: 'short',
+  day: 'numeric',
+}
+
+/**
  * Render a post date for humans. Drop-in replacement for pliny's `formatDate`,
  * which cannot be made safe by input alone because it hardcodes the local zone.
  */

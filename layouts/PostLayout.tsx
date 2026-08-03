@@ -2,144 +2,194 @@ import { ReactNode } from 'react'
 import type { CoreContent, Blog } from '@/lib/content'
 import Link from '@/components/Link'
 import PageTitle from '@/components/PageTitle'
-import SectionContainer from '@/components/SectionContainer'
 import Image from '@/components/Image'
+import PostContents from '@/components/PostContents'
 import Tag from '@/components/Tag'
 import siteMetadata from '@/data/siteMetadata'
 import ScrollTop from '@/components/ScrollTop'
 import { formatDate, isoDate, postDateTemplate } from '../lib/formatDate'
+import { readingLabel } from '../lib/readingTime'
 
 const editUrl = (path: string) => `${siteMetadata.siteRepo}/blob/main/data/${path}`
 const discussUrl = (path: string) =>
   `https://mobile.twitter.com/search?q=${encodeURIComponent(`${siteMetadata.siteUrl}/${path}`)}`
 
+/** One entry in the `series` this post belongs to, already ordered by `part`. */
+export interface SeriesEntry {
+  path: string
+  title: string
+  part: number | undefined
+}
+
 interface LayoutProps {
   content: CoreContent<Blog>
   next?: { path: string; title: string }
   prev?: { path: string; title: string }
+  /** Every post sharing this post's `series`, this one included. */
+  series?: SeriesEntry[]
   children: ReactNode
 }
 
-export default function PostLayout({ content, next, prev, children }: LayoutProps) {
-  const { filePath, path, date, title, tags } = content
+/** The mono, letterspaced voice used for every piece of metadata on the page. */
+const META = 'font-mono text-[0.6875rem] uppercase tracking-[0.18em] text-ink-faint'
+
+export default function PostLayout({ content, next, prev, series, children }: LayoutProps) {
+  const { filePath, path, date, title, tags, summary, toc } = content
   const basePath = path.split('/')[0]
+  const reading = readingLabel(content.readingMinutes, content.readingMinutesWithCode)
+  // Drafts are dropped from production, so a two-part series with one part
+  // still unpublished is a series of one — and saying "1/1" is worse than
+  // saying nothing.
+  const inSeries = series && series.length > 1
+  const position =
+    inSeries && content.part ? `${content.series} ${content.part}/${series.length}` : ''
 
   return (
-    <SectionContainer>
+    <>
       <ScrollTop />
       <article>
-        <div className="xl:divide-y xl:divide-gray-200 xl:dark:divide-gray-700">
-          <header className="pt-6 xl:pb-6">
-            <div className="space-y-1 text-center">
-              <dl className="space-y-10">
-                <div>
-                  <dt className="sr-only">Published on</dt>
-                  <dd className="text-base font-medium leading-6 text-gray-500 dark:text-gray-400">
-                    <time dateTime={isoDate(date)}>
-                      {formatDate(date, siteMetadata.locale, postDateTemplate)}
-                    </time>
-                  </dd>
-                </div>
-              </dl>
-              <div>
-                <PageTitle>{title}</PageTitle>
-              </div>
-            </div>
-          </header>
-          <div className="grid-rows-[auto_1fr] divide-y divide-gray-200 pb-8 dark:divide-gray-700 xl:grid xl:grid-cols-4 xl:gap-x-6 xl:divide-y-0">
-            {/* One author, read from siteMetadata rather than per-post
-                frontmatter, so there is a single place to update. */}
-            <dl className="pb-10 pt-6 xl:border-b xl:border-gray-200 xl:pt-11 xl:dark:border-gray-700">
-              <dt className="sr-only">Author</dt>
-              <dd>
-                <div className="flex items-center justify-center space-x-2 xl:justify-start">
-                  {siteMetadata.avatar && (
-                    <Image
-                      src={siteMetadata.avatar}
-                      width={38}
-                      height={38}
-                      alt="avatar"
-                      className="h-10 w-10 rounded-full"
-                    />
-                  )}
-                  <div className="whitespace-nowrap text-sm font-medium leading-5">
-                    <div className="text-gray-900 dark:text-gray-100">{siteMetadata.author}</div>
-                    {siteMetadata.twitter && (
+        <header className="max-w-3xl pb-8 pt-6 md:pt-10">
+          <div className={`flex flex-wrap items-center gap-x-3 gap-y-1 ${META}`}>
+            <time dateTime={isoDate(date)}>
+              {formatDate(date, siteMetadata.locale, postDateTemplate)}
+            </time>
+            <span aria-hidden="true" className="text-rule-strong">
+              /
+            </span>
+            <span>{reading}</span>
+            {position && (
+              <>
+                <span aria-hidden="true" className="text-rule-strong">
+                  /
+                </span>
+                <span>{position}</span>
+              </>
+            )}
+          </div>
+          <div className="mt-3">
+            <PageTitle>{title}</PageTitle>
+          </div>
+          {summary && (
+            <p className="text-ink-muted mt-5 max-w-[54ch] text-xl italic leading-relaxed">
+              {summary}
+            </p>
+          )}
+          {/* One author, read from siteMetadata rather than per-post frontmatter,
+              so there is a single place to update. A byline, not a column: it is
+              the same name on all 38 posts. */}
+          <div className="mt-6 flex items-center gap-3">
+            {siteMetadata.avatar && (
+              <Image
+                src={siteMetadata.avatar}
+                width={32}
+                height={32}
+                alt=""
+                className="h-8 w-8 rounded-full"
+              />
+            )}
+            <p className="text-ink-muted text-sm">
+              <span className="text-ink-strong">{siteMetadata.author}</span>
+              {siteMetadata.occupation && (
+                <span className="hidden sm:inline">
+                  {' — '}
+                  {siteMetadata.occupation}
+                  {siteMetadata.company && `, ${siteMetadata.company}`}
+                </span>
+              )}
+            </p>
+          </div>
+        </header>
+
+        {inSeries && series && (
+          <nav aria-label="Series" className="bg-sunken mb-8 max-w-[54ch] rounded-lg p-4">
+            <p className={META}>Series</p>
+            <p className="text-ink-strong mt-1 text-sm">{content.series}</p>
+            <ol className="mt-3 space-y-1.5">
+              {series.map((entry, index) => {
+                const current = entry.path === path
+                return (
+                  <li key={entry.path} className="flex gap-3 text-sm leading-snug">
+                    <span className="text-ink-faint shrink-0 font-mono text-xs leading-5">
+                      {entry.part ?? index + 1}
+                    </span>
+                    {current ? (
+                      <span aria-current="page" className="text-ink-strong">
+                        {entry.title}
+                      </span>
+                    ) : (
                       <Link
-                        href={siteMetadata.twitter}
-                        className="text-primary-500 hover:text-primary-600 dark:hover:text-primary-400"
+                        href={`/${entry.path}`}
+                        className="text-accent hover:text-accent-strong"
                       >
-                        {siteMetadata.twitter
-                          .replace('https://twitter.com/', '@')
-                          .replace('https://x.com/', '@')}
+                        {entry.title}
                       </Link>
                     )}
+                  </li>
+                )
+              })}
+            </ol>
+          </nav>
+        )}
+
+        <div className="border-rule border-t pt-8 xl:grid xl:grid-cols-[12rem_1fr] xl:gap-x-12">
+          <PostContents toc={toc} />
+          <div className="min-w-0">
+            <div className="prose">{children}</div>
+
+            <footer className="border-rule mt-12 space-y-8 border-t pt-8">
+              {tags && tags.length > 0 && (
+                <div>
+                  <h2 className={META}>Tags</h2>
+                  <div className="mt-2 flex flex-wrap">
+                    {tags.map((tag) => (
+                      <Tag key={tag} text={tag} />
+                    ))}
                   </div>
                 </div>
-              </dd>
-            </dl>
-            <div className="divide-y divide-gray-200 dark:divide-gray-700 xl:col-span-3 xl:row-span-2 xl:pb-0">
-              <div className="prose max-w-none pb-8 pt-10 dark:prose-invert">{children}</div>
-              <div className="pb-6 pt-6 text-sm text-gray-700 dark:text-gray-300">
-                <Link href={discussUrl(path)} rel="nofollow">
+              )}
+
+              {(next || prev) && (
+                <div className="grid gap-6 sm:grid-cols-2">
+                  {prev?.path && (
+                    <div>
+                      <h2 className={META}>Previous</h2>
+                      <Link
+                        href={`/${prev.path}`}
+                        className="text-ink-strong hover:text-accent mt-1 block"
+                      >
+                        {prev.title}
+                      </Link>
+                    </div>
+                  )}
+                  {next?.path && (
+                    <div className="sm:col-start-2 sm:text-right">
+                      <h2 className={META}>Next</h2>
+                      <Link
+                        href={`/${next.path}`}
+                        className="text-ink-strong hover:text-accent mt-1 block"
+                      >
+                        {next.title}
+                      </Link>
+                    </div>
+                  )}
+                </div>
+              )}
+
+              <div className="text-ink-muted flex flex-wrap items-center gap-x-4 gap-y-2 text-sm">
+                <Link href={`/${basePath}`} className="text-accent hover:text-accent-strong">
+                  &larr; Back to the blog
+                </Link>
+                <Link href={discussUrl(path)} rel="nofollow" className="hover:text-ink-strong">
                   Discuss on Twitter
                 </Link>
-                {` • `}
-                <Link href={editUrl(filePath)}>View on GitHub</Link>
-              </div>
-            </div>
-            <footer>
-              <div className="divide-gray-200 text-sm font-medium leading-5 dark:divide-gray-700 xl:col-start-1 xl:row-start-2 xl:divide-y">
-                {tags && (
-                  <div className="py-4 xl:py-8">
-                    <h2 className="text-xs uppercase tracking-wide text-gray-500 dark:text-gray-400">
-                      Tags
-                    </h2>
-                    <div className="flex flex-wrap">
-                      {tags.map((tag) => (
-                        <Tag key={tag} text={tag} />
-                      ))}
-                    </div>
-                  </div>
-                )}
-                {(next || prev) && (
-                  <div className="flex justify-between py-4 xl:block xl:space-y-8 xl:py-8">
-                    {prev && prev.path && (
-                      <div>
-                        <h2 className="text-xs uppercase tracking-wide text-gray-500 dark:text-gray-400">
-                          Previous Article
-                        </h2>
-                        <div className="text-primary-500 hover:text-primary-600 dark:hover:text-primary-400">
-                          <Link href={`/${prev.path}`}>{prev.title}</Link>
-                        </div>
-                      </div>
-                    )}
-                    {next && next.path && (
-                      <div>
-                        <h2 className="text-xs uppercase tracking-wide text-gray-500 dark:text-gray-400">
-                          Next Article
-                        </h2>
-                        <div className="text-primary-500 hover:text-primary-600 dark:hover:text-primary-400">
-                          <Link href={`/${next.path}`}>{next.title}</Link>
-                        </div>
-                      </div>
-                    )}
-                  </div>
-                )}
-              </div>
-              <div className="pt-4 xl:pt-8">
-                <Link
-                  href={`/${basePath}`}
-                  className="text-primary-500 hover:text-primary-600 dark:hover:text-primary-400"
-                  aria-label="Back to the blog"
-                >
-                  &larr; Back to the blog
+                <Link href={editUrl(filePath)} className="hover:text-ink-strong">
+                  View on GitHub
                 </Link>
               </div>
             </footer>
           </div>
         </div>
       </article>
-    </SectionContainer>
+    </>
   )
 }

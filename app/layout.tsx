@@ -1,9 +1,11 @@
 import './globals.css'
-import 'pliny/search/algolia.css'
 import 'remark-github-blockquote-alert/alert.css'
 
 import { Analytics, AnalyticsConfig } from 'pliny/analytics/index.js'
-import { SearchProvider, SearchConfig } from 'pliny/search/index.js'
+// Our own kbar skin, not `pliny/search`, whose markup is prebuilt and so out of
+// reach of the token layer. `pliny/search/algolia.css` went with it: the Algolia
+// branch is unreachable now, and the stylesheet only styled that branch.
+import SearchProvider from '@/components/Search'
 import Header from '@/components/Header'
 import SectionContainer from '@/components/SectionContainer'
 import Footer from '@/components/Footer'
@@ -89,13 +91,13 @@ export default function RootLayout({ children }: { children: React.ReactNode }) 
       <meta name="theme-color" media="(prefers-color-scheme: light)" content="#fff" />
       <meta name="theme-color" media="(prefers-color-scheme: dark)" content="#000" />
       <link rel="alternate" type="application/rss+xml" href={`${basePath}/feed.xml`} />
-      <body className="bg-white pl-[calc(100vw-100%)] font-sans text-black antialiased dark:bg-gray-950 dark:text-white">
+      <body className="bg-surface text-ink pl-[calc(100vw-100%)] font-sans antialiased">
         <ThemeProviders>
           <Analytics analyticsConfig={siteMetadata.analytics as AnalyticsConfig} />
           <VercelAnalytics />
           <SectionContainer>
             <div className="flex min-h-screen flex-col justify-between font-sans">
-              <SearchProvider searchConfig={siteMetadata.search as SearchConfig}>
+              <SearchProvider>
                 <Header />
                 <main className="mb-auto flex h-full grow flex-col">{children}</main>
               </SearchProvider>

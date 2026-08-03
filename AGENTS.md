@@ -40,13 +40,24 @@ that all trace back to one missing module.
 served a January 2024 document advertising deleted routes and omitting every post
 written since.
 
-**The two WASM pages are the canary and they fail silently.** `app/binary` and
-`app/converter` run Rust and Emscripten in the browser, and `parser.tsx` has an
-engine-fallback chain that swallows errors. A green `next build` proves nothing
-about them. Exercise them against `bunx next start`: drop a real `.wasm` at
-`/binary`, press Submit on the prebuilt sample at `/converter`. The Twiggy path
-was dead for an unknown length of time because a guard ran one line early and the
-fallback quietly covered for it.
+**The two WASM pages are the canary and a green build says nothing about
+them.** `app/binary` and `app/converter` run Rust and Emscripten in the browser.
+Exercise them against `bunx next start`: drop a real `.wasm` at `/binary`, press
+Submit on the prebuilt sample at `/converter`. The Twiggy path was dead for an
+unknown length of time because a guard ran one line early and `parser.tsx`'s
+engine-fallback chain quietly covered for it; the Bloaty path had never once run
+in any browser, for the same reason. That chain now names every engine it tried
+and why each failed, in the console and on the page, so check the console —
+a chart on screen no longer means both engines are healthy.
+
+**`/binary` needs cross-origin isolation, and so does the worker script
+itself.** Bloaty is an Emscripten pthread build, so it needs SharedArrayBuffer,
+so `/binary` carries COOP/COEP. The non-obvious half: Emscripten spawns its pool
+with `new Worker(new URL('bloaty.js', import.meta.url))`, and a dedicated worker
+whose owner is `require-corp` fails to load unless *its own* response carries a
+COEP header too — same origin is not an exemption. Both header rules live in
+`next.config.ts`. Drop either and the page hangs on "Loading Files..." while the
+console repeats `dependency: loading-workers`.
 
 **Dates render in UTC on purpose.** `lib/formatDate.ts` pins `timeZone: 'UTC'`
 everywhere a post date becomes text. Velite resolves `date:` to an instant, so
