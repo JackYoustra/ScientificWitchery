@@ -256,6 +256,18 @@
   }
 }
 
+/* A <table> sizes to its content, so it compresses columns rather than
+   overflowing — which is why the wrapper's overflow-x-auto never had anything
+   to scroll and wide tables broke their headers mid-word instead.
+   
+   A floor rather than `max-content`: 82 of the 97 tables in these posts are
+   two-column prose that wraps perfectly well, so forcing every table to its
+   natural width would make the common case worse to fix the rare one. Narrow
+   tables stay under 32rem and keep wrapping; wide ones cross it and scroll. */
+.table-wrapper > table {
+  min-width: 32rem;
+}
+
 /* GFM task lists render their own markers. */
 .task-list-item::before {
   @apply hidden;

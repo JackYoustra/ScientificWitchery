@@ -174,6 +174,9 @@ function cellAsSize(cell: CsvCell): number {
   return Number.isFinite(size) ? size : 0
 }
 
+/** Shown where bloaty had no label for a grouping level. */
+const UNATTRIBUTED = '(unattributed)'
+
 function makeTreeFromCSV(csv: CsvRow[], fields: string[], path: string): ChartDataEntry[] {
   // algorithm:
   // fields are grouped by left to right, except for the last two arguments (vmsize and filesize)
@@ -208,15 +211,24 @@ function makeTreeFromCSV(csv: CsvRow[], fields: string[], path: string): ChartDa
     const grouped = _.groupBy(csv, field)
     // recurse
     return Object.entries(grouped).flatMap(([key, value]) => {
-      const children = makeTreeFromCSV(value, rest, path + '/' + key)
-      if (key === null || key === undefined) {
-        return children
-      }
+      // `Object.entries` only ever yields strings, so the `key == null` check
+      // that used to live here could not fire. lodash stringifies group keys,
+      // so a row bloaty could not label at this level arrived as the literal
+      // string "undefined" and got its own box captioned `undefined`.
+      //
+      // The original intent was to flatten those rows into the parent. That
+      // loses something worth keeping: "bytes we could not attribute" is one of
+      // the more interesting quantities in a size breakdown, and flattening
+      // silently merges them with properly attributed siblings. So keep the
+      // grouping and name it honestly instead.
+      const labelled = key !== 'undefined' && key !== 'null' && key !== ''
+      const name = labelled ? key : UNATTRIBUTED
+      const children = makeTreeFromCSV(value, rest, path + '/' + name)
       const entry: ChartDataEntry = {
-        name: key,
+        name,
         value: children.reduce((acc, item) => acc + firstValueNaNHandled(item.value), 0),
         children: children.filter((child) => child.name !== undefined && child.name !== null),
-        path: path + '/' + key,
+        path: path + '/' + name,
       }
       return [entry]
     })
