@@ -208,7 +208,7 @@ private static func amount<each T, U>(modality: Modality, file: StaticString = #
 Unless you are already returning an async function, this is pretty undesirable, especially because there's no contention in the common case.
 No reason to have all that async complication!
 
-The other way is to use [`LockIsolated`](https://pointfreeco.github.io/swift-dependencies/main/documentation/dependencies/lockisolated/) to meet the Sendable guarantee without actually having to async / await.
+The other way is to use [`LockIsolated`](https://swiftpackageindex.com/pointfreeco/swift-concurrency-extras/main/documentation/concurrencyextras/lockisolated) *(successor page — original dead)* to meet the Sendable guarantee without actually having to async / await.
 This is probably the best way. We get the synchronous code we want, and we get the thread safety we need.
 
 ```swift

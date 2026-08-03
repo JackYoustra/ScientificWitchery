@@ -181,6 +181,6 @@ The full code is below:
 
 [^2]: The return type is quite curious! The apple SDK (as well as just objective c) already has a [proliferation](https://nshipster.com/bool/)
 [of](https://developer.apple.com/documentation/opengles/gl_bool)
-[bool](https://opensource.apple.com/source/cctools/cctools-384.1/include/mach-o/dyld.h)
-[types](https://opensource.apple.com/source/CommonCrypto/CommonCrypto-36064/LocalTests/utilLib/cspwrap.h.auto.html),
+[bool](https://github.com/apple-oss-distributions/cctools/blob/cctools-384.1/include/mach-o/dyld.h) *(successor page — original dead)*
+[types](https://github.com/apple-oss-distributions/CommonCrypto/blob/CommonCrypto-36064/LocalTests/utilLib/cspwrap.h) *(successor page — original dead)*,
 so I guess `_Bool` is just another one to add to the list. It [appears to just be](https://stackoverflow.com/questions/8724349/difference-between-bool-and-bool-types-in-c) a C macro for bool to backport stdbool.

@@ -493,7 +493,7 @@ Sadly, we foolishly blew all of our luck budget on getting the swift compile com
 `maxRecommendedWorkingSet` returns ~2.5gb, so there's no combination of quantization and context size that will run comparably on the iPhone Xs.
 We can remove `mlock` from a subsection and get it to run, but that will just thrash the page cache and run very slowly overall. (Additionally, we got `Compiler failed to build request` on our shader pipelines, so there's probably a correctness issue too).
 
-Looking at the [memory allocations for different phones](https://9to5mac.com/2022/12/31/iphone-ram-list/),
+Looking at the [memory allocations for different phones](https://web.archive.org/web/20230306003645/https://9to5mac.com/2022/12/31/iphone-ram-list/) *(Wayback snapshot — the live page has since changed)*,
 we see that around half of the iOS 17 phones won't be supported 😕. If we really want,
 we could find a 3b or 4b model and try quantizing that to 4 bytes or something, but lets punt that later. We're trying to get 
 Llama to run, after all, and if we can only run it on 12+ pros, that's fine.

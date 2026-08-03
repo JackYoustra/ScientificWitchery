@@ -8,7 +8,7 @@ summary: 'A stunningly-good CoT model, with even better distilled children.'
 
 # Introduction
 
-Big news in the AI space: [DeepSeek R1](https://www.deepseek.com/en/r1) was released.
+Big news in the AI space: [DeepSeek R1](https://api-docs.deepseek.com/news/news250120) *(successor page — original dead)* was released.
 It has near o1 (OpenAI's reasoning model) performance with (hypothesized) far, far smaller neuron count.
 This has already been [discussed in hackernews](https://news.ycombinator.com/item?id=42768072) but I thought I'd write a bit about the parts that stood out to me,
 mostly from the [github](https://github.com/deepseek-ai/DeepSeek-R1).
@@ -46,7 +46,7 @@ This advantage is starkly illustrated by the 1.5B parameter model. It achieves a
 
 The [interconnects blog](https://www.interconnects.ai/p/deepseek-r1-recipe-for-o1) has a more in-depth discussion.
 
-[aider](https://aider.chat/blog/deepseek-r1), an open-source AI assistant, has a SWE benchmark to test how well a given AI can solve programming problems. It has two roles in its architecture: an _architect_, which reasons at a high level about solutions, and a _coder_, which actually writes the code. Their new results table is crazy: R1 + Sonnet _beat_ o1 at less than 10% of the cost.
+[aider](https://aider.chat/2025/01/24/r1-sonnet.html) *(successor page — original dead)*, an open-source AI assistant, has a SWE benchmark to test how well a given AI can solve programming problems. It has two roles in its architecture: an _architect_, which reasons at a high level about solutions, and a _coder_, which actually writes the code. Their new results table is crazy: R1 + Sonnet _beat_ o1 at less than 10% of the cost.
 
 {/* ## Wait, Distillation is Beating... Human Data?!
 QwQ is a model trained on human chain-of-thought data, the same way r1 is, just much smaller: it only has 32b parameters.

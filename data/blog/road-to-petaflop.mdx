@@ -32,7 +32,7 @@ We'll be going through each.
 # Theory
 
 ## The nvfp4 format
-There's a nvidia blog post [here](https://developer.nvidia.com/blog/accelerating-llm-inference-with-nvfp4-and-tensorrt-llm/) that explains the nvfp4 format; you can also look at technical docs if need be.
+There's a nvidia blog post [here](https://developer.nvidia.com/blog/introducing-nvfp4-for-efficient-and-accurate-low-precision-inference/) *(successor page — original dead)* that explains the nvfp4 format; you can also look at technical docs if need be.
 The first thing to notice is nvfp4 is not IEEE fp4.
 I had claude cook up a visualization to show you how it works:
 
@@ -42,7 +42,7 @@ The key point to realize is that this patch is a little more complicated than mo
 
 ## Quantize in tensorrt-llm
 
-There are two ways to quantize to nvfp4: [llm-compressor](https://github.com/vllm-project/llm-compressor) by the famous quantizer [NeuralMagic](https://neuralmagic.com/about/) and [tensorrt-llm](https://github.com/NVIDIA/TensorRT-LLM)'s child project [TensorRT-Model-Optimizer](https://github.com/NVIDIA/TensorRT-Model-Optimizer/) (colloqually known as 'modelopt') by nvidia. The community is moving to modelopt, so that's the solution we'll use.
+There are two ways to quantize to nvfp4: [llm-compressor](https://github.com/vllm-project/llm-compressor) by the famous quantizer [NeuralMagic](https://web.archive.org/web/20250623124647/https://neuralmagic.com/about/) *(Wayback snapshot — the live page has since changed)* and [tensorrt-llm](https://github.com/NVIDIA/TensorRT-LLM)'s child project [TensorRT-Model-Optimizer](https://github.com/NVIDIA/TensorRT-Model-Optimizer/) (colloqually known as 'modelopt') by nvidia. The community is moving to modelopt, so that's the solution we'll use.
 
 You quantize something (for now) by installing the project and using either the example_hf.sh script in the examples/llm_ptq folder or by running the python script yourself. For our purposes, we'll be running `scripts/huggingface_example.sh --qformat nvfp4 --export_fmt hf --model meta-llama/Llama-3.1-8B-Instruct`.
 
@@ -391,7 +391,7 @@ Writing a CUDA kernel usually revolves around the same few tricks: compute parti
 
 You can see details to this in [a great blog](http://siboehm.com/articles/22/CUDA-MMM) on efficient matmul on GPUs.
 
-On the pipelining, see this for details: https://docs.nvidia.com/cutlass/media/docs/cpp/efficient_gemm.html
+On the pipelining, see this for details: https://docs.nvidia.com/cutlass/latest/media/docs/cpp/efficient_gemm.html *(successor page — original dead)*
 basically you want to double-buffer (at least) the gemm - that way you're continuously loading from global memory into shared memory for the next iteration,
 even as you compute the results for the current iteration.
 
@@ -459,7 +459,7 @@ Only if you have something particularly baroque or irregular would you
 need to write your own kernel, even something like a new sparsity pattern you should be able to graft on to the existing CUTLASS
 library.
 
-There's so much more to how to tune these values, read the [JAX scaling book](https://jax-ml.github.io/scaling-book/) and the [CUTLASS tutorial / guide](https://docs.nvidia.com/cutlass/media/docs/cpp/efficient_gemm.html) for more details.
+There's so much more to how to tune these values, read the [JAX scaling book](https://jax-ml.github.io/scaling-book/) and the [CUTLASS tutorial / guide](https://docs.nvidia.com/cutlass/latest/media/docs/cpp/efficient_gemm.html) *(successor page — original dead)* for more details.
 
 ## Building sglang
 
@@ -933,7 +933,7 @@ that's (obviously) not available on older x86_64 CPUs. These instructions _do no
 You have to supply a special flag to the compiler telling it to target a specific extension to the instruction set to enable generation.
 JITs, such as Chrome's V8, will automatically generate the code depending on the CPU's features (interpreters stay winning).
 
-Most programs still use the maximum compatibility instruction set. However, they still aren't slow because most programs don't need or use these instructions in almost all of the cases: the famous Jim Keller has a good quote (honestly recommend reading the [whole interview](https://www.anandtech.com/show/16762/an-anandtech-interview-with-jim-keller-laziest-person-at-tesla)).
+Most programs still use the maximum compatibility instruction set. However, they still aren't slow because most programs don't need or use these instructions in almost all of the cases: the famous Jim Keller has a good quote (honestly recommend reading the [whole interview](https://web.archive.org/web/20250630162229/https://www.anandtech.com/show/16762/an-anandtech-interview-with-jim-keller-laziest-person-at-tesla) *(Wayback snapshot — original dead)*).
 
 
 > JK: [Arguing about instruction sets] is a very sad story. It's not even a couple of dozen [op-codes] - 80% of core execution is only six instructions - you know, load, store, add, subtract, compare and branch. With those you have pretty much covered it. If you're writing in Perl or something, maybe call and return are more important than compare and branch. But instruction sets only matter a little bit - you can lose 10%, or 20%, [of performance] because you're missing instructions.

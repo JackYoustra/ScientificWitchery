@@ -86,7 +86,7 @@ gargantuan number of operations to this `vnode`: 34k _physical file operations_ 
 way longer than they should if the results were cached at all. However, each has a variable block number,
 whatever that is. Some more reading shows that the block number is a selector
 on the data contained by a `vnode`. We see most of these calls go to `getattrlistbulk`, which you can read
-about [here](https://opensource.apple.com/source/xnu/xnu-4570.41.2/bsd/man/man2/getattrlistbulk.2.auto.html),
+about [here](https://github.com/apple-oss-distributions/xnu/blob/xnu-4570.41.2/bsd/man/man2/getattrlistbulk.2) *(successor page — original dead)*,
 but please just type `man getattrlistbulk` into your terminal instead - it looks a lot nicer.
 
 It looks like that's called for all subdirections - the big blocking op is an uncached

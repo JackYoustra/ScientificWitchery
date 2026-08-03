@@ -90,7 +90,7 @@ There's a lot being done here, so lets go over it one step at a time:
 For a quick look on C's file API, see [cppreference](https://en.cppreference.com/w/c/io).
 For a quick look on mmap, you're probably going to need to understand virtual memory.
 The linux kernel project has [a cool primer](https://en.cppreference.com/w/c/io),
-as does [wits university](http://www.src.wits.ac.za/groups/psi/linux/rhl-sap-en-8.0/s1-memory-concepts.html). The second one finishes by describing file-backed page caching, the technique llama.cpp uses
+as does [wits university](https://docs.redhat.com/en/documentation/red_hat_enterprise_linux/4/html/introduction_to_system_administration/s1-memory-concepts) *(successor page — original dead)*. The second one finishes by describing file-backed page caching, the technique llama.cpp uses
 and what we aim to use by preserving mmap behavior instead of allocating ourselves (known in virtual memory parlance as 'anonymous mapping').
 
 Anyway, that's a lot of interposition! Fortunately the code is repetitive, although we can't fully abstract it away because of the bug mentioned in the earlier blog post about fishhooking with issues with generics over `@convention(c)` function types. We probably could use a macro, but swift macro ergonomics... aren't. Copilot is sufficient for grunting out the code, and find and replace is fine for revising. Back to what's happening in the gist.
