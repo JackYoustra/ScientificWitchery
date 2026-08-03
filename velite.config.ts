@@ -82,9 +82,6 @@ const icon = fromHtmlIsomorphic(
   { fragment: true }
 )
 
-/** `data/blog/foo.mdx` -> `blog/foo`, matching contentlayer's `flattenedPath`. */
-const flattenedPath = (filePath: string) => filePath.replace(/\.mdx?$/, '')
-
 /**
  * `blog/foo.mdx`, matching contentlayer's `_raw.sourceFilePath`.
  *
@@ -219,7 +216,7 @@ function createSearchIndex(allBlogs: BlogDoc[]) {
     const sorted = [...allBlogs].sort((a, b) => (a.date > b.date ? -1 : a.date < b.date ? 1 : 0))
     const core = sorted
       .filter((c) => !isProduction || c.draft !== true)
-      .map(({ body, ...rest }) => rest)
+      .map(({ body: _body, ...rest }) => rest)
     writeFileSync(
       `public/${path.basename(siteMetadata.search.kbarConfig.searchDocumentsPath)}`,
       JSON.stringify(core)

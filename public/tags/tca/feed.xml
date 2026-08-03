@@ -1,0 +1,54 @@
+
+  <rss version="2.0" xmlns:atom="http://www.w3.org/2005/Atom">
+    <channel>
+      <title>Scientific Witchery</title>
+      <link>https://jackyoustra.com/blog</link>
+      <description>Writings on my projects and cool language features.</description>
+      <language>en-us</language>
+      <managingEditor>jack@youstra.com (Jack Youstra)</managingEditor>
+      <webMaster>jack@youstra.com (Jack Youstra)</webMaster>
+      <lastBuildDate>Thu, 30 Nov 2023 00:00:00 GMT</lastBuildDate>
+      <atom:link href="https://jackyoustra.com/tags/tca/feed.xml" rel="self" type="application/rss+xml"/>
+      
+  <item>
+    <guid>https://jackyoustra.com/blog/tca-binary-size</guid>
+    <title>Fixing uFeature app binary sizes</title>
+    <link>https://jackyoustra.com/blog/tca-binary-size</link>
+    <description>Porting an app to a uFeature architecture leads to a doubling in binary size. Why? How can we fix it?</description>
+    <pubDate>Thu, 30 Nov 2023 00:00:00 GMT</pubDate>
+    <author>jack@youstra.com (Jack Youstra)</author>
+    <category>swift</category><category>ios</category><category>tca</category>
+  </item>
+
+  <item>
+    <guid>https://jackyoustra.com/blog/tca-state-sharing</guid>
+    <title>TCA State Sharing</title>
+    <link>https://jackyoustra.com/blog/tca-state-sharing</link>
+    <description>A used in B used in C, but A relies on state owned by C.</description>
+    <pubDate>Mon, 14 Nov 2022 00:00:00 GMT</pubDate>
+    <author>jack@youstra.com (Jack Youstra)</author>
+    <category>swift</category><category>tca</category>
+  </item>
+
+  <item>
+    <guid>https://jackyoustra.com/blog/tca-test-recording</guid>
+    <title>TCA test recording</title>
+    <link>https://jackyoustra.com/blog/tca-test-recording</link>
+    <description>If you record all of the actions in an app, assert all of the states at every step, and record all of the side effects, you can replay the recording in a test and verify that the app behaves the same way and investigate why. This is a post about how I built a test recorder for TCA.</description>
+    <pubDate>Mon, 15 May 2023 00:00:00 GMT</pubDate>
+    <author>jack@youstra.com (Jack Youstra)</author>
+    <category>swift</category><category>ios</category><category>tca</category>
+  </item>
+
+  <item>
+    <guid>https://jackyoustra.com/blog/test-closure-once</guid>
+    <title>Test closure once semantics in Swift</title>
+    <link>https://jackyoustra.com/blog/test-closure-once</link>
+    <description>Trying to get those nice JS testing semantics in Swift</description>
+    <pubDate>Fri, 07 Jul 2023 00:00:00 GMT</pubDate>
+    <author>jack@youstra.com (Jack Youstra)</author>
+    <category>swift</category><category>tca</category><category>testing</category>
+  </item>
+
+    </channel>
+  </rss>

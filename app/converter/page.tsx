@@ -205,7 +205,7 @@ export default dynamic(
           <h2>
             To translate all of your Clausewitz engine (Crusader Kings, Europa Universalis,
             Victoria, Hearts of Iron, and Stellaris) game files to a more convenient format. Let me
-            know if you'd like other enhancements.
+            know if you&apos;d like other enhancements.
           </h2>
           <h2>
             Powered by
@@ -235,7 +235,7 @@ export default dynamic(
               <div className={childClassName}>
                 <select
                   defaultValue={duplicateKeysMode.toString()}
-                  className="focus:shadow-outline-blue items-center rounded-md border border-transparent bg-blue-600 px-4 text-sm font-medium leading-5 text-white transition duration-150 ease-in-out hover:bg-blue-500 focus:border-blue-700 focus:outline-none"
+                  className="focus:shadow-outline-blue items-center rounded-md border border-transparent bg-blue-600 px-4 text-sm font-medium leading-5 text-white transition duration-150 ease-in-out hover:bg-blue-500 focus:border-blue-700 focus:outline-hidden"
                   onChange={(e) =>
                     setDuplicateKeysMode(
                       DuplicateKeys[e.target.value as keyof typeof DuplicateKeys]
@@ -255,7 +255,7 @@ export default dynamic(
               <div className={childClassName}>
                 <select
                   defaultValue={typeNarrowing.toString()}
-                  className="focus:shadow-outline-blue items-center rounded-md border border-transparent bg-blue-600 px-4 text-sm font-medium leading-5 text-white transition duration-150 ease-in-out hover:bg-blue-500 focus:border-blue-700 focus:outline-none"
+                  className="focus:shadow-outline-blue items-center rounded-md border border-transparent bg-blue-600 px-4 text-sm font-medium leading-5 text-white transition duration-150 ease-in-out hover:bg-blue-500 focus:border-blue-700 focus:outline-hidden"
                   onChange={(e) =>
                     setTypeNarrowing(TypeNarrowing[e.target.value as keyof typeof TypeNarrowing])
                   }
@@ -275,27 +275,27 @@ export default dynamic(
           <div className="grid h-full grow grid-cols-2 grid-rows-[minmax(0px,_1fr)_3rem] gap-4 pt-2">
             <textarea
               defaultValue={abeLincoln}
-              className="focus:shadow-outline-blue h-full w-full flex-grow grow resize-none appearance-none rounded-md border border-gray-300 bg-white px-4 py-3 pr-12 text-base leading-6 text-gray-900 placeholder-gray-500 transition duration-150 ease-in-out focus:border-blue-300 focus:outline-none sm:text-sm sm:leading-5"
+              className="focus:shadow-outline-blue h-full w-full grow grow resize-none appearance-none rounded-md border border-gray-300 bg-white px-4 py-3 pr-12 text-base leading-6 text-gray-900 placeholder-gray-500 transition duration-150 ease-in-out focus:border-blue-300 focus:outline-hidden sm:text-sm sm:leading-5"
               placeholder="Input"
               ref={inputRef}
               onChange={checked ? handleButtonClick : () => {}}
             />
             <textarea
               readOnly
-              className="focus:shadow-outline-blue h-full w-full flex-grow grow resize-none appearance-none rounded-md border border-gray-300 bg-white px-4 py-3 pr-12 text-base leading-6 text-gray-900 placeholder-gray-500 transition duration-150 ease-in-out focus:border-blue-300 focus:outline-none sm:text-sm sm:leading-5"
+              className="focus:shadow-outline-blue h-full w-full grow grow resize-none appearance-none rounded-md border border-gray-300 bg-white px-4 py-3 pr-12 text-base leading-6 text-gray-900 placeholder-gray-500 transition duration-150 ease-in-out focus:border-blue-300 focus:outline-hidden sm:text-sm sm:leading-5"
               placeholder="Output"
               value={output}
             />
             <button
               type="button"
-              className="focus:shadow-outline-blue items-center rounded-md border border-transparent bg-blue-600 px-4 text-sm font-medium leading-5 text-white transition duration-150 ease-in-out hover:bg-blue-500 focus:border-blue-700 focus:outline-none"
+              className="focus:shadow-outline-blue items-center rounded-md border border-transparent bg-blue-600 px-4 text-sm font-medium leading-5 text-white transition duration-150 ease-in-out hover:bg-blue-500 focus:border-blue-700 focus:outline-hidden"
               onClick={handleButtonClick}
             >
               Submit
             </button>
             <button
               type="button"
-              className="focus:shadow-outline-blue items-center rounded-md border border-transparent bg-blue-600 px-4 text-sm font-medium leading-5 text-white transition duration-150 ease-in-out hover:bg-blue-500 focus:border-blue-700 focus:outline-none disabled:cursor-not-allowed disabled:opacity-50"
+              className="focus:shadow-outline-blue items-center rounded-md border border-transparent bg-blue-600 px-4 text-sm font-medium leading-5 text-white transition duration-150 ease-in-out hover:bg-blue-500 focus:border-blue-700 focus:outline-hidden disabled:cursor-not-allowed disabled:opacity-50"
               onClick={handleCopy}
               disabled={!output}
             >

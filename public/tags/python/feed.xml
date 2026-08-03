@@ -1,0 +1,24 @@
+
+  <rss version="2.0" xmlns:atom="http://www.w3.org/2005/Atom">
+    <channel>
+      <title>Scientific Witchery</title>
+      <link>https://jackyoustra.com/blog</link>
+      <description>Writings on my projects and cool language features.</description>
+      <language>en-us</language>
+      <managingEditor>jack@youstra.com (Jack Youstra)</managingEditor>
+      <webMaster>jack@youstra.com (Jack Youstra)</webMaster>
+      <lastBuildDate>Mon, 30 Sep 2024 00:00:00 GMT</lastBuildDate>
+      <atom:link href="https://jackyoustra.com/tags/python/feed.xml" rel="self" type="application/rss+xml"/>
+      
+  <item>
+    <guid>https://jackyoustra.com/blog/narrowing-asserts</guid>
+    <title>Narrowing types with asserts</title>
+    <link>https://jackyoustra.com/blog/narrowing-asserts</link>
+    <description>How to make an Optional&lt;T&gt; into T when we&#39;re sure</description>
+    <pubDate>Mon, 30 Sep 2024 00:00:00 GMT</pubDate>
+    <author>jack@youstra.com (Jack Youstra)</author>
+    <category>python</category><category>typescript</category><category>swift</category>
+  </item>
+
+    </channel>
+  </rss>

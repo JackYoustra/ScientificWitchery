@@ -1,6 +1,6 @@
 'use client'
 
-import { DragEvent, useCallback, useEffect, useRef, useState } from 'react'
+import React, { DragEvent, useCallback, useEffect, useRef, useState } from 'react'
 import Link from 'next/link'
 import _ from 'lodash'
 import Chart, { LoadedTableDataProps } from './chart'
@@ -83,7 +83,7 @@ function engineButtonClassName(tableData: TableData | undefined, target: Analysi
   )
 }
 
-function TableData(props: TableDataProps): JSX.Element {
+function TableData(props: TableDataProps): React.JSX.Element {
   const { state, fullscreen } = props
   if (state && 'files' in state && state.files.length > 0) {
     const { files } = state
@@ -147,7 +147,7 @@ function TableData(props: TableDataProps): JSX.Element {
   }
 }
 
-export default function Binary(): JSX.Element {
+export default function Binary(): React.JSX.Element {
   const [isOver, setIsOver] = useState(false)
   const [isFullscreen, setIsFullscreen] = useState(false)
   const [tableData, setTableData] = useState<TableData | undefined>(undefined)
@@ -311,7 +311,7 @@ export default function Binary(): JSX.Element {
             </button>
           </div>
           <button className="m-2" onClick={makeFullscreen}>
-            <kbd className="inline-block whitespace-nowrap rounded border border-gray-400 p-1 align-middle font-medium leading-4 tracking-wide text-gray-400">
+            <kbd className="inline-block whitespace-nowrap rounded-sm border border-gray-400 p-1 align-middle font-medium leading-4 tracking-wide text-gray-400">
               ESC
             </kbd>
             {isFullscreen ? <FullscreenExit /> : <Fullscreen />}

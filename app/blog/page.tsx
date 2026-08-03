@@ -1,6 +1,6 @@
 import ListLayoutWithTags from '@/layouts/ListLayoutWithTags'
 import { allBlogs, allCoreContent, sortPosts } from '@/lib/content'
-import { genPageMetadata } from 'app/seo'
+import { genPageMetadata } from '@/app/seo'
 
 const POSTS_PER_PAGE = 5
 

@@ -1,9 +1,9 @@
-import 'css/tailwind.css'
+import './globals.css'
 import 'pliny/search/algolia.css'
 import 'remark-github-blockquote-alert/alert.css'
 
-import { Analytics, AnalyticsConfig } from 'pliny/analytics'
-import { SearchProvider, SearchConfig } from 'pliny/search'
+import { Analytics, AnalyticsConfig } from 'pliny/analytics/index.js'
+import { SearchProvider, SearchConfig } from 'pliny/search/index.js'
 import Header from '@/components/Header'
 import SectionContainer from '@/components/SectionContainer'
 import Footer from '@/components/Footer'

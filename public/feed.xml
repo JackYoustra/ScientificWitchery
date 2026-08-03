@@ -1,0 +1,394 @@
+
+  <rss version="2.0" xmlns:atom="http://www.w3.org/2005/Atom">
+    <channel>
+      <title>Scientific Witchery</title>
+      <link>https://jackyoustra.com/blog</link>
+      <description>Writings on my projects and cool language features.</description>
+      <language>en-us</language>
+      <managingEditor>jack@youstra.com (Jack Youstra)</managingEditor>
+      <webMaster>jack@youstra.com (Jack Youstra)</webMaster>
+      <lastBuildDate>Mon, 20 Oct 2025 00:00:00 GMT</lastBuildDate>
+      <atom:link href="https://jackyoustra.com/feed.xml" rel="self" type="application/rss+xml"/>
+      
+  <item>
+    <guid>https://jackyoustra.com/blog/kernelbench-agent</guid>
+    <title>Kernelbench Agent</title>
+    <link>https://jackyoustra.com/blog/kernelbench-agent</link>
+    <description>Can we get AI to optimize kernels agentically?</description>
+    <pubDate>Mon, 20 Oct 2025 00:00:00 GMT</pubDate>
+    <author>jack@youstra.com (Jack Youstra)</author>
+    <category>llm</category>
+  </item>
+
+  <item>
+    <guid>https://jackyoustra.com/blog/reading-materials</guid>
+    <title>Reading materials</title>
+    <link>https://jackyoustra.com/blog/reading-materials</link>
+    <description>What does Jack read?</description>
+    <pubDate>Mon, 20 Oct 2025 00:00:00 GMT</pubDate>
+    <author>jack@youstra.com (Jack Youstra)</author>
+    <category>reading</category>
+  </item>
+
+  <item>
+    <guid>https://jackyoustra.com/blog/road-to-petaflop</guid>
+    <title>Road to petaflop</title>
+    <link>https://jackyoustra.com/blog/road-to-petaflop</link>
+    <description>It says &quot;3352 AI TOPS&quot; on the tin, can we actually get there?</description>
+    <pubDate>Fri, 27 Jun 2025 00:00:00 GMT</pubDate>
+    <author>jack@youstra.com (Jack Youstra)</author>
+    <category>llm</category><category>cuda</category><category>sglang</category>
+  </item>
+
+  <item>
+    <guid>https://jackyoustra.com/blog/claude-code-fun</guid>
+    <title>Claude Code</title>
+    <link>https://jackyoustra.com/blog/claude-code-fun</link>
+    <description>I try out claude code. It&#39;s pretty good!</description>
+    <pubDate>Sun, 25 May 2025 00:00:00 GMT</pubDate>
+    <author>jack@youstra.com (Jack Youstra)</author>
+    <category>claude</category>
+  </item>
+
+  <item>
+    <guid>https://jackyoustra.com/blog/cursor-settings-location</guid>
+    <title>Trying to change Cursor settings without clicking? Sync them? Read them? Good luck!</title>
+    <link>https://jackyoustra.com/blog/cursor-settings-location</link>
+    <description>No more nice editable json for settings, the AI world demands (checks notes) a JSON blob shoved in a cell in an SQL table 🤦</description>
+    <pubDate>Wed, 05 Mar 2025 00:00:00 GMT</pubDate>
+    <author>jack@youstra.com (Jack Youstra)</author>
+    <category>cursor</category>
+  </item>
+
+  <item>
+    <guid>https://jackyoustra.com/blog/cursor-agent</guid>
+    <title>Mastering Cursor&#39;s Agent Mode: Test-Driven Development with AI</title>
+    <link>https://jackyoustra.com/blog/cursor-agent</link>
+    <description>An in-depth guide to leveraging Cursor&#39;s Agent Mode for test-driven development, with powerful workflows that maximize AI assistance without sacrificing code quality.</description>
+    <pubDate>Mon, 03 Mar 2025 00:00:00 GMT</pubDate>
+    <author>jack@youstra.com (Jack Youstra)</author>
+    <category>cursor</category>
+  </item>
+
+  <item>
+    <guid>https://jackyoustra.com/blog/cursor-overview</guid>
+    <title>Using Cursor AI IDE Like a Pro: Advanced Strategies for AI-Assisted Development</title>
+    <link>https://jackyoustra.com/blog/cursor-overview</link>
+    <description>A comprehensive guide to getting the most out of Cursor and other AI-assisted development environments with practical workflows and hidden features.</description>
+    <pubDate>Sun, 02 Mar 2025 00:00:00 GMT</pubDate>
+    <author>jack@youstra.com (Jack Youstra)</author>
+    <category>cursor</category>
+  </item>
+
+  <item>
+    <guid>https://jackyoustra.com/blog/deepseek-r1</guid>
+    <title>DeepSeek R1 released: A Leap Forward in AI Reasoning</title>
+    <link>https://jackyoustra.com/blog/deepseek-r1</link>
+    <description>A stunningly-good CoT model, with even better distilled children.</description>
+    <pubDate>Wed, 22 Jan 2025 00:00:00 GMT</pubDate>
+    <author>jack@youstra.com (Jack Youstra)</author>
+    <category>ai</category>
+  </item>
+
+  <item>
+    <guid>https://jackyoustra.com/blog/computer-use-first-glance</guid>
+    <title>A quick trial of claude&#39;s new computer use</title>
+    <link>https://jackyoustra.com/blog/computer-use-first-glance</link>
+    <description>A quick trial of Claude&#39;s new computer use feature.</description>
+    <pubDate>Wed, 23 Oct 2024 00:00:00 GMT</pubDate>
+    <author>jack@youstra.com (Jack Youstra)</author>
+    <category>ai</category>
+  </item>
+
+  <item>
+    <guid>https://jackyoustra.com/blog/ai-ramp</guid>
+    <title>AI Ramp</title>
+    <link>https://jackyoustra.com/blog/ai-ramp</link>
+    <description>My thoughts after working on AI for a few months</description>
+    <pubDate>Tue, 01 Oct 2024 00:00:00 GMT</pubDate>
+    <author>jack@youstra.com (Jack Youstra)</author>
+    <category>ai</category>
+  </item>
+
+  <item>
+    <guid>https://jackyoustra.com/blog/narrowing-asserts</guid>
+    <title>Narrowing types with asserts</title>
+    <link>https://jackyoustra.com/blog/narrowing-asserts</link>
+    <description>How to make an Optional&lt;T&gt; into T when we&#39;re sure</description>
+    <pubDate>Mon, 30 Sep 2024 00:00:00 GMT</pubDate>
+    <author>jack@youstra.com (Jack Youstra)</author>
+    <category>python</category><category>typescript</category><category>swift</category>
+  </item>
+
+  <item>
+    <guid>https://jackyoustra.com/blog/jacks-tooling</guid>
+    <title>Some tools I found useful</title>
+    <link>https://jackyoustra.com/blog/jacks-tooling</link>
+    <description>A detailed look into Jack&#39;s personal workflow and productivity tools.</description>
+    <pubDate>Thu, 04 Jul 2024 00:00:00 GMT</pubDate>
+    <author>jack@youstra.com (Jack Youstra)</author>
+    <category>workflow</category><category>productivity</category>
+  </item>
+
+  <item>
+    <guid>https://jackyoustra.com/blog/typescript-with-ollama</guid>
+    <title>Typescript-conforming outputs with Ollama</title>
+    <link>https://jackyoustra.com/blog/typescript-with-ollama</link>
+    <description>&quot;Hey please generate a json with these fields&quot; never ever works. Can we do better?</description>
+    <pubDate>Sat, 08 Jun 2024 00:00:00 GMT</pubDate>
+    <author>jack@youstra.com (Jack Youstra)</author>
+    <category>llm</category><category>ollama</category>
+  </item>
+
+  <item>
+    <guid>https://jackyoustra.com/blog/unexpected-prewarming</guid>
+    <title>Not all apps are born with a tap</title>
+    <link>https://jackyoustra.com/blog/unexpected-prewarming</link>
+    <description>No test facilities? Edge cases that are hard to reproduce but most apps run into? Just another day on Apple&#39;s wild ride.</description>
+    <pubDate>Sun, 03 Mar 2024 00:00:00 GMT</pubDate>
+    <author>jack@youstra.com (Jack Youstra)</author>
+    <category>swift</category><category>ios</category>
+  </item>
+
+  <item>
+    <guid>https://jackyoustra.com/blog/xcode-test-lag</guid>
+    <title>Xcode test lag</title>
+    <link>https://jackyoustra.com/blog/xcode-test-lag</link>
+    <description>Compiled Docc + Blocking file calls = 🤮</description>
+    <pubDate>Mon, 22 Jan 2024 00:00:00 GMT</pubDate>
+    <author>jack@youstra.com (Jack Youstra)</author>
+    <category>xcode</category>
+  </item>
+
+  <item>
+    <guid>https://jackyoustra.com/blog/binary-analysis</guid>
+    <title>Making a binary size viewer</title>
+    <link>https://jackyoustra.com/blog/binary-analysis</link>
+    <description>I like Bloaty! I also like cool treemaps. What if I could combine the two?</description>
+    <pubDate>Sat, 20 Jan 2024 00:00:00 GMT</pubDate>
+    <author>jack@youstra.com (Jack Youstra)</author>
+    <category>wasm</category><category>typescript</category>
+  </item>
+
+  <item>
+    <guid>https://jackyoustra.com/blog/anti-ufeatures</guid>
+    <title>The case against uFeature architectures</title>
+    <link>https://jackyoustra.com/blog/anti-ufeatures</link>
+    <description>uFeatures offer lower compile times, better modularity, better testability, stronger isolation, and more! Why wouldn&#39;t I use them?</description>
+    <pubDate>Thu, 21 Dec 2023 00:00:00 GMT</pubDate>
+    <author>jack@youstra.com (Jack Youstra)</author>
+    <category>swift</category><category>ios</category>
+  </item>
+
+  <item>
+    <guid>https://jackyoustra.com/blog/choosing-ios-project-manager</guid>
+    <title>Choosing iOS project managers</title>
+    <link>https://jackyoustra.com/blog/choosing-ios-project-manager</link>
+    <description>SPM modules are laggy and stuff. Are there better options?</description>
+    <pubDate>Thu, 30 Nov 2023 00:00:00 GMT</pubDate>
+    <author>jack@youstra.com (Jack Youstra)</author>
+    <category>xcode</category><category>ios</category>
+  </item>
+
+  <item>
+    <guid>https://jackyoustra.com/blog/failable-tests</guid>
+    <title>Trying to improve fatalError</title>
+    <link>https://jackyoustra.com/blog/failable-tests</link>
+    <description>It would be nice to catch fatal assertions, and magically turn all functions into throwing functions. Is it possible?</description>
+    <pubDate>Thu, 30 Nov 2023 00:00:00 GMT</pubDate>
+    <author>jack@youstra.com (Jack Youstra)</author>
+    <category>swift</category><category>ios</category>
+  </item>
+
+  <item>
+    <guid>https://jackyoustra.com/blog/tca-binary-size</guid>
+    <title>Fixing uFeature app binary sizes</title>
+    <link>https://jackyoustra.com/blog/tca-binary-size</link>
+    <description>Porting an app to a uFeature architecture leads to a doubling in binary size. Why? How can we fix it?</description>
+    <pubDate>Thu, 30 Nov 2023 00:00:00 GMT</pubDate>
+    <author>jack@youstra.com (Jack Youstra)</author>
+    <category>swift</category><category>ios</category><category>tca</category>
+  </item>
+
+  <item>
+    <guid>https://jackyoustra.com/blog/mtaudioprocessing</guid>
+    <title>Realtime audio processing in AVComposition in Swift</title>
+    <link>https://jackyoustra.com/blog/mtaudioprocessing</link>
+    <description>Trying to make realtime and offline cool audio effects without ffmpeg on iOS. Did someone say undocumented C APIs? I wish they didn&#39;t!</description>
+    <pubDate>Tue, 17 Oct 2023 00:00:00 GMT</pubDate>
+    <author>jack@youstra.com (Jack Youstra)</author>
+    <category>swift</category><category>c</category><category>ios</category><category>avfoundation</category>
+  </item>
+
+  <item>
+    <guid>https://jackyoustra.com/blog/app-thinning</guid>
+    <title>App thinning 🦙 on iOS</title>
+    <link>https://jackyoustra.com/blog/app-thinning</link>
+    <description>What if you want an app with different downloaded weights for different devices?</description>
+    <pubDate>Mon, 16 Oct 2023 00:00:00 GMT</pubDate>
+    <author>jack@youstra.com (Jack Youstra)</author>
+    <category>swift</category><category>xcode</category>
+  </item>
+
+  <item>
+    <guid>https://jackyoustra.com/blog/llama-ios</guid>
+    <title>🦙 on iOS</title>
+    <link>https://jackyoustra.com/blog/llama-ios</link>
+    <description>I never ended up writing up the stable diffusion port and immensely regretted it, so this time y&#39;alls get to hear about this odyssey of a port.</description>
+    <pubDate>Tue, 29 Aug 2023 00:00:00 GMT</pubDate>
+    <author>jack@youstra.com (Jack Youstra)</author>
+    <category>swift</category><category>cpp</category><category>ios</category><category>llm</category>
+  </item>
+
+  <item>
+    <guid>https://jackyoustra.com/blog/llama-apple-silicon</guid>
+    <title>Fixing llama 2</title>
+    <link>https://jackyoustra.com/blog/llama-apple-silicon</link>
+    <description>I wanna use llama, but it doesn&#39;t work on Apple Silicon! Can we fix it?</description>
+    <pubDate>Fri, 21 Jul 2023 00:00:00 GMT</pubDate>
+    <author>jack@youstra.com (Jack Youstra)</author>
+    <category>ml</category>
+  </item>
+
+  <item>
+    <guid>https://jackyoustra.com/blog/test-closure-once</guid>
+    <title>Test closure once semantics in Swift</title>
+    <link>https://jackyoustra.com/blog/test-closure-once</link>
+    <description>Trying to get those nice JS testing semantics in Swift</description>
+    <pubDate>Fri, 07 Jul 2023 00:00:00 GMT</pubDate>
+    <author>jack@youstra.com (Jack Youstra)</author>
+    <category>swift</category><category>tca</category><category>testing</category>
+  </item>
+
+  <item>
+    <guid>https://jackyoustra.com/blog/tca-test-recording</guid>
+    <title>TCA test recording</title>
+    <link>https://jackyoustra.com/blog/tca-test-recording</link>
+    <description>If you record all of the actions in an app, assert all of the states at every step, and record all of the side effects, you can replay the recording in a test and verify that the app behaves the same way and investigate why. This is a post about how I built a test recorder for TCA.</description>
+    <pubDate>Mon, 15 May 2023 00:00:00 GMT</pubDate>
+    <author>jack@youstra.com (Jack Youstra)</author>
+    <category>swift</category><category>ios</category><category>tca</category>
+  </item>
+
+  <item>
+    <guid>https://jackyoustra.com/blog/laggy-spm-refresh</guid>
+    <title>Laggy SPM refresh</title>
+    <link>https://jackyoustra.com/blog/laggy-spm-refresh</link>
+    <description>A post for my wandering mind during the couple frozen minutes after any file change in Xcode.</description>
+    <pubDate>Sat, 29 Apr 2023 00:00:00 GMT</pubDate>
+    <author>jack@youstra.com (Jack Youstra)</author>
+    <category>swift</category><category>security</category>
+  </item>
+
+  <item>
+    <guid>https://jackyoustra.com/blog/non-equatable-void</guid>
+    <title>Non-equatable void</title>
+    <link>https://jackyoustra.com/blog/non-equatable-void</link>
+    <description>A workaround for non-nominal types that don’t conform to Equatable, but really should</description>
+    <pubDate>Thu, 27 Apr 2023 00:00:00 GMT</pubDate>
+    <author>jack@youstra.com (Jack Youstra)</author>
+    <category>swift</category>
+  </item>
+
+  <item>
+    <guid>https://jackyoustra.com/blog/dylib-swizzling</guid>
+    <title>Dylib Swizzling</title>
+    <link>https://jackyoustra.com/blog/dylib-swizzling</link>
+    <description>When you want to inject a normal C function, things get tricky</description>
+    <pubDate>Tue, 18 Apr 2023 00:00:00 GMT</pubDate>
+    <author>jack@youstra.com (Jack Youstra)</author>
+    <category>ios</category><category>c</category><category>swift</category><category>dylib</category>
+  </item>
+
+  <item>
+    <guid>https://jackyoustra.com/blog/edit-bars</guid>
+    <title>Edit bars</title>
+    <link>https://jackyoustra.com/blog/edit-bars</link>
+    <description>Hard to non-destructive trim!</description>
+    <pubDate>Mon, 20 Mar 2023 00:00:00 GMT</pubDate>
+    <author>jack@youstra.com (Jack Youstra)</author>
+    <category>ios</category>
+  </item>
+
+  <item>
+    <guid>https://jackyoustra.com/blog/speaker-meaning</guid>
+    <title>The meaning of the word &quot;Speaker&quot;</title>
+    <link>https://jackyoustra.com/blog/speaker-meaning</link>
+    <description>The alternative to &#39;Speaker&#39; is, apparently, &#39;Receiver&#39;.</description>
+    <pubDate>Thu, 09 Feb 2023 00:00:00 GMT</pubDate>
+    <author>jack@youstra.com (Jack Youstra)</author>
+    <category>swift</category><category>ios</category>
+  </item>
+
+  <item>
+    <guid>https://jackyoustra.com/blog/live-text-kvo</guid>
+    <title>Debugging a spurious AVPlayer KVO Crash</title>
+    <link>https://jackyoustra.com/blog/live-text-kvo</link>
+    <description>Maybe, one day, Apple will switch to using Swift and we&#39;ll see a reduction in SDK bugs.</description>
+    <pubDate>Thu, 08 Dec 2022 00:00:00 GMT</pubDate>
+    <author>jack@youstra.com (Jack Youstra)</author>
+    <category>swift</category><category>ios</category>
+  </item>
+
+  <item>
+    <guid>https://jackyoustra.com/blog/copilot-outtakes</guid>
+    <title>Copilot outtakes</title>
+    <link>https://jackyoustra.com/blog/copilot-outtakes</link>
+    <description>The curse of dimensionality meets (ai generated:) the curse of copilot</description>
+    <pubDate>Tue, 29 Nov 2022 00:00:00 GMT</pubDate>
+    <author>jack@youstra.com (Jack Youstra)</author>
+    <category>copilot</category>
+  </item>
+
+  <item>
+    <guid>https://jackyoustra.com/blog/protocol-objc-bridge-unsafe</guid>
+    <title>Unfixable edge cases in using Objective-C protocols in Swift</title>
+    <link>https://jackyoustra.com/blog/protocol-objc-bridge-unsafe</link>
+    <description>Using runtime declarations as a feature in an otherwise strongly-typed language is not a great idea.</description>
+    <pubDate>Mon, 21 Nov 2022 00:00:00 GMT</pubDate>
+    <author>jack@youstra.com (Jack Youstra)</author>
+    <category>swift</category><category>objective-c</category>
+  </item>
+
+  <item>
+    <guid>https://jackyoustra.com/blog/swift-macros-proposal</guid>
+    <title>A first look at the Swift macro system</title>
+    <link>https://jackyoustra.com/blog/swift-macros-proposal</link>
+    <description>Hopefully this is the beginning of the end of writing Python scripts in Swift code.</description>
+    <pubDate>Mon, 21 Nov 2022 00:00:00 GMT</pubDate>
+    <author>jack@youstra.com (Jack Youstra)</author>
+    <category>swift</category><category>rust</category>
+  </item>
+
+  <item>
+    <guid>https://jackyoustra.com/blog/recursive-metal-includes</guid>
+    <title>SPM metal includes flag</title>
+    <link>https://jackyoustra.com/blog/recursive-metal-includes</link>
+    <description>A -&gt; B -&gt; C, but a metal file in B needs to include something from A?</description>
+    <pubDate>Mon, 14 Nov 2022 00:00:00 GMT</pubDate>
+    <author>jack@youstra.com (Jack Youstra)</author>
+    <category>swift</category><category>spm</category><category>metal</category>
+  </item>
+
+  <item>
+    <guid>https://jackyoustra.com/blog/tca-state-sharing</guid>
+    <title>TCA State Sharing</title>
+    <link>https://jackyoustra.com/blog/tca-state-sharing</link>
+    <description>A used in B used in C, but A relies on state owned by C.</description>
+    <pubDate>Mon, 14 Nov 2022 00:00:00 GMT</pubDate>
+    <author>jack@youstra.com (Jack Youstra)</author>
+    <category>swift</category><category>tca</category>
+  </item>
+
+  <item>
+    <guid>https://jackyoustra.com/blog/v2-savegame-analyzer</guid>
+    <title>Victoria 2 Savegame Analyzer</title>
+    <link>https://jackyoustra.com/blog/v2-savegame-analyzer</link>
+    <description>An abandoned attempt to analyze Victoria 2 savegames and do cool website stuff with it. Perhaps I&#39;ll pick it up later?</description>
+    <pubDate>Sun, 15 Aug 2021 00:00:00 GMT</pubDate>
+    <author>jack@youstra.com (Jack Youstra)</author>
+    <category>victoria</category><category>typescript</category>
+  </item>
+
+    </channel>
+  </rss>

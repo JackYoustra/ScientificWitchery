@@ -1,0 +1,134 @@
+
+  <rss version="2.0" xmlns:atom="http://www.w3.org/2005/Atom">
+    <channel>
+      <title>Scientific Witchery</title>
+      <link>https://jackyoustra.com/blog</link>
+      <description>Writings on my projects and cool language features.</description>
+      <language>en-us</language>
+      <managingEditor>jack@youstra.com (Jack Youstra)</managingEditor>
+      <webMaster>jack@youstra.com (Jack Youstra)</webMaster>
+      <lastBuildDate>Thu, 21 Dec 2023 00:00:00 GMT</lastBuildDate>
+      <atom:link href="https://jackyoustra.com/tags/ios/feed.xml" rel="self" type="application/rss+xml"/>
+      
+  <item>
+    <guid>https://jackyoustra.com/blog/anti-ufeatures</guid>
+    <title>The case against uFeature architectures</title>
+    <link>https://jackyoustra.com/blog/anti-ufeatures</link>
+    <description>uFeatures offer lower compile times, better modularity, better testability, stronger isolation, and more! Why wouldn&#39;t I use them?</description>
+    <pubDate>Thu, 21 Dec 2023 00:00:00 GMT</pubDate>
+    <author>jack@youstra.com (Jack Youstra)</author>
+    <category>swift</category><category>ios</category>
+  </item>
+
+  <item>
+    <guid>https://jackyoustra.com/blog/choosing-ios-project-manager</guid>
+    <title>Choosing iOS project managers</title>
+    <link>https://jackyoustra.com/blog/choosing-ios-project-manager</link>
+    <description>SPM modules are laggy and stuff. Are there better options?</description>
+    <pubDate>Thu, 30 Nov 2023 00:00:00 GMT</pubDate>
+    <author>jack@youstra.com (Jack Youstra)</author>
+    <category>xcode</category><category>ios</category>
+  </item>
+
+  <item>
+    <guid>https://jackyoustra.com/blog/dylib-swizzling</guid>
+    <title>Dylib Swizzling</title>
+    <link>https://jackyoustra.com/blog/dylib-swizzling</link>
+    <description>When you want to inject a normal C function, things get tricky</description>
+    <pubDate>Tue, 18 Apr 2023 00:00:00 GMT</pubDate>
+    <author>jack@youstra.com (Jack Youstra)</author>
+    <category>ios</category><category>c</category><category>swift</category><category>dylib</category>
+  </item>
+
+  <item>
+    <guid>https://jackyoustra.com/blog/edit-bars</guid>
+    <title>Edit bars</title>
+    <link>https://jackyoustra.com/blog/edit-bars</link>
+    <description>Hard to non-destructive trim!</description>
+    <pubDate>Mon, 20 Mar 2023 00:00:00 GMT</pubDate>
+    <author>jack@youstra.com (Jack Youstra)</author>
+    <category>ios</category>
+  </item>
+
+  <item>
+    <guid>https://jackyoustra.com/blog/failable-tests</guid>
+    <title>Trying to improve fatalError</title>
+    <link>https://jackyoustra.com/blog/failable-tests</link>
+    <description>It would be nice to catch fatal assertions, and magically turn all functions into throwing functions. Is it possible?</description>
+    <pubDate>Thu, 30 Nov 2023 00:00:00 GMT</pubDate>
+    <author>jack@youstra.com (Jack Youstra)</author>
+    <category>swift</category><category>ios</category>
+  </item>
+
+  <item>
+    <guid>https://jackyoustra.com/blog/live-text-kvo</guid>
+    <title>Debugging a spurious AVPlayer KVO Crash</title>
+    <link>https://jackyoustra.com/blog/live-text-kvo</link>
+    <description>Maybe, one day, Apple will switch to using Swift and we&#39;ll see a reduction in SDK bugs.</description>
+    <pubDate>Thu, 08 Dec 2022 00:00:00 GMT</pubDate>
+    <author>jack@youstra.com (Jack Youstra)</author>
+    <category>swift</category><category>ios</category>
+  </item>
+
+  <item>
+    <guid>https://jackyoustra.com/blog/llama-ios</guid>
+    <title>🦙 on iOS</title>
+    <link>https://jackyoustra.com/blog/llama-ios</link>
+    <description>I never ended up writing up the stable diffusion port and immensely regretted it, so this time y&#39;alls get to hear about this odyssey of a port.</description>
+    <pubDate>Tue, 29 Aug 2023 00:00:00 GMT</pubDate>
+    <author>jack@youstra.com (Jack Youstra)</author>
+    <category>swift</category><category>cpp</category><category>ios</category><category>llm</category>
+  </item>
+
+  <item>
+    <guid>https://jackyoustra.com/blog/mtaudioprocessing</guid>
+    <title>Realtime audio processing in AVComposition in Swift</title>
+    <link>https://jackyoustra.com/blog/mtaudioprocessing</link>
+    <description>Trying to make realtime and offline cool audio effects without ffmpeg on iOS. Did someone say undocumented C APIs? I wish they didn&#39;t!</description>
+    <pubDate>Tue, 17 Oct 2023 00:00:00 GMT</pubDate>
+    <author>jack@youstra.com (Jack Youstra)</author>
+    <category>swift</category><category>c</category><category>ios</category><category>avfoundation</category>
+  </item>
+
+  <item>
+    <guid>https://jackyoustra.com/blog/speaker-meaning</guid>
+    <title>The meaning of the word &quot;Speaker&quot;</title>
+    <link>https://jackyoustra.com/blog/speaker-meaning</link>
+    <description>The alternative to &#39;Speaker&#39; is, apparently, &#39;Receiver&#39;.</description>
+    <pubDate>Thu, 09 Feb 2023 00:00:00 GMT</pubDate>
+    <author>jack@youstra.com (Jack Youstra)</author>
+    <category>swift</category><category>ios</category>
+  </item>
+
+  <item>
+    <guid>https://jackyoustra.com/blog/tca-binary-size</guid>
+    <title>Fixing uFeature app binary sizes</title>
+    <link>https://jackyoustra.com/blog/tca-binary-size</link>
+    <description>Porting an app to a uFeature architecture leads to a doubling in binary size. Why? How can we fix it?</description>
+    <pubDate>Thu, 30 Nov 2023 00:00:00 GMT</pubDate>
+    <author>jack@youstra.com (Jack Youstra)</author>
+    <category>swift</category><category>ios</category><category>tca</category>
+  </item>
+
+  <item>
+    <guid>https://jackyoustra.com/blog/tca-test-recording</guid>
+    <title>TCA test recording</title>
+    <link>https://jackyoustra.com/blog/tca-test-recording</link>
+    <description>If you record all of the actions in an app, assert all of the states at every step, and record all of the side effects, you can replay the recording in a test and verify that the app behaves the same way and investigate why. This is a post about how I built a test recorder for TCA.</description>
+    <pubDate>Mon, 15 May 2023 00:00:00 GMT</pubDate>
+    <author>jack@youstra.com (Jack Youstra)</author>
+    <category>swift</category><category>ios</category><category>tca</category>
+  </item>
+
+  <item>
+    <guid>https://jackyoustra.com/blog/unexpected-prewarming</guid>
+    <title>Not all apps are born with a tap</title>
+    <link>https://jackyoustra.com/blog/unexpected-prewarming</link>
+    <description>No test facilities? Edge cases that are hard to reproduce but most apps run into? Just another day on Apple&#39;s wild ride.</description>
+    <pubDate>Sun, 03 Mar 2024 00:00:00 GMT</pubDate>
+    <author>jack@youstra.com (Jack Youstra)</author>
+    <category>swift</category><category>ios</category>
+  </item>
+
+    </channel>
+  </rss>

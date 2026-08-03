@@ -1,5 +1,5 @@
-import createBloatyModule from 'public/static/emscripten/bloaty'
-import type { BloatyModule } from 'public/static/emscripten/bloaty'
+import createBloatyModule from '@/public/static/emscripten/bloaty'
+import type { BloatyModule } from '@/public/static/emscripten/bloaty'
 import Papa from 'papaparse'
 import type { WasmBinaryResult } from 'rust-wasm'
 import _ from 'lodash'

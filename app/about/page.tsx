@@ -1,7 +1,7 @@
 import { allAuthors, type Authors } from '@/lib/content'
 import { MDXRenderer } from '@/components/MDXRenderer'
 import AuthorLayout from '@/layouts/AuthorLayout'
-import { genPageMetadata } from 'app/seo'
+import { genPageMetadata } from '@/app/seo'
 
 export const metadata = genPageMetadata({ title: 'Me' })
 

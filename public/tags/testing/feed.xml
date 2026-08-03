@@ -1,0 +1,24 @@
+
+  <rss version="2.0" xmlns:atom="http://www.w3.org/2005/Atom">
+    <channel>
+      <title>Scientific Witchery</title>
+      <link>https://jackyoustra.com/blog</link>
+      <description>Writings on my projects and cool language features.</description>
+      <language>en-us</language>
+      <managingEditor>jack@youstra.com (Jack Youstra)</managingEditor>
+      <webMaster>jack@youstra.com (Jack Youstra)</webMaster>
+      <lastBuildDate>Fri, 07 Jul 2023 00:00:00 GMT</lastBuildDate>
+      <atom:link href="https://jackyoustra.com/tags/testing/feed.xml" rel="self" type="application/rss+xml"/>
+      
+  <item>
+    <guid>https://jackyoustra.com/blog/test-closure-once</guid>
+    <title>Test closure once semantics in Swift</title>
+    <link>https://jackyoustra.com/blog/test-closure-once</link>
+    <description>Trying to get those nice JS testing semantics in Swift</description>
+    <pubDate>Fri, 07 Jul 2023 00:00:00 GMT</pubDate>
+    <author>jack@youstra.com (Jack Youstra)</author>
+    <category>swift</category><category>tca</category><category>testing</category>
+  </item>
+
+    </channel>
+  </rss>

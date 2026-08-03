@@ -1,0 +1,24 @@
+
+  <rss version="2.0" xmlns:atom="http://www.w3.org/2005/Atom">
+    <channel>
+      <title>Scientific Witchery</title>
+      <link>https://jackyoustra.com/blog</link>
+      <description>Writings on my projects and cool language features.</description>
+      <language>en-us</language>
+      <managingEditor>jack@youstra.com (Jack Youstra)</managingEditor>
+      <webMaster>jack@youstra.com (Jack Youstra)</webMaster>
+      <lastBuildDate>Sun, 15 Aug 2021 00:00:00 GMT</lastBuildDate>
+      <atom:link href="https://jackyoustra.com/tags/victoria/feed.xml" rel="self" type="application/rss+xml"/>
+      
+  <item>
+    <guid>https://jackyoustra.com/blog/v2-savegame-analyzer</guid>
+    <title>Victoria 2 Savegame Analyzer</title>
+    <link>https://jackyoustra.com/blog/v2-savegame-analyzer</link>
+    <description>An abandoned attempt to analyze Victoria 2 savegames and do cool website stuff with it. Perhaps I&#39;ll pick it up later?</description>
+    <pubDate>Sun, 15 Aug 2021 00:00:00 GMT</pubDate>
+    <author>jack@youstra.com (Jack Youstra)</author>
+    <category>victoria</category><category>typescript</category>
+  </item>
+
+    </channel>
+  </rss>

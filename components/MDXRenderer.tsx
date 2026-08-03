@@ -1,6 +1,8 @@
 import * as runtime from 'react/jsx-runtime'
 import type { MDXComponents } from 'mdx/types'
 
+type MDXContentComponent = (props: Record<string, unknown>) => React.ReactElement
+
 /**
  * Runs the MDX that Velite compiled at build time.
  *
@@ -20,8 +22,21 @@ import type { MDXComponents } from 'mdx/types'
  * Contentlayer's esbuild bundle instead — that one expected `React`,
  * `ReactDOM` and `_jsx_runtime` as named function arguments.
  */
-export function getMDXComponent(code: string) {
-  return new Function(code)(runtime).default
+/**
+ * Compiled components are cached by source. Evaluating `new Function` during
+ * render creates a fresh component type every time, which React treats as a
+ * different component — it remounts the subtree and discards its state. The
+ * post bodies are build-time constants, so one evaluation each is enough.
+ */
+const compiled = new Map<string, MDXContentComponent>()
+
+export function getMDXComponent(code: string): MDXContentComponent {
+  let component = compiled.get(code)
+  if (!component) {
+    component = new Function(code)(runtime).default as MDXContentComponent
+    compiled.set(code, component)
+  }
+  return component
 }
 
 interface MDXRendererProps {
@@ -31,6 +46,10 @@ interface MDXRendererProps {
 }
 
 export function MDXRenderer({ code, components, ...rest }: MDXRendererProps) {
+  // The rule guards against a fresh component type per render remounting the
+  // subtree and losing its state. Neither applies: this is a server component
+  // rendered once per page, and `getMDXComponent` memoises by source so a
+  // given post always yields the identical component reference.
   const MDXContent = getMDXComponent(code)
   return <MDXContent components={components} {...rest} />
 }

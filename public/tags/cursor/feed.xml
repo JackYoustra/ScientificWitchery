@@ -1,0 +1,44 @@
+
+  <rss version="2.0" xmlns:atom="http://www.w3.org/2005/Atom">
+    <channel>
+      <title>Scientific Witchery</title>
+      <link>https://jackyoustra.com/blog</link>
+      <description>Writings on my projects and cool language features.</description>
+      <language>en-us</language>
+      <managingEditor>jack@youstra.com (Jack Youstra)</managingEditor>
+      <webMaster>jack@youstra.com (Jack Youstra)</webMaster>
+      <lastBuildDate>Mon, 03 Mar 2025 00:00:00 GMT</lastBuildDate>
+      <atom:link href="https://jackyoustra.com/tags/cursor/feed.xml" rel="self" type="application/rss+xml"/>
+      
+  <item>
+    <guid>https://jackyoustra.com/blog/cursor-agent</guid>
+    <title>Mastering Cursor&#39;s Agent Mode: Test-Driven Development with AI</title>
+    <link>https://jackyoustra.com/blog/cursor-agent</link>
+    <description>An in-depth guide to leveraging Cursor&#39;s Agent Mode for test-driven development, with powerful workflows that maximize AI assistance without sacrificing code quality.</description>
+    <pubDate>Mon, 03 Mar 2025 00:00:00 GMT</pubDate>
+    <author>jack@youstra.com (Jack Youstra)</author>
+    <category>cursor</category>
+  </item>
+
+  <item>
+    <guid>https://jackyoustra.com/blog/cursor-overview</guid>
+    <title>Using Cursor AI IDE Like a Pro: Advanced Strategies for AI-Assisted Development</title>
+    <link>https://jackyoustra.com/blog/cursor-overview</link>
+    <description>A comprehensive guide to getting the most out of Cursor and other AI-assisted development environments with practical workflows and hidden features.</description>
+    <pubDate>Sun, 02 Mar 2025 00:00:00 GMT</pubDate>
+    <author>jack@youstra.com (Jack Youstra)</author>
+    <category>cursor</category>
+  </item>
+
+  <item>
+    <guid>https://jackyoustra.com/blog/cursor-settings-location</guid>
+    <title>Trying to change Cursor settings without clicking? Sync them? Read them? Good luck!</title>
+    <link>https://jackyoustra.com/blog/cursor-settings-location</link>
+    <description>No more nice editable json for settings, the AI world demands (checks notes) a JSON blob shoved in a cell in an SQL table 🤦</description>
+    <pubDate>Wed, 05 Mar 2025 00:00:00 GMT</pubDate>
+    <author>jack@youstra.com (Jack Youstra)</author>
+    <category>cursor</category>
+  </item>
+
+    </channel>
+  </rss>

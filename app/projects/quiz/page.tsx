@@ -1,4 +1,4 @@
-import { genPageMetadata } from 'app/seo'
+import { genPageMetadata } from '@/app/seo'
 import Quiz from './Quiz'
 
 export const metadata = genPageMetadata({
@@ -11,7 +11,7 @@ export default function Projects() {
   return (
     <>
       <h2 className="text-center text-2xl font-bold italic">
-        I can't find the neoliberal project's buzzfeed quiz anymore, so I made my own copy of it.
+        I can&apos;t find the neoliberal project&apos;s buzzfeed quiz anymore, so I made my own copy of it.
         Enjoy!
       </h2>
       <hr />

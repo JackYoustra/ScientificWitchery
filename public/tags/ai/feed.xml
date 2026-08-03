@@ -1,0 +1,44 @@
+
+  <rss version="2.0" xmlns:atom="http://www.w3.org/2005/Atom">
+    <channel>
+      <title>Scientific Witchery</title>
+      <link>https://jackyoustra.com/blog</link>
+      <description>Writings on my projects and cool language features.</description>
+      <language>en-us</language>
+      <managingEditor>jack@youstra.com (Jack Youstra)</managingEditor>
+      <webMaster>jack@youstra.com (Jack Youstra)</webMaster>
+      <lastBuildDate>Tue, 01 Oct 2024 00:00:00 GMT</lastBuildDate>
+      <atom:link href="https://jackyoustra.com/tags/ai/feed.xml" rel="self" type="application/rss+xml"/>
+      
+  <item>
+    <guid>https://jackyoustra.com/blog/ai-ramp</guid>
+    <title>AI Ramp</title>
+    <link>https://jackyoustra.com/blog/ai-ramp</link>
+    <description>My thoughts after working on AI for a few months</description>
+    <pubDate>Tue, 01 Oct 2024 00:00:00 GMT</pubDate>
+    <author>jack@youstra.com (Jack Youstra)</author>
+    <category>ai</category>
+  </item>
+
+  <item>
+    <guid>https://jackyoustra.com/blog/computer-use-first-glance</guid>
+    <title>A quick trial of claude&#39;s new computer use</title>
+    <link>https://jackyoustra.com/blog/computer-use-first-glance</link>
+    <description>A quick trial of Claude&#39;s new computer use feature.</description>
+    <pubDate>Wed, 23 Oct 2024 00:00:00 GMT</pubDate>
+    <author>jack@youstra.com (Jack Youstra)</author>
+    <category>ai</category>
+  </item>
+
+  <item>
+    <guid>https://jackyoustra.com/blog/deepseek-r1</guid>
+    <title>DeepSeek R1 released: A Leap Forward in AI Reasoning</title>
+    <link>https://jackyoustra.com/blog/deepseek-r1</link>
+    <description>A stunningly-good CoT model, with even better distilled children.</description>
+    <pubDate>Wed, 22 Jan 2025 00:00:00 GMT</pubDate>
+    <author>jack@youstra.com (Jack Youstra)</author>
+    <category>ai</category>
+  </item>
+
+    </channel>
+  </rss>

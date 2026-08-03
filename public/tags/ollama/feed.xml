@@ -1,0 +1,24 @@
+
+  <rss version="2.0" xmlns:atom="http://www.w3.org/2005/Atom">
+    <channel>
+      <title>Scientific Witchery</title>
+      <link>https://jackyoustra.com/blog</link>
+      <description>Writings on my projects and cool language features.</description>
+      <language>en-us</language>
+      <managingEditor>jack@youstra.com (Jack Youstra)</managingEditor>
+      <webMaster>jack@youstra.com (Jack Youstra)</webMaster>
+      <lastBuildDate>Sat, 08 Jun 2024 00:00:00 GMT</lastBuildDate>
+      <atom:link href="https://jackyoustra.com/tags/ollama/feed.xml" rel="self" type="application/rss+xml"/>
+      
+  <item>
+    <guid>https://jackyoustra.com/blog/typescript-with-ollama</guid>
+    <title>Typescript-conforming outputs with Ollama</title>
+    <link>https://jackyoustra.com/blog/typescript-with-ollama</link>
+    <description>&quot;Hey please generate a json with these fields&quot; never ever works. Can we do better?</description>
+    <pubDate>Sat, 08 Jun 2024 00:00:00 GMT</pubDate>
+    <author>jack@youstra.com (Jack Youstra)</author>
+    <category>llm</category><category>ollama</category>
+  </item>
+
+    </channel>
+  </rss>

@@ -21,7 +21,7 @@ export type CoreContent<T> = Omit<T, 'body'>
 const isProduction = process.env.NODE_ENV === 'production'
 
 export function coreContent<T extends { body: unknown }>(content: T): CoreContent<T> {
-  const { body, ...rest } = content
+  const { body: _body, ...rest } = content
   return rest
 }
 

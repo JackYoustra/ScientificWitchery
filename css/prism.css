@@ -1,3 +1,7 @@
+/* @apply below needs the project's own theme in scope — a bare
+   `@reference "tailwindcss"` would not carry the primary-* aliases. */
+@reference '../app/globals.css';
+
 /**
  * CSS Styles for code highlighting.
  * Feel free to customize token styles 
@@ -24,15 +28,15 @@
 }
 
 .code-line.inserted {
-  @apply bg-green-500 bg-opacity-20;
+  @apply bg-green-500/20;
 }
 
 .code-line.deleted {
-  @apply bg-red-500 bg-opacity-20;
+  @apply bg-red-500/20;
 }
 
 .highlight-line {
-  @apply -mx-4 border-l-4 border-primary-500 bg-gray-700 bg-opacity-50;
+  @apply -mx-4 border-l-4 border-primary-500 bg-gray-700/50;
 }
 
 .line-number::before {

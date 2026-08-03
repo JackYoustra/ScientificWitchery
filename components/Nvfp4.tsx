@@ -100,17 +100,17 @@ const BitRepresentation = ({ value }: { value: number }) => {
     <div className="space-y-1">
       <div className="flex items-center gap-1">
         <div
-          className={`rounded px-2 py-1 font-mono text-xs ${
+          className={`rounded-sm px-2 py-1 font-mono text-xs ${
             binary[0] === '0' ? 'bg-green-500' : 'bg-red-500'
           }`}
           title="Sign bit"
         >
           {binary[0]}
         </div>
-        <div className="rounded bg-blue-500 px-2 py-1 font-mono text-xs" title="Exponent">
+        <div className="rounded-sm bg-blue-500 px-2 py-1 font-mono text-xs" title="Exponent">
           {exp}
         </div>
-        <div className="rounded bg-purple-500 px-2 py-1 font-mono text-xs" title="Mantissa">
+        <div className="rounded-sm bg-purple-500 px-2 py-1 font-mono text-xs" title="Mantissa">
           {mantissa}
         </div>
         <div className="ml-2 text-xs text-gray-400">= {value}</div>
@@ -224,7 +224,7 @@ const NVFP4ScalingDemo = () => {
         {microBlocks.map((block, blockIdx) => (
           <div
             key={blockIdx}
-            className={`rounded bg-gray-800 p-2 transition-all ${
+            className={`rounded-sm bg-gray-800 p-2 transition-all ${
               hoveredSlider === 'tensor'
                 ? 'ring-2 ring-green-500 ring-opacity-50'
                 : hoveredSlider === 'block' && blockIdx === selectedBlock
@@ -249,7 +249,7 @@ const NVFP4ScalingDemo = () => {
                       setSelectedBlock(blockIdx)
                       setSelectedIndex(idx)
                     }}
-                    className={`rounded p-1 font-mono text-[10px] transition-all hover:scale-105 ${
+                    className={`rounded-sm p-1 font-mono text-[10px] transition-all hover:scale-105 ${
                       isSelected ? 'ring-2 ring-white' : ''
                     }`}
                     style={{ backgroundColor: color }}
@@ -276,13 +276,13 @@ const NVFP4ScalingDemo = () => {
 
       <div className="mb-3 flex items-center gap-2 text-center text-xs text-green-400">
         <div className="h-px flex-1 bg-green-600"></div>
-        <div className="rounded bg-green-900 px-3 py-1">
+        <div className="rounded-sm bg-green-900 px-3 py-1">
           Tensor Scale: {tensorScale.toFixed(2)} (applies to all blocks)
         </div>
         <div className="h-px flex-1 bg-green-600"></div>
       </div>
 
-      <div className="space-y-3 rounded bg-gray-800 p-4">
+      <div className="space-y-3 rounded-sm bg-gray-800 p-4">
         <div className="flex items-center justify-between">
           <div className="text-sm text-gray-400">
             Selected: Block {selectedBlock + 1}, Value #{selectedIndex + 1}
@@ -290,7 +290,7 @@ const NVFP4ScalingDemo = () => {
           <div className="flex items-center gap-3 text-xs">
             <div className="flex items-center gap-1">
               <div
-                className="h-3 w-3 rounded"
+                className="h-3 w-3 rounded-sm"
                 style={{ backgroundColor: getErrorColor(0, maxError) }}
               ></div>
               <span className="text-gray-500">0</span>
@@ -298,7 +298,7 @@ const NVFP4ScalingDemo = () => {
             <div className="text-gray-600">→</div>
             <div className="flex items-center gap-1">
               <div
-                className="h-3 w-3 rounded"
+                className="h-3 w-3 rounded-sm"
                 style={{ backgroundColor: getErrorColor(maxError / 2, maxError) }}
               ></div>
               <span className="text-gray-500">{(maxError / 2).toFixed(1)}</span>
@@ -306,7 +306,7 @@ const NVFP4ScalingDemo = () => {
             <div className="text-gray-600">→</div>
             <div className="flex items-center gap-1">
               <div
-                className="h-3 w-3 rounded"
+                className="h-3 w-3 rounded-sm"
                 style={{ backgroundColor: getErrorColor(maxError, maxError) }}
               ></div>
               <span className="text-gray-500">{maxError.toFixed(1)}</span>
@@ -353,7 +353,7 @@ const NVFP4ScalingDemo = () => {
                 setBlockScales(globalOptimalScales.blockScales)
                 setTensorScale(globalOptimalScales.tensorScale)
               }}
-              className="rounded bg-gray-700 px-2 py-0.5 text-xs text-white transition-colors hover:bg-gray-600"
+              className="rounded-sm bg-gray-700 px-2 py-0.5 text-xs text-white transition-colors hover:bg-gray-600"
             >
               Reset to Optimal
             </button>
@@ -416,11 +416,11 @@ const NVFP4ScalingDemo = () => {
           </div>
         </div>
 
-        <div className="mt-3 rounded bg-gray-700 p-2 text-xs text-gray-500">
+        <div className="mt-3 rounded-sm bg-gray-700 p-2 text-xs text-gray-500">
           💡 Block scales handle local variations, tensor scale normalizes globally
         </div>
 
-        <div className="mt-3 rounded bg-gray-700 p-3">
+        <div className="mt-3 rounded-sm bg-gray-700 p-3">
           <div className="text-xs text-gray-400">
             <span className="font-mono text-white">
               Total Error:{' '}
@@ -445,9 +445,9 @@ const UsageContext = () => {
   return (
     <div className="mb-6 rounded-lg bg-gray-900 p-4">
       <h3 className="mb-3 text-lg font-semibold text-white">NVFP4 in Matrix Multiplication</h3>
-      <div className="rounded bg-gray-800 p-4">
+      <div className="rounded-sm bg-gray-800 p-4">
         <div className="space-y-3 text-sm text-gray-300">
-          <div className="rounded bg-gray-700 p-3 font-mono text-xs">
+          <div className="rounded-sm bg-gray-700 p-3 font-mono text-xs">
             {/* eslint-disable-next-line */}
             <div className="text-green-400">// Weight matrix (e.g., 4096×4096)</div>
             <div>W_fp16: 32 MB → W_fp4: 8 MB + 1 MB scales</div>
@@ -455,8 +455,8 @@ const UsageContext = () => {
             <div className="text-blue-400">// 3.6× compression</div>
           </div>
 
-          <p>The GPU's Blackwell Tensor Cores handle dequantization in hardware:</p>
-          <div className="rounded bg-gray-700 p-2 font-mono text-sm">
+          <p>The GPU&apos;s Blackwell Tensor Cores handle dequantization in hardware:</p>
+          <div className="rounded-sm bg-gray-700 p-2 font-mono text-sm">
             fp4_weight × block_scale × tensor_scale → fp16_value
           </div>
         </div>
@@ -481,7 +481,7 @@ const ModelSpeedupCalculator = () => {
       <h3 className="mb-3 text-lg font-semibold text-white">RTX 5090 Performance Impact</h3>
 
       <div className="grid grid-cols-2 gap-4">
-        <div className="rounded bg-gray-800 p-3">
+        <div className="rounded-sm bg-gray-800 p-3">
           <h4 className="mb-2 text-sm font-semibold text-gray-400">Compute</h4>
           <div className="font-mono text-2xl text-yellow-400">
             {(gpuSpecs.fp4Tflops / gpuSpecs.fp16Tflops).toFixed(1)}×
@@ -489,7 +489,7 @@ const ModelSpeedupCalculator = () => {
           <div className="text-xs text-gray-500">FP4 vs FP16 TOPS</div>
         </div>
 
-        <div className="rounded bg-gray-800 p-3">
+        <div className="rounded-sm bg-gray-800 p-3">
           <h4 className="mb-2 text-sm font-semibold text-gray-400">Memory</h4>
           <div className="font-mono text-2xl text-green-400">
             {(fp16MemoryGB / fp4MemoryGB).toFixed(1)}×

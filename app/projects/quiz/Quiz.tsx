@@ -183,7 +183,7 @@ export default function Quiz({
                 id={`${id}-q${questionIndex}`}
                 tabIndex={-1}
                 style={{ background: question.backgroundColor, color: fontColor }}
-                className={`mb-4 flex min-h-[7.5rem] scroll-mt-24 items-center justify-center rounded-[3px] p-3 text-center font-extrabold leading-[1.1] outline-none ${fitClass(
+                className={`mb-4 flex min-h-[7.5rem] scroll-mt-24 items-center justify-center rounded-[3px] p-3 text-center font-extrabold leading-[1.1] outline-hidden ${fitClass(
                   question.question,
                   ['text-3xl sm:text-5xl', 'text-2xl sm:text-4xl', 'text-xl sm:text-3xl']
                 )}`}
@@ -231,7 +231,7 @@ export default function Quiz({
           id={`${id}-result`}
           tabIndex={-1}
           aria-label="Your result"
-          className="mt-8 scroll-mt-24 rounded-[3px] bg-[linear-gradient(180deg,#e40c78_0%,#ee3322_51.44%,#e40c78_100%)] p-4 outline-none sm:px-4 sm:py-6"
+          className="mt-8 scroll-mt-24 rounded-[3px] bg-[linear-gradient(180deg,#e40c78_0%,#ee3322_51.44%,#e40c78_100%)] p-4 outline-hidden sm:px-4 sm:py-6"
         >
           <div className="mb-4 sm:mb-6">
             <h2 className="m-0 text-left text-sm font-bold leading-[1.2] text-white sm:text-lg">

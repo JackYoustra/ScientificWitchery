@@ -1,0 +1,34 @@
+
+  <rss version="2.0" xmlns:atom="http://www.w3.org/2005/Atom">
+    <channel>
+      <title>Scientific Witchery</title>
+      <link>https://jackyoustra.com/blog</link>
+      <description>Writings on my projects and cool language features.</description>
+      <language>en-us</language>
+      <managingEditor>jack@youstra.com (Jack Youstra)</managingEditor>
+      <webMaster>jack@youstra.com (Jack Youstra)</webMaster>
+      <lastBuildDate>Tue, 18 Apr 2023 00:00:00 GMT</lastBuildDate>
+      <atom:link href="https://jackyoustra.com/tags/c/feed.xml" rel="self" type="application/rss+xml"/>
+      
+  <item>
+    <guid>https://jackyoustra.com/blog/dylib-swizzling</guid>
+    <title>Dylib Swizzling</title>
+    <link>https://jackyoustra.com/blog/dylib-swizzling</link>
+    <description>When you want to inject a normal C function, things get tricky</description>
+    <pubDate>Tue, 18 Apr 2023 00:00:00 GMT</pubDate>
+    <author>jack@youstra.com (Jack Youstra)</author>
+    <category>ios</category><category>c</category><category>swift</category><category>dylib</category>
+  </item>
+
+  <item>
+    <guid>https://jackyoustra.com/blog/mtaudioprocessing</guid>
+    <title>Realtime audio processing in AVComposition in Swift</title>
+    <link>https://jackyoustra.com/blog/mtaudioprocessing</link>
+    <description>Trying to make realtime and offline cool audio effects without ffmpeg on iOS. Did someone say undocumented C APIs? I wish they didn&#39;t!</description>
+    <pubDate>Tue, 17 Oct 2023 00:00:00 GMT</pubDate>
+    <author>jack@youstra.com (Jack Youstra)</author>
+    <category>swift</category><category>c</category><category>ios</category><category>avfoundation</category>
+  </item>
+
+    </channel>
+  </rss>

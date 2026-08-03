@@ -1,0 +1,24 @@
+
+  <rss version="2.0" xmlns:atom="http://www.w3.org/2005/Atom">
+    <channel>
+      <title>Scientific Witchery</title>
+      <link>https://jackyoustra.com/blog</link>
+      <description>Writings on my projects and cool language features.</description>
+      <language>en-us</language>
+      <managingEditor>jack@youstra.com (Jack Youstra)</managingEditor>
+      <webMaster>jack@youstra.com (Jack Youstra)</webMaster>
+      <lastBuildDate>Sat, 20 Jan 2024 00:00:00 GMT</lastBuildDate>
+      <atom:link href="https://jackyoustra.com/tags/wasm/feed.xml" rel="self" type="application/rss+xml"/>
+      
+  <item>
+    <guid>https://jackyoustra.com/blog/binary-analysis</guid>
+    <title>Making a binary size viewer</title>
+    <link>https://jackyoustra.com/blog/binary-analysis</link>
+    <description>I like Bloaty! I also like cool treemaps. What if I could combine the two?</description>
+    <pubDate>Sat, 20 Jan 2024 00:00:00 GMT</pubDate>
+    <author>jack@youstra.com (Jack Youstra)</author>
+    <category>wasm</category><category>typescript</category>
+  </item>
+
+    </channel>
+  </rss>

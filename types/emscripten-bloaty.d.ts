@@ -9,7 +9,7 @@
  * Regenerating bloaty.js does not regenerate this — if a call site starts
  * failing to typecheck, widen this file rather than casting at the call site.
  */
-declare module 'public/static/emscripten/bloaty' {
+declare module '@/public/static/emscripten/bloaty' {
   /** The subset of emscripten's `FS` we use. */
   export interface BloatyFS {
     writeFile(path: string, data: Uint8Array | string): void

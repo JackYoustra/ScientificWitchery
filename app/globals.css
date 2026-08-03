@@ -1,0 +1,168 @@
+@import 'tailwindcss';
+
+@plugin '@tailwindcss/typography';
+@plugin '@tailwindcss/forms';
+
+/* next-themes toggles a `dark` class on <html>; v4 defaults to the media query. */
+@custom-variant dark (&:where(.dark, .dark *));
+
+/* pliny ships prebuilt JS containing Tailwind classes, so it has to be scanned. */
+@source '../node_modules/pliny';
+
+@theme {
+  /* Cantarell, self-hosted via next/font/local — see app/fonts/index.ts, which
+     exposes it as --font-cantarell on <html>. Originally a shameless
+     rosenzweig.io ripoff, and it took until 2026 to actually load. */
+  --font-sans:
+    var(--font-cantarell), ui-sans-serif, system-ui, -apple-system, 'Segoe UI', Roboto,
+    'Helvetica Neue', Arial, sans-serif, 'Apple Color Emoji', 'Segoe UI Emoji';
+
+  /* `primary` is teal and `gray` is neutral. Aliased rather than redefined so
+     the whole ramp stays available. */
+  --color-primary-50: var(--color-teal-50);
+  --color-primary-100: var(--color-teal-100);
+  --color-primary-200: var(--color-teal-200);
+  --color-primary-300: var(--color-teal-300);
+  --color-primary-400: var(--color-teal-400);
+  --color-primary-500: var(--color-teal-500);
+  --color-primary-600: var(--color-teal-600);
+  --color-primary-700: var(--color-teal-700);
+  --color-primary-800: var(--color-teal-800);
+  --color-primary-900: var(--color-teal-900);
+  --color-primary-950: var(--color-teal-950);
+
+  --color-gray-50: var(--color-neutral-50);
+  --color-gray-100: var(--color-neutral-100);
+  --color-gray-200: var(--color-neutral-200);
+  --color-gray-300: var(--color-neutral-300);
+  --color-gray-400: var(--color-neutral-400);
+  --color-gray-500: var(--color-neutral-500);
+  --color-gray-600: var(--color-neutral-600);
+  --color-gray-700: var(--color-neutral-700);
+  --color-gray-800: var(--color-neutral-800);
+  --color-gray-900: var(--color-neutral-900);
+  --color-gray-950: var(--color-neutral-950);
+
+  --leading-11: 2.75rem;
+  --leading-12: 3rem;
+  --leading-13: 3.25rem;
+  --leading-14: 3.5rem;
+
+  /* Cantarell was drawn for UI text at small sizes; left at its natural tracking
+     it feels loose once headings get big. Tighten progressively with size.
+     Sizes and line-heights keep the Tailwind defaults — only tracking is new. */
+  --text-3xl--tracking: -0.012em;
+  --text-4xl--tracking: -0.016em;
+  --text-5xl--tracking: -0.02em;
+  --text-6xl--tracking: -0.022em;
+  --text-7xl--tracking: -0.024em;
+  --text-8xl--tracking: -0.026em;
+  --text-9xl--tracking: -0.028em;
+}
+
+/* Typography plugin overrides. These were a JS callback under v3; as plain CSS
+   they are shorter and cost one less config file. */
+.prose {
+  a {
+    color: var(--color-primary-500);
+    &:hover {
+      color: var(--color-primary-600);
+    }
+    code {
+      color: var(--color-primary-400);
+    }
+  }
+
+  h1,
+  h2 {
+    font-weight: 700;
+    letter-spacing: var(--tracking-tight);
+  }
+
+  h3 {
+    font-weight: 600;
+  }
+
+  /* Inline code sits on a tinted surface rather than taking a hue of its own.
+     It used to be indigo in light and teal in dark, so it clashed with links
+     and changed colour between themes. */
+  :not(pre) > code {
+    color: inherit;
+    background: var(--color-gray-100);
+    padding: 0.125em 0.35em;
+    border-radius: 3px;
+    font-weight: inherit;
+  }
+
+  :not(pre) > code::before,
+  :not(pre) > code::after {
+    content: none;
+  }
+}
+
+.dark .prose {
+  a {
+    color: var(--color-primary-500);
+    &:hover {
+      color: var(--color-primary-400);
+    }
+  }
+
+  h1,
+  h2,
+  h3,
+  h4,
+  h5,
+  h6 {
+    color: var(--color-gray-100);
+  }
+
+  :not(pre) > code {
+    background: var(--color-gray-800);
+  }
+}
+
+/* GFM task lists render their own markers. */
+.task-list-item::before {
+  @apply hidden;
+}
+.task-list-item {
+  @apply list-none;
+}
+
+.footnotes {
+  @apply mt-12 border-t border-gray-200 pt-8 dark:border-gray-700;
+}
+.data-footnote-backref {
+  @apply no-underline;
+}
+
+/* Long equations scroll rather than widening the page. */
+.katex-display {
+  overflow: auto hidden;
+}
+
+/* Heading anchor links, revealed on hover. */
+.content-header-link {
+  opacity: 0;
+  margin-left: -24px;
+  padding-right: 4px;
+}
+.content-header:hover .content-header-link,
+.content-header-link:hover {
+  opacity: 1;
+}
+.linkicon {
+  display: inline-block;
+  vertical-align: middle;
+}
+
+/* Chrome paints its own background on autofilled inputs; an absurdly long
+   transition is the standard suppression trick.
+   https://stackoverflow.com/questions/61083813 */
+input:-webkit-autofill,
+input:-webkit-autofill:focus {
+  transition:
+    background-color 600000s 0s,
+    color 600000s 0s;
+}
