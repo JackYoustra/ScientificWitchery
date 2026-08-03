@@ -55,7 +55,7 @@ you see a small list of (mostly simple)[^1] builtin unary macros:
     #function
     #dsohandle
 ```
-[^1]: The `#dsohandle` macro is the only really confusing one of these, but it's just an [ID to the parent executable / library](https://twitter.com/jckarter/status/722354557012045824).
+[^1]: The `#dsohandle` macro is the only really confusing one of these, but it's just an [ID to the parent executable / library](https://developer.apple.com/documentation/swift/dsohandle()).
 
 You also have a set of macros for Apple's SDKs:
 
@@ -138,7 +138,7 @@ Fortunately, there's finally stirrings of a proper Swift macro system to replace
 
 A recent proposal just landed on the [Swift Forums](https://forums.swift.org/t/a-possible-vision-for-macros-in-swift/60900) on Swift macros.
 
-It has an attached ["pitch / vision / manifesto"](https://gist.github.com/DougGregor/4f3ba5f4eadac474ae62eae836328b71) and a slimmed-down expression macros [pitch](https://github.com/DougGregor/swift-evolution/blob/expression-macros/proposals/nnnn-expression-macros.md)
+It has an attached ["pitch / vision / manifesto"](https://gist.github.com/DougGregor/4f3ba5f4eadac474ae62eae836328b71) and a slimmed-down expression macros [pitch](https://github.com/swiftlang/swift-evolution/blob/ed9dbdd5be454265497bb0a478886179598f9c82/proposals/nnnn-expression-macros.md) *(pinned to the draft as it stood — the branch is gone)*
 (currently awaiting implementation).
 
 Before I go into this proposal, it would be good to review its most recognized inspiration...
